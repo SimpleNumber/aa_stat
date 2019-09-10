@@ -42,9 +42,9 @@ The example of **config** file can be found at the BitBucket repository (**examp
 This file has following parameters:
 
 
-| Name                             | Default value                            | Description                                                  |
-| ---------------------------------|------------------------------------------|-------------------------------------------------------------_|
-|                                  |**[data]**                                |                                                              |
+| Name                             | Default value                            | Description                               |
+| ---------------------------------|------------------------------------------|-------------------------------------------|
+|                                  |**[data]**                                |                                           |
 | decoy prefix                     | DECOY_                                   | Prefix that is used to indicate decoy sequences in database. |
 | FDR                              | 0.02                                     | PSM false discovery rate, that will be used for each mass shift interval. |
 | labels                           | M D Q C L H S R A W Y P F V N T E G I K  | All amino acid residues. It may be helpful if your data contains unusual amino acid residues. |
