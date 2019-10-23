@@ -54,6 +54,7 @@ def get_peptide_statistics(peptide_list, rule):
     for i in d:
         d[i] = int(100*d[i] / sum_aa)
     return d
+
 def get_aa_distribution(peptide_list, rule):
     sum_aa = 0
     pep_set = make_0mc_peptides(peptide_list, rule)
@@ -115,10 +116,8 @@ def fitting(center, hist_y, w):
             np.array([center, w, hist_y[center]]))
     except (RuntimeError, TypeError):
         return
-
     if all(np.diag(pcov) > 0):
         return np.concatenate([popt, np.sqrt(np.diag(pcov))])
-
 
 def smooth(y, window_size=15, power=5):
     y_smooth = savgol_filter(y, window_size, power)
@@ -167,7 +166,6 @@ def read_input(args, params, so_range):
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))
     mass_shifts_column = params.get('csv input', 'mass shift column')
-
     bin_width = params.getfloat('general', 'width of bin in histogram')
     bins = np.arange(so_range[0], so_range[1] + bin_width, bin_width)
     data['bin'] = np.digitize(data[mass_shifts_column], bins)
@@ -186,12 +184,9 @@ def fit_peaks(data, args, params, w, so_range):
     bins = np.arange(so_range[0], so_range[1] + bin_width, bin_width)
     hist = np.histogram(data[mass_shifts_column], bins=bins)
     hist_y = hist[0]
-    indexes = argrelextrema(smooth(hist_y, window_size=w, power=5), np.greater_equal)[0]
-    # smoothing and finding local maxima
-
+    indexes = argrelextrema(smooth(hist_y, window_size=w, power=5), np.greater_equal)[0] # smoothing and finding local maxima
     min_height = 7  # minimum bin height expected to be peak
     loc = indexes[hist_y[indexes] >= min_height]
-
     area_thresh = params.getint('general', 'threshold for bins')
     max_deviation_x = params.getfloat('fit', 'standard deviation threshold for center of peak')
     max_deviation_sigma = params.getfloat('fit', 'standard deviation threshold for sigma')
@@ -240,7 +235,6 @@ def filter_errors(results, params):
     shift_x = resultsT[0]
     error = resultsT[3]
     kick = []
-
     for i, x1 in enumerate(shift_x):
         for j, x2 in enumerate(shift_x):
             if abs(x1 - x2) < shift_error:
@@ -248,7 +242,6 @@ def filter_errors(results, params):
                     kick.append(i)
                 elif error[i] < error[j]:
                     kick.append(j)
-
     kick = set(kick)
     final = []
     for i, res in enumerate(results):
@@ -268,9 +261,10 @@ def filter_bins(data, final, hist, params, w):
     for dbin in final:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            data_slice = data.loc[(data.bin >= dbin - w) & (data.bin <= dbin + w), :].sort_values(by='expect').drop_duplicates(subset=peptides_column)
+            data_slice = data.loc[(data.bin >= dbin - w) & (data.bin <= dbin + w), :]\
+                             .sort_values(by='expect')\
+                             .drop_duplicates(subset=peptides_column)
             df = pepxml.filter_df(data_slice, fdr=fdr, correction=correction, is_decoy='is_decoy')
-            #out_data[dbin] = df
             if len(df) > 0:
                 out_data[dbin] = df
     mass_shifts = {}
@@ -299,10 +293,8 @@ def plot_results(data, out_data, zero_bin, mass_shifts, args, params, so_range):
     save_directory = args.dir
     b = 0.2 # shift in bar plots
     width = 0.4 # for bar plots
-
     number_of_PSMs = pd.Series(index=list(mass_shifts), dtype=int)
     reference = pd.Series(get_aa_distribution(out_data[zero_bin][peptides_column], expasy_rule))
-    #reference.fillna( None, inplace=True)
     err_ref_df = pd.DataFrame(index=labels)
     for i in range(50):
         err_ref_df[i] = pd.Series(get_aa_distribution(
@@ -337,7 +329,7 @@ def plot_results(data, out_data, zero_bin, mass_shifts, args, params, so_range):
         distr.fillna(0, inplace=True)
         distributions[binn] = distr / reference
         bar_plot, bar1 = plt.subplots()
-        bar_plot.set_size_inches(figsize)# = plt.figure(figsize=figsize)
+        bar_plot.set_size_inches(figsize)
         p_vals, errors = calculate_error_and_p_vals(
             out_data[binn][peptides_column], err_ref_df, reference, expasy_rule, labels)
         errors.fillna(0, inplace=True)
@@ -352,8 +344,7 @@ def plot_results(data, out_data, zero_bin, mass_shifts, args, params, so_range):
         labels_df['label'] = labels_df.index
         labels_df['pep_stat'] =pd.Series(peptide_stat)
         labels_df.fillna(0, inplace=True)
-        labels_df['out'] = labels_df['label'] #+ pd.Series(['\n']*len(labels), index=labels) +labels_df['pep_stat']
-        #print(labels_df.loc[labels,'out'])
+        labels_df['out'] = labels_df['label'] 
         bar1.set_xticks(np.arange(2*b, 2*len(labels)+2*b, 2))#
         bar1.set_xticklabels(labels_df.loc[labels,'out'])
         bar1.hlines(1, -1, 2* len(labels), linestyles='dashed', color=colors[3])
@@ -361,19 +352,15 @@ def plot_results(data, out_data, zero_bin, mass_shifts, args, params, so_range):
         bar2.bar(np.arange(4 * b, 2 * len(labels) + 4 * b, 2),labels_df['pep_stat'],width=width, linewidth=0, color=colors[0])
         bar2.set_ylim(0,125)
         bar2.set_yticks(np.arange(0,120, 20))
-        bar2.set_ylabel('Peptides with AA, %', color=colors[0])
-        
+        bar2.set_ylabel('Peptides with AA, %', color=colors[0])  
         bar1.spines['left'].set_color(colors[2])
-        bar2.spines['left'].set_color(colors[2])
-        
+        bar2.spines['left'].set_color(colors[2])       
         bar1.spines['right'].set_color(colors[0])
         bar2.spines['right'].set_color(colors[0])
         bar1.tick_params('y', colors=colors[2])
         bar2.tick_params('y', colors=colors[0])
         bar2.annotate(formated_key + ' Da mass shift,'  + '\n' + str(len(out_data[binn])) +' peptides',
                       xy=(29,107), bbox=dict(boxstyle='round',fc='w', edgecolor='dimgrey'))
-        #plt.title('Mass shift = ' + formated_key + '; Peptides in bin = ' + str(len(out_data[binn]))) #PSMs
-        #bar1.legend()
         bar1.set_xlim(-3*b, 2*len(labels)-2 +9*b)
         bar1.set_ylim(0,distributions.loc[labels, binn].max()*1.3)
         bar_plot.savefig(os.path.join(save_directory, formated_key + '.png'), dpi=500)
@@ -420,7 +407,7 @@ def main():
     input_file = pars.add_mutually_exclusive_group(required=True)
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
-    #input_file.add_argument('--pickle', nargs='+', help='List of input files in pickle format (DataFrames expected)')
+
     levels = [logging.ERROR, logging.INFO, logging.DEBUG]
     args = pars.parse_args()
     save_directory = args.dir
@@ -428,13 +415,10 @@ def main():
     logging.basicConfig(format='%(levelname)5s: %(asctime)s %(message)s',
                         datefmt='[%H:%M:%S]', level=levels[level])
     logging.info("Starting...")
-
-
     params = ConfigParser(delimiters=('=', ':'),
                           comment_prefixes=('#'),
                           inline_comment_prefixes=('#'))
     params.read(args.params)
-
     spec_window_flag = params.getboolean('general', 'use specific mass shift window')
     spec_window = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]
     so_range = tuple(float(x) for x in params.get('general', 'open search range').split(','))
@@ -442,9 +426,7 @@ def main():
         logging.info('Custom bin %s', spec_window)
         so_range = spec_window[:]
     bin_width = params.getfloat('general', 'width of bin in histogram')
-
     shift_window = params.getfloat('general', 'shifting window')
-
     if so_range[1] - so_range[0] > shift_window:
         window = shift_window / bin_width
     else:
@@ -455,7 +437,6 @@ def main():
     hist, results = fit_peaks(data, args, params, w, so_range)
     final = filter_errors(results, params)
     mass_shifts, out_data, zero_bin = filter_bins(data, final, hist, params, w)
-    #print(out_data)
     distributions, number_of_PSMs = plot_results(
         data, out_data, zero_bin, mass_shifts, args, params, so_range)
 
