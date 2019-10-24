@@ -14,8 +14,6 @@ from scipy.stats import ttest_ind
 from scipy.optimize import curve_fit
 import logging
 import warnings
-
-
 try:
     from configparser import ConfigParser
 except ImportError:
@@ -167,7 +165,6 @@ def read_input(args, params, so_range):
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))
     mass_shifts_column = params.get('csv input', 'mass shift column')
-
     bin_width = params.getfloat('general', 'width of bin in histogram')
     bins = np.arange(so_range[0], so_range[1] + bin_width, bin_width)
     data['bin'] = np.digitize(data[mass_shifts_column], bins)
@@ -264,7 +261,7 @@ def filter_bins(data, final, hist, params, w):
     correction = params.getboolean('general', 'FDR correction')
     peptides_column = params.get('csv input', 'peptides column')
     fdr = params.getfloat('data', 'FDR')
-    out_data = {}
+    out_data = {} # dict corresponds list 
     for dbin in final:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -417,12 +414,17 @@ def main():
         'Default value is current directory.', default='.')
     pars.add_argument('-v', '--verbosity', action='count', default=1,
                       help='Increase output verbosity')
+   
+    input_spectra = pars.add_mutually_exclusive_group()
+    input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications')
+    input_spectra.add_argument('--mzml',  nargs='+', help='mzML files to localize modifications')
     input_file = pars.add_mutually_exclusive_group(required=True)
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
     #input_file.add_argument('--pickle', nargs='+', help='List of input files in pickle format (DataFrames expected)')
     levels = [logging.ERROR, logging.INFO, logging.DEBUG]
     args = pars.parse_args()
+#    print(args)
     save_directory = args.dir
     level = 2 if args.verbosity > 2 else args.verbosity
     logging.basicConfig(format='%(levelname)5s: %(asctime)s %(message)s',
@@ -455,10 +457,20 @@ def main():
     hist, results = fit_peaks(data, args, params, w, so_range)
     final = filter_errors(results, params)
     mass_shifts, out_data, zero_bin = filter_bins(data, final, hist, params, w)
-    #print(out_data)
+#    print(out_data[517025]['spectrum'])
     distributions, number_of_PSMs = plot_results(
         data, out_data, zero_bin, mass_shifts, args, params, so_range)
-
+    if len(args.mgf) > 0:
+        logging.info('Localization using MS/MS spectra...')
+        suffix = args.mgf[0].split('.')[-1]
+        spectra_dir =  '/'.join(args.mgf[0].split('/')[:-1])
+    elif len(args.mzml) > 0:
+        logging.info('Localization using MS/MS spectra...')
+        suffix = args.mgf[0].split('.')[-1]
+        spectra_dir =  '/'.join(args.mgf[0].split('/')[:-1])
+    else:
+        logging.info('No spectra files. MSMS spectrum localization is not performed.')
+        
     table = save_table(distributions, number_of_PSMs, mass_shifts)
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
