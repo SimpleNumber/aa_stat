@@ -48,8 +48,7 @@ def get_spectra_from_mgf(file_dir, spectrum, suffix, tolerance=0.01):
 
 def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, reshape=False, **kwargs):
     peaks = {}
-    theoretical_set = defaultdict(set)#set()
-    # theoretical_set = set()
+    theoretical_set = defaultdict(set)
     pl = len(peptide) - 1
     if not maxcharge:
         maxcharge = 1 + int(ec.charge(peptide, pH=2))
@@ -102,20 +101,30 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
         return 0, 0
     
     
-def peptide_isoforms(sequence, mass_shift, aa_stat_candidates=None):
+def peptide_isoforms(sequence, variable_mods,):
     """
     Forms list of modified amino acid candidates.
-    Return list of amino acids.
+    `variable_mods` - dict of name (key) and amino acids (values)
+    Return list of lists. [[isoform1],[isoform2]] 
     
     """
-    pass
 
-def retrive_candidates_from_unimod(mass_shift, tolerance):
-    
+    isoforms = []
+    for j in  parser.isoforms(sequence, variable_mods=variable_mods, format='split'):
+        isoforms.uppend([''.join(i) for i in j])
+    return isoforms
+
+def retrive_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
     """
     Find modificationsfor `mass_shift` in Unimod.org database with a given `tolerance`.
     Returns dict. {'modification name': [list of amino acids]}
     
     """
+    ind = list(unimod_df[abs(unimod_df['mono_mass']-mass_shift) < tolerance].index)
+    sites_set = set()
+    for i in unimod_db[ind]:
+        sites_set.update(set(pd.DataFrame(i['specificity']).site))
+    return unimod_db[ind], sites_set
+
     
-    pass
+

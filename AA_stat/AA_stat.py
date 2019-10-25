@@ -143,7 +143,12 @@ def summarizing_hist(table, save_directory):
     plt.tight_layout()
     plt.savefig(os.path.join(save_directory, 'summary.png'), dpi=500)
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
-
+    
+def eliminate_systemstic_mass_error(data, mass_shifts_column):
+    """
+    Shifts all masses according non-modified peak.
+    """
+    data[abs(data[mass_shifts_column]) < 0.1)][mass_shifts_column]
 def read_input(args, params, so_range):
     dfs = []
     data = pd.DataFrame()
@@ -163,6 +168,7 @@ def read_input(args, params, so_range):
             break
     logging.info('Starting analysis...')
     data = pd.concat(dfs, axis=0)
+
     data.index = range(len(data))
     mass_shifts_column = params.get('csv input', 'mass shift column')
     bin_width = params.getfloat('general', 'width of bin in histogram')
@@ -418,13 +424,12 @@ def main():
     input_spectra = pars.add_mutually_exclusive_group()
     input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications')
     input_spectra.add_argument('--mzml',  nargs='+', help='mzML files to localize modifications')
+    
     input_file = pars.add_mutually_exclusive_group(required=True)
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
-    #input_file.add_argument('--pickle', nargs='+', help='List of input files in pickle format (DataFrames expected)')
     levels = [logging.ERROR, logging.INFO, logging.DEBUG]
     args = pars.parse_args()
-#    print(args)
     save_directory = args.dir
     level = 2 if args.verbosity > 2 else args.verbosity
     logging.basicConfig(format='%(levelname)5s: %(asctime)s %(message)s',
@@ -457,7 +462,7 @@ def main():
     hist, results = fit_peaks(data, args, params, w, so_range)
     final = filter_errors(results, params)
     mass_shifts, out_data, zero_bin = filter_bins(data, final, hist, params, w)
-#    print(out_data[517025]['spectrum'])
+#    print(mass_shifts)
     distributions, number_of_PSMs = plot_results(
         data, out_data, zero_bin, mass_shifts, args, params, so_range)
     if len(args.mgf) > 0:
@@ -467,7 +472,7 @@ def main():
     elif len(args.mzml) > 0:
         logging.info('Localization using MS/MS spectra...')
         suffix = args.mgf[0].split('.')[-1]
-        spectra_dir =  '/'.join(args.mgf[0].split('/')[:-1])
+        spectra_dir =  '/'.join(args.mzml[0].split('/')[:-1])
     else:
         logging.info('No spectra files. MSMS spectrum localization is not performed.')
         
