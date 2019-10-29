@@ -80,29 +80,23 @@ def save_table(distr, number_of_PSMs, mass_shifts):
     i = ((out.drop(columns=['mass shift', 'Unimod', '# peptides in bin']).max(axis=1) - 1) * out['# peptides in bin']).argsort()
     return out.loc[i.values[::-1], cols]
 
-def read_pepxml(fname, params):
+def read_pepxml(fname, params_dict):
     return pepxml.DataFrame(fname, read_schema=False)
 
-def read_csv(fname, params):
-    df = pd.read_csv(fname, sep=params.get('csv input', 'delimiter'))
-    proteins_column = params.get('csv input', 'proteins column')
-    if df[proteins_column].str[0].all() == '[' and df[proteins_column].str[-1].all() == ']':
-        df[proteins_column] = df[proteins_column].apply(ast.literal_eval)
+def read_csv(fname, params_dict):
+    df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
+    if df[params_dict['proteins_column']].str[0].all() == '[' and df[params_dict['proteins_column']].str[-1].all() == ']':
+        df[params_dict['proteins_column']] = df[params_dict['proteins_column']].apply(ast.literal_eval)
     else:
-        df[proteins_column] = df[proteins_column].str.split(
-            params.get('csv input', 'proteins delimeter'))
+        df[params_dict['proteins_column']] = df[params_dict['proteins_column']].str.split(
+            params_dict['proteins_delimeter'])
     return df
 
-def read_input(args, params):
+def read_input(args, params_dict):
     """
     Reads open search output, assemble all files in one DataFrame
     Returns DF
     """
-    mass_shifts_column = params.get('csv input', 'mass shift column')
-    bin_width = params.getfloat('general', 'width of bin in histogram')
-    proteins_column = params.get('csv input', 'proteins column')
-    decoy_pref = params.get('data', 'decoy prefix')
-    so_range = tuple(float(x) for x in params.get('general', 'open search range').split(','))
     dfs = []
     data = pd.DataFrame()
 
@@ -116,20 +110,20 @@ def read_input(args, params):
         if filenames:
             for filename in filenames:
                 logging.info('Reading %s', filename)
-                df = reader(filename, params)
+                df = reader(filename, params_dict)
                 dfs.append(df)
             break
     logging.info('Starting analysis...')
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))
-    data['is_decoy'] = data[proteins_column].apply(
-        lambda s: all(x.startswith(decoy_pref) for x in s))
+    data['is_decoy'] = data[params_dict['proteins_column']].apply(
+        lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
 #    data = mass_recalibration(data, params, w)
     
 #    print(data[mass_shifts_column])
     
-    bins = np.arange(so_range[0], so_range[1] + bin_width, bin_width)
-    data['bin'] = np.digitize(data[mass_shifts_column], bins)
+    bins = np.arange(params_dict['so_range'][0], params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
+    data['bin'] = np.digitize(data[params_dict['mass_shifts_column']], bins)
     
     return data
 
@@ -501,7 +495,7 @@ def render_html_report(table, params, save_directory):
 def get_parameters(params):
     parameters_dict = {}
     #data
-    parameters_dict['decoy_pref'] = params.get('data', 'decoy prefix')
+    parameters_dict['decoy_prefix'] = params.get('data', 'decoy prefix')
     parameters_dict['fdr'] = params.getfloat('data', 'FDR')
     parameters_dict['labels'] = params.get('data', 'labels').strip().split()
     parameters_dict['rule'] = params.get('data', 'cleavage rule')
@@ -513,10 +507,10 @@ def get_parameters(params):
     parameters_dict['mass_shifts_column'] = params.get('csv input', 'mass shift column')
     #general
     parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
-    parameters_dict[ 'so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
+    parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
     parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins') # area_thresh
     parameters_dict['walking_window'] = params.getfloat('general', 'shifting window') #shifting_window
-    parameters_dict['FDR correction'] = params.getboolean('general', 'FDR correction') #corrction
+    parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction') #corrction
     
     parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window') #spec_window_flag
     parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')] #spec_window
@@ -524,9 +518,9 @@ def get_parameters(params):
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     #fit    
     parameters_dict['shift_error'] = params.getint('fit', 'shift error')
-    parameters_dict[ 'max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
-    parameters_dict[ 'max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
-    parameters_dict[ 'max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
+    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
+    parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
+    parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     return parameters_dict
     
 def main():
@@ -563,21 +557,23 @@ def main():
     
     if params_dict['specific_mass_shift_flag']:
         logging.info('Custom bin %s', params_dict['specific_window'])
-        so_range = params_dict['specific_window'][:]
+        params_dict[ 'so_range'] = params_dict['specific_window'][:]
 
-    if params_dict[ 'so_range'][1] - params_dict[ 'so_range'][0] > params_dict['walking_window']:
+    elif params_dict[ 'so_range'][1] - params_dict[ 'so_range'][0] > params_dict['walking_window']:
         window = params_dict['walking_window'] /  params_dict['bin_width']
+       
     else:
         window = ( params_dict[ 'so_range'][1] -  params_dict[ 'so_range']) / params_dict['bin_width']
+
     w = int(window / 2)
 
-    data = read_input(args, params)
+    data = read_input(args, params_dict)
     hist, results = fit_peaks(data, args, params, w)
     final = filter_errors(results, params)
     mass_shifts, out_data, zero_bin = filter_bins(data, final, hist, params, w)
 #    print(mass_shifts)
     distributions, number_of_PSMs = plot_results(
-        data, out_data, zero_bin, mass_shifts, args, params, params_dict[ 'so_range'])
+        data, out_data, zero_bin, mass_shifts, args, params, params_dict[ 'so_range'] )
     if len(args.mgf) > 0:
         logging.info('Localization using MS/MS spectra...')
         suffix = args.mgf[0].split('.')[-1]
