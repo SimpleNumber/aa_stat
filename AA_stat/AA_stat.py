@@ -65,6 +65,10 @@ def get_aa_distribution(peptide_list, rule):
         d[i] = d[i] / sum_aa
     return d
 
+def smooth(y, window_size=15, power=5):
+    y_smooth = savgol_filter(y, window_size, power)
+    return y_smooth
+
 def save_table(distr, number_of_PSMs, mass_shifts):
     unimod = pd.Series({i: get_unimod_url(mass_shifts[i]) for i in number_of_PSMs.keys()})
     df = pd.DataFrame({'mass shift': [mass_shifts[k] for k in distr.columns],
@@ -118,15 +122,60 @@ def read_input(args, params_dict):
     data.index = range(len(data))
     data['is_decoy'] = data[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
-#    data = mass_recalibration(data, params, w)
     
-#    print(data[mass_shifts_column])
-    
-    bins = np.arange(params_dict['so_range'][0], params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
-    data['bin'] = np.digitize(data[params_dict['mass_shifts_column']], bins)
+    data['bin'] = np.digitize(data[params_dict['mass_shifts_column']], params_dict['bins'])
     
     return data
+def fit_peaks(data, args, params_dict):
+    """
+    Returns 
+    """
+    logging.info('Performing Gaussian fit...')
 
+    half_window = int(params_dict['window']/2) + 1
+    hist = np.histogram(data[params_dict['mass_shifts_column']], bins=params_dict['bins'])
+    hist_y = smooth(hist[0], window_size=params_dict['window'], power=5)
+    hist_x = 1/2 * (hist[1][:-1] +hist[1][1:])
+    loc_max_candidates_ind = argrelextrema(hist_y, np.greater_equal)[0]
+    print(len(loc_max_candidates_ind))
+#    logging.DEBUG('Local max number %i', str(len(loc_max_candidates_ind)))
+    # smoothing and finding local maxima
+    min_height = 2 * np.median([x for x in hist[0] if (x>1)])  # minimum bin height expected to be peak approximate noise level as median of all non-negative
+    loc_max_candidates_ind = loc_max_candidates_ind[hist_y[loc_max_candidates_ind] >= min_height]
+#    logging.DEBUG('Local max %s after noise filtering', str(len(loc_max_candidates_ind)))
+    print(len(loc_max_candidates_ind))
+
+    poptpvar = []
+    shape = int(np.sqrt(len(loc_max_candidates_ind))) + 1
+    plt.figure(figsize=(shape * 3, shape * 4))
+    plt.tight_layout()
+    for index, center in enumerate(loc_max_candidates_ind, 1):
+        
+        x = hist_x[center - half_window: center + half_window + 1]
+        y = hist[0][center - half_window: center + half_window + 1] #take non-smoothed data
+        popt, pcov = gauss_fitting(hist[0][center], x, y)
+        plt.subplot(shape, shape, index)
+        if popt is None:
+            label = 'NO FIT'
+        else:
+            if x[0]<= popt[1] and popt[1]<=x[-1]:
+                label = 'PASSED'
+                poptpvar.append(np.concatenate([popt, np.diag(pcov)]))
+            else:
+                label='FAILED'
+        plt.plot(x, y, 'b+:', label=label)
+        if label != 'NO FIT':
+            plt.scatter(x, gauss(x, *popt), 
+                        label='Gaussian fit')
+        plt.legend()
+        
+        plt.title("{0:.3f}".format(hist[1][center]))
+#        print(hist[1][center])
+        plt.xticks(x[::4], ["{0:.3f}".format(i) for i in x[::4] ], rotation=45)
+        plt.grid(True)
+    plt.savefig(os.path.join(args.dir, 'gauss_fit.pdf'))
+    plt.close()
+    return hist, np.array(poptpvar)
 def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
     d = pd.DataFrame(index=l)
     for i in range(50):
@@ -138,24 +187,26 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
         p_val[i] = ttest_ind(err_ref_df.loc[i, :], d.loc[i, :])[1]
     return p_val, d.std(axis=1)
 
-def gauss(x, x0, sigma, a):
+def gauss(x,a,  x0, sigma):
     return a * np.exp(- (x - x0) * (x - x0) / (2 * sigma ** 2))
 
-def fitting(center, hist_y, w):
+def gauss_fitting(center_y, x, y):
+    """
+    Fits with Gauss function
+    `center_y` - starting point for `a` parameter of gauss
+    `x` numpy array of mass shifts
+    `y` numpy array of number of psms in this mass shifts
+    
+    """
+    n = len(x)
+    mean = sum(x *y) / sum(y)                  
+    sigma = np.sqrt(sum(y * (x - mean) ** 2) / n)
     try:
-        popt, pcov = curve_fit(gauss, range(center - w, center + w + 1),
-            hist_y[center - w: center + w + 1],
-            np.array([center, w, hist_y[center]]))
+        popt, pcov = curve_fit(gauss, x, y, p0=(center_y, mean, sigma))
+        return popt, pcov
     except (RuntimeError, TypeError):
-        return
+        return None, None
 
-    if all(np.diag(pcov) > 0):
-        return np.concatenate([popt, np.sqrt(np.diag(pcov))])
-
-
-def smooth(y, window_size=15, power=5):
-    y_smooth = savgol_filter(y, window_size, power)
-    return y_smooth
 
 def summarizing_hist(table, save_directory):
     ax = table.sort_values('mass shift').plot(
@@ -180,190 +231,46 @@ def summarizing_hist(table, save_directory):
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
     
             
-def mass_recalibration(data, params, w):
+def get_zero_mass_shift(mass_shifts):
     """
     Shifts all masses according non-modified peak.
     """
-    peptides_column = params.get('csv input', 'peptides column')
-    mass_shifts_column = params.get('csv input', 'mass shift column')
-    fdr = params.getfloat('data', 'FDR')
-    correction = params.getboolean('general', 'FDR correction')
-    bin_width = params.getfloat('general', 'width of bin in histogram')
-#    print(data[abs(data[mass_shifts_column]) < 0.8].index)
-    data_slice= data.loc[data[abs(data[mass_shifts_column]) < w * bin_width].index, :].sort_values(by='expect').drop_duplicates(subset=peptides_column)
-    df = pepxml.filter_df(data_slice, fdr=fdr, correction=correction, is_decoy='is_decoy')
-    print(df[mass_shifts_column].mean())
-    data[mass_shifts_column] = data[mass_shifts_column] - df[mass_shifts_column].mean()
-    return data
+    return mass_shifts[np.argmin(abs(mass_shifts))]
+
+def filter_mass_shifts(results):
+
+    """
+    Filter mass_shifts that close to each other.
     
-#def fit_peaks_2(data, args, params, walking_window):
-#    """
-#    Returns 
-#    """
-#    logging.info('Performing Gaussian fit...')
-#    save_directory = args.dir
-#    mass_shifts_column = params.get('csv input', 'mass shift column')
-#    bin_width = params.getfloat('general', 'width of bin in histogram')
-#    so_range = tuple(float(x) for x in params.get('general', 'open search range').split(','))
-#    max_deviation_x = params.getfloat('fit', 'standard deviation threshold for center of peak')
-#    max_deviation_sigma = params.getfloat('fit', 'standard deviation threshold for sigma')
-#    max_deviation_height = params.getfloat('fit', 'standard deviation threshold for height')
-#    
-#    bins = np.arange(so_range[0], so_range[1] + bin_width, bin_width)
-#    hist = np.histogram(data[mass_shifts_column], bins=bins)
-#    hist_y = hist[0]
-#    indexes = argrelextrema(smooth(hist_y, window_size=walking_window, power=5), np.greater_equal)[0]
-#    # smoothing and finding local maxima
-#
-#    min_height = 7
-#    loc = indexes[hist_y[indexes] >= min_height]
-#
-#    area_thresh = params.getint('general', 'threshold for bins')
-#    
-#    new_loc = []
-#    lenhist = len(hist_y)
-#    for i in loc:
-#        if i >= walking_window and i+walking_window <= lenhist and hist_y[i-walking_window:i+walking_window+1].sum() > area_thresh:
-#            new_loc.append(i)
-#    results = []
-#    counter = 1
-#    shape = int(np.sqrt(len(new_loc))) + 1
-#    plt.figure(figsize=(shape * 3, shape * 3.5))
-#    plt.tight_layout()
-#    for center in new_loc:
-#        x_ = range(center-walking_window, center+walking_window+1)
-#        y_ = hist_y[center-walking_window:center+walking_window+1]
-#        cur_fit = fitting(center, hist_y, walking_window)
-#        plt.subplot(shape, shape, counter)
-#        if cur_fit is None:
-#            label = 'NO FIT'
-#        elif (cur_fit[3] < max_deviation_x) and (cur_fit[4] / cur_fit[1] < max_deviation_sigma
-#            ) and (cur_fit[5] / cur_fit[2] < max_deviation_height):
-#            results.append(cur_fit)
-#            label = 'PASSED'
-#        else:
-#            label = 'FAILED'
-#        plt.bar(x_, y_, label=label)
-#        if label != 'NO FIT':
-#            plt.scatter(x_, gauss(x_, *cur_fit[:3]), 
-#                        label='Gaussian fit')
-#        plt.legend()
-#        
-#        plt.title("{0:.3f}".format(hist[1][center]))
-##        print(hist[1][center])
-#        plt.xticks(range(center - walking_window, center + walking_window + 1, 9),
-#            ["{0:.3f}".format(x) for x in hist[1][center - walking_window : center + walking_window + 1 : 9]])
-#        counter += 1
-#    plt.savefig(os.path.join(save_directory, 'gauss_fit.pdf'))
-#    plt.close()
-#    return hist, np.array(results)
-
-def fit_peaks(data, args, params_dict, walking_window):
+    Return poptpcov matrix.
     """
-    Returns 
-    """
-    logging.info('Performing Gaussian fit...')
-#    print(params_dict['so_range'])
-    save_directory = args.dir
-    bins = np.arange(params_dict['so_range'][0], params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
-    hist = np.histogram(data[params_dict['mass_shifts_column']], bins=bins)
-    hist_y = hist[0]
-    indexes = argrelextrema(smooth(hist_y, window_size=walking_window, power=5), np.greater_equal)[0]
-    # smoothing and finding local maxima
-
-    min_height = 7  # minimum bin height expected to be peak
-    loc = indexes[hist_y[indexes] >= min_height]
-
-    new_loc = []
-    lenhist = len(hist_y)
-    for i in loc:
-        if i >= walking_window and i+walking_window <= lenhist and hist_y[i-walking_window:i+walking_window+1].sum() > params_dict['area_threshold']:
-            new_loc.append(i)
-    results = []
-    counter = 1
-    shape = int(np.sqrt(len(new_loc))) + 1
-    plt.figure(figsize=(shape * 3, shape * 3.5))
-    plt.tight_layout()
-    for center in new_loc:
-        x_ = range(center-walking_window, center+walking_window+1)
-        y_ = hist_y[center-walking_window:center+walking_window+1]
-        cur_fit = fitting(center, hist_y, walking_window)
-        plt.subplot(shape, shape, counter)
-        if cur_fit is None:
-            label = 'NO FIT'
-        elif (cur_fit[3] < params_dict['max_deviation_x']) and (cur_fit[4] / cur_fit[1] < params_dict['max_deviation_sigma']
-            ) and (cur_fit[5] / cur_fit[2] < params_dict['max_deviation_height']):
-            results.append(cur_fit)
-            label = 'PASSED'
-        else:
-            label = 'FAILED'
-        plt.bar(x_, y_, label=label)
-        if label != 'NO FIT':
-            plt.scatter(x_, gauss(x_, *cur_fit[:3]), 
-                        label='Gaussian fit')
-        plt.legend()
-        
-        plt.title("{0:.3f}".format(hist[1][center]))
-#        print(hist[1][center])
-        plt.xticks(range(center - walking_window, center + walking_window + 1, 9),
-            ["{0:.3f}".format(x) for x in hist[1][center - walking_window : center + walking_window + 1 : 9]])
-        counter += 1
-    plt.savefig(os.path.join(save_directory, 'gauss_fit.pdf'))
-    plt.close()
-    return hist, np.array(results)
-
-def filter_errors(results, params_dict):
     logging.info('Discarding bad peaks...')
-#    shift_error = params.getint('fit', 'shift error')
-    resultsT = results.T
-    shift_x = resultsT[0]
-    error = resultsT[3]
-    kick = []
+    out = []
+    for ind, mass_shift in enumerate(results[:-1]):
+        if np.linalg.norm(results[ind] - results[ind + 1]) > 5: 
+#            print(mass_shift)
+            out.append(mass_shift)
+    return out
 
-    for i, x1 in enumerate(shift_x):
-        for j, x2 in enumerate(shift_x):
-            if abs(x1 - x2) < params_dict['shift_error']:
-                if error[i] > error[j]:
-                    kick.append(i)
-                elif error[i] < error[j]:
-                    kick.append(j)
-
-    kick = set(kick)
-    final = []
-    for i, res in enumerate(results):
-        if i not in kick:
-            final.append(int(res[0]))
-    return np.array(final)
-
-def filter_bins(data, final, hist, params_dict, w):
+def group_specific_filtering(data, final_mass_shifts, params_dict):
+    """
+    Selects window around found mass shift and filter using TDA. Window is defined as mu +- 3*sigma.
+    Returns....
+    """
     logging.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list 
-    for dbin in final:
+    for mass_shift in final_mass_shifts:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            data_slice = data.loc[(data.bin >= dbin - w) & (data.bin <= dbin + w), :] \
-                             .sort_values(by='expect')\
-                             .drop_duplicates(subset=params_dict['peptides_column'])
-            df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
-            #out_data[dbin] = df
-            if len(df) > 0:
-                out_data[dbin] = df
-    mass_shifts = {}
-    for m in out_data:
-        mass_shifts[m] = hist[1][m]
-    if params_dict['specific_mass_shift_flag']:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            out_data['zero_bin'] = pepxml.filter_df(
-                data[(data[params_dict['mass_shifts_column']] >= -params_dict['bin_width'] * w) & (
-                      data[params_dict['mass_shifts_column']] <= params_dict['bin_width'] * w)].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column']),
-                correction=params_dict['FDR_correction'], fdr=params_dict['FDR'], is_decoy='is_decoy')
-            zero_bin = 'zero_bin'
-    else:
-        zero_bin = min(mass_shifts, key=lambda x: abs(mass_shifts[x]))
-    return mass_shifts, out_data, zero_bin
+#        print(data[params_dict['mass_shifts_column']] - mass_shift[1] < 3 * mass_shift[4] )
+#        print(mass_shift)
+        data_slice = data[np.abs(data[params_dict['mass_shifts_column']] - mass_shift[1]) < 3 * mass_shift[2] ].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
+        df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
+        if len(df) > 0:
+            out_data[mass_shift[1]] = df
+    return  out_data
 
-def plot_results(data, out_data, zero_bin, mass_shifts, args, params_dict, so_range):
+def plot_results(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     logging.info('Plotting distributions...')
     labels = params_dict['labels']
     rule = params_dict['rule']
@@ -508,7 +415,25 @@ def get_parameters(params):
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     return parameters_dict
-    
+
+def get_additional_params(params_dict):
+    if params_dict['specific_mass_shift_flag']:
+        logging.info('Custom bin %s', params_dict['specific_window'])
+        params_dict[ 'so_range'] = params_dict['specific_window'][:]
+
+    elif params_dict[ 'so_range'][1] - params_dict[ 'so_range'][0] > params_dict['walking_window']:
+        window = params_dict['walking_window'] /  params_dict['bin_width']
+       
+    else:
+        window = ( params_dict[ 'so_range'][1] -  params_dict[ 'so_range']) / params_dict['bin_width']
+    if int(window) % 2 == 0:
+        params_dict['window']  = int(window) + 1
+    else:
+        params_dict['window']  = int(window)  #should be odd
+#    print(params_dict['window'])
+    params_dict['bins'] = np.arange(params_dict['so_range'][0], params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
+    return params_dict
+
 def main():
     pars = argparse.ArgumentParser()
     pars.add_argument('--params', help='CFG file with parameters.'
@@ -529,35 +454,31 @@ def main():
     levels = [logging.ERROR, logging.INFO, logging.DEBUG]
     args = pars.parse_args()
     save_directory = args.dir
-    level = 2 if args.verbosity > 2 else args.verbosity
+    level = 2 if args.verbosity >= 2 else args.verbosity
     logging.basicConfig(format='%(levelname)5s: %(asctime)s %(message)s',
                         datefmt='[%H:%M:%S]', level=levels[level])
     logging.info("Starting...")
 
 
-    params_ = ConfigParser(delimiters=('=', ':'),
+    params = ConfigParser(delimiters=('=', ':'),
                           comment_prefixes=('#'),
                           inline_comment_prefixes=('#'))
-    params_.read(args.params)
-    params_dict = get_parameters(params_)
-#    print(params_dict.keys())
-    if params_dict['specific_mass_shift_flag']:
-        logging.info('Custom bin %s', params_dict['specific_window'])
-        params_dict[ 'so_range'] = params_dict['specific_window'][:]
+    params.read(args.params)
+    params_dict = get_parameters(params)
+    params_dict = get_additional_params(params_dict) #params_dict 'window'
+    
 
-    elif params_dict[ 'so_range'][1] - params_dict[ 'so_range'][0] > params_dict['walking_window']:
-        window = params_dict['walking_window'] /  params_dict['bin_width']
-       
-    else:
-        window = ( params_dict[ 'so_range'][1] -  params_dict[ 'so_range']) / params_dict['bin_width']
-
-    w = int(window / 2)
-
+    
     data = read_input(args, params_dict)
-    hist, results = fit_peaks(data, args, params_dict, w)
-    final = filter_errors(results, params_dict)
-    mass_shifts, out_data, zero_bin = filter_bins(data, final, hist, params_dict, w)
-#    print(mass_shifts)
+    
+    hist, popt_pvar = fit_peaks(data, args, params_dict)
+#    print(popt_pvar)
+    print('=======================================')
+    final_mass_shifts = filter_mass_shifts(popt_pvar)
+#    print(final_mass_shifts)
+    mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
+    zero_mass_shift = get_zero_mass_shift(mass_shift_data_dict.keys())
+    logging.info("Systematic mass shift equals to %s", "{0:.4f}".format(zero_mass_shift) )
     distributions, number_of_PSMs = plot_results(
         data, out_data, zero_bin, mass_shifts, args, params_dict, params_dict[ 'so_range'] )
     if len(args.mgf) > 0:
