@@ -29,8 +29,13 @@ cc = ["#FF6600",
       ]
 sb.set_style('white')
 colors = sb.color_palette(palette = cc)
+MASS_FORMAT = '{:.4f}'
+
+def mass_format(mass):
+    return MASS_FORMAT.format(mass)
 
 def get_unimod_url(mass_shift):
+#    return 0
     return ('http://www.unimod.org/modifications_list.php'
         '?a=search&value=1&SearchFor={:.0f}.&'
         'SearchOption=Starts+with+...&SearchField=mono_mass'.format(mass_shift))
@@ -43,6 +48,7 @@ def make_0mc_peptides(pep_list, rule):
 
     
 def get_peptide_statistics(peptide_list, rule):
+
     sum_aa = 0
     pep_set = set(peptide_list)
     d = defaultdict(int)
@@ -54,6 +60,10 @@ def get_peptide_statistics(peptide_list, rule):
         d[i] = int(100*d[i] / sum_aa)
     return d
 def get_aa_distribution(peptide_list, rule):
+    """
+    Calculates amino acid statistics in a peptide list.
+    Returns dict with amino acids as a keys and their relative(to the 'peptide list') abundance as a value. 
+    """
     sum_aa = 0
     pep_set = make_0mc_peptides(peptide_list, rule)
     d = defaultdict(int)
@@ -69,18 +79,29 @@ def smooth(y, window_size=15, power=5):
     y_smooth = savgol_filter(y, window_size, power)
     return y_smooth
 
-def save_table(distr, number_of_PSMs, mass_shifts):
-    unimod = pd.Series({i: get_unimod_url(i) for i in number_of_PSMs.keys()})
-    df = pd.DataFrame({'mass shift': [mass_shifts[k] for k in distr.columns],
+def save_table(distributions, number_of_PSMs, mass_shifts):
+    '''
+    distributions - DataFrame with amino acids statistics, where indexes are amino acids, columns mass shifts (str)
+    number_of_PSMs Seriers where indexes are mass shifts (in str format) and values are numbers of filtered PSMs 
+    mass_shift a dict with relations between mass shift in str format (rounded) and actual mass shifts (float)
+    returns table with mass shifts, psms, aa statistics columns.
+    '''
+
+    unimod = pd.Series({i: get_unimod_url(float(i)) for i in number_of_PSMs.index})
+#    print([ mass_shifts[k] for k in distributions.columns])
+    df = pd.DataFrame({'mass shift': [ mass_shifts[k] for k in distributions.columns],
                        '# peptides in bin': number_of_PSMs,
                        'Unimod': unimod},
-                      index=distr.columns)
+                      index=distributions.columns)
     df['# peptides in bin'] = df['# peptides in bin'].astype(np.int64)
-    out = pd.concat([df, distr.T], axis=1)
+      
+#    print('1111111111111111111111111111111',df)
+    out = pd.concat([df, distributions.T], axis=1)
     out.index = range(len(out))
     cols = list(out.columns)
     cols.remove('Unimod')
     cols = ['mass shift', '# peptides in bin'] + cols[2:] + ['Unimod']
+#    print('OUTTTTTTTTTTT', out)
     i = ((out.drop(columns=['mass shift', 'Unimod', '# peptides in bin']).max(axis=1) - 1) * out['# peptides in bin']).argsort()
     return out.loc[i.values[::-1], cols]
 
@@ -120,7 +141,7 @@ def read_input(args, params_dict):
 #                print(hist_0)
                 hist_y = hist_0[0]
                 hist_x = 1/2 * (hist_0[1][:-1] +hist_0[1][1:])
-                popt, pcov = gauss_fitting(max(hist_y), hist_x, hist_y)
+                popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
                 logging.info('Systematic shift for file is {0:.4f} Da'.format(popt[1]))
                 df[params_dict['mass_shifts_column']] -= popt[1]
                 dfs.append(df)
@@ -132,7 +153,7 @@ def read_input(args, params_dict):
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
     
     data['bin'] = np.digitize(data[params_dict['mass_shifts_column']], params_dict['bins'])
-    
+#    data[params_dict['mass_shifts_column']].to_csv('mass_shift.csv', sep='\t')
     return data
 def fit_peaks(data, args, params_dict):
     """
@@ -157,22 +178,32 @@ def fit_peaks(data, args, params_dict):
         
         x = hist_x[center - half_window: center + half_window + 1]
         y = hist[0][center - half_window: center + half_window + 1] #take non-smoothed data
-        popt, pcov = gauss_fitting(hist[0][center], x, y)
+#        y_= hist_y[center - half_window: center + half_window + 1]
+        popt, perr = gauss_fitting(hist[0][center], x, y)
+#        if hist[0][center]> 1000:
+#            print(hist[0][center])
+#            print(x, y)
         plt.subplot(shape, shape, index)
         if popt is None:
             label = 'NO FIT'
         else:
-            if x[0] <= popt[1] and popt[1] <= x[-1]:
+            
+            if x[0] <= popt[1] and popt[1] <= x[-1] and(perr[0]/popt[0] < params_dict['max_deviation_height']) \
+            and (perr[2]/popt[2] < params_dict['max_deviation_sigma']):
                 label = 'PASSED'
-                poptpvar.append(np.concatenate([popt, np.diag(pcov)]))
+                poptpvar.append(np.concatenate([popt, perr]))
+#                print(popt[1], np.array(perr) / np.array(popt) * 100)
                 plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval' )
                 plt.vlines(popt[1] + 3 * popt[2], 0, hist[0][center] )
             else:
                 label='FAILED'
         plt.plot(x, y, 'b+:', label=label)
+#        plt.scatter(x,y_, 
+#                        label='smoth' )
         if label != 'NO FIT':
             plt.scatter(x, gauss(x, *popt), 
                         label='Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]) )
+           
             
         plt.legend()
         
@@ -198,7 +229,7 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
 def gauss(x,a,  x0, sigma):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return a/(np.sqrt(sigma))**2 /np.sqrt(2*np.pi) * np.exp(- (x - x0) * (x - x0) / (2 * sigma ** 2))
+        return a/sigma/np.sqrt(2*np.pi) * np.exp(- (x - x0) * (x - x0) / (2 * sigma ** 2))
 
 def gauss_fitting(center_y, x, y):
     """
@@ -208,12 +239,13 @@ def gauss_fitting(center_y, x, y):
     `y` numpy array of number of psms in this mass shifts
     
     """
-    n = len(x)
     mean = sum(x *y) / sum(y)                  
-    sigma = np.sqrt(sum(y * (x - mean) ** 2) / n)
+    sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
+    a = center_y*sigma*np.sqrt(2*np.pi)
     try:
-        popt, pcov = curve_fit(gauss, x, y, p0=(center_y, mean, sigma))
-        return popt, pcov
+        popt, pcov = curve_fit(gauss, x, y, p0=(a, mean, sigma))
+        perr = np.sqrt(np.diag(pcov))
+        return popt, perr
     except (RuntimeError, TypeError):
         return None, None
 
@@ -254,7 +286,7 @@ def filter_mass_shifts(results):
     """
     Filter mass_shifts that close to each other.
     
-    Return poptpcov matrix.
+    Return poptperr matrix.
     """
     logging.info('Discarding bad peaks...')
     out = []
@@ -279,100 +311,121 @@ def group_specific_filtering(data, final_mass_shifts, params_dict):
     logging.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list 
     for mass_shift in final_mass_shifts:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-#        print(data[params_dict['mass_shifts_column']] - mass_shift[1] < 3 * mass_shift[4] )
-#        print(mass_shift[1], mass_shift[2], '=====================')
-        data_slice = data[np.abs(data[params_dict['mass_shifts_column']] - mass_shift[1]) < 2 * mass_shift[2] ].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
+        data_slice = data[np.abs(data[params_dict['mass_shifts_column']] - mass_shift[1]) < 3 * mass_shift[2] ].sort_values(by='expect') \
+                         .drop_duplicates(subset=params_dict['peptides_column'])
+
         df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
 #        print(len(df))
         if len(df) > 0:
             out_data[np.mean(df[params_dict['mass_shifts_column']])] = df   ###!!!!!!!mean of from gauss fit!!!!
     logging.info('# of filtered mass shifts = {}'.format(len(out_data)))
     return  out_data
-
-def plot_results(mass_shifts_dict, zero_mass_shift, params_dict ,args):
-    print(zero_mass_shift)
+def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
+    """
+    'ms_label' mass shift in string format.
+    'ms_counts' entries in a mass shift.
+    'left
+    
+    """
+#    print(ms_label)
+#    print(ms_counts)
+#    print(left)
+     #figure parameters
+    b = 0.2 # shift in bar plots
+    width = 0.4 # for bar plots
+    labels = params_dict['labels']
+    distributions = left[0]
+    errors = left[1]
+#    print(right)
+    bar_plot, bar_left = plt.subplots()
+    bar_plot.set_size_inches(params_dict['figsize'])
+#    print(np.arange(b, 2*len(labels), 2), len(np.arange(b, 2*len(labels), 2)))
+#    print(distributions.loc[labels,ms_label], len(distributions.loc[labels,ms_label]))
+    bar_left.bar(np.arange(b, 2 * len(labels), 2), distributions.loc[labels,ms_label],
+            yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0,
+            label=ms_label+' Da mass shift,\n'+str(ms_counts)+' peptides')
+    bar_left.set_ylabel('Relative AA abundance', color=colors[2])
+    bar_left.set_xticks(np.arange(2 * b , 2 * len(labels) + 2 * b, 2))#
+    bar_left.set_xticklabels(labels)
+    bar_left.hlines(1, -1, 2* len(labels), linestyles='dashed', color=colors[3])
+    bar_right = bar_left.twinx()
+    bar_right.bar(np.arange(4 * b, 2 * len(labels) + 4 * b, 2),right, width=width, linewidth=0, color=colors[0])
+    bar_right.set_ylim(0,125)
+    bar_right.set_yticks(np.arange(0,120, 20))
+    bar_right.set_ylabel('Peptides with AA, %', color=colors[0])
+    
+    bar_left.spines['left'].set_color(colors[2])
+    bar_right.spines['left'].set_color(colors[2])
+    
+    bar_left.spines['right'].set_color(colors[0])
+    bar_right.spines['right'].set_color(colors[0])
+    bar_left.tick_params('y', colors=colors[2])
+    bar_right.tick_params('y', colors=colors[0])
+    bar_right.annotate(ms_label + ' Da mass shift,'  + '\n' + str(ms_counts) +' peptides',
+                      xy=(29,107), bbox=dict(boxstyle='round',fc='w', edgecolor='dimgrey'))
+    bar_left.set_xlim(-3*b, 2*len(labels)-2 +9*b)
+    bar_left.set_ylim(0,distributions.loc[labels, ms_label].max()*1.3)
+    bar_plot.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
+    bar_plot.savefig(os.path.join(save_directory, ms_label + '.svg'))
+    plt.close()
+def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
+    """
+    Plot amino acid statistics
+    'zero_mass_shift' is a systematic shift of zero masss shift, float.
+    'mass_shifts_dict' is a dict there keys are mass shifts(float) 
+    and values are DataFrames of filtered windows(3 sigma) around this mass.  
+    'params_dict' is a dict of parameters from parsed cfg file.
+    'args' files paths (need to take the saving directory)
+    """
+#    print(mass_shifts_dict)
     logging.info('Plotting distributions...')
     labels = params_dict['labels']
     rule = params_dict['rule']
     expasy_rule = parser.expasy_rules.get(rule, rule)
     save_directory = args.dir
-    #figure parameters
-    b = 0.2 # shift in bar plots
-    width = 0.4 # for bar plots
-    mass_shifts_dict_formatted ={'{:.4}'.format(k): mass_shifts_dict[k] for k in mass_shifts_dict.keys()}
-#    print(mass_shifts_dict_formatted)
-    mass_shifts_labels = {'{:.4}'.format(i): i for i in mass_shifts_dict.keys()}
-    zero_mass_shift_label = '{:.4}'.format(zero_mass_shift)
-    number_of_PSMs = pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
+    mass_shifts_dict_formatted ={mass_format(k): mass_shifts_dict[k] for k in mass_shifts_dict.keys()} # mass_shift_dict with printable labels
+    mass_shifts_labels = {mass_format(i): i for i in mass_shifts_dict.keys()}
+    zero_mass_shift_label = mass_format(zero_mass_shift)
+    number_of_PSMs = dict()#pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
     reference = pd.Series(get_aa_distribution(mass_shifts_dict_formatted[zero_mass_shift_label][params_dict['peptides_column']], expasy_rule))
-#    reference.fillna( 0, inplace=True)
-    err_ref_df = pd.DataFrame(index=labels)
+    reference.fillna( 0, inplace=True)
+    
+    #bootstraping for errors and p values calculation in reference(zero) mass shift
+    err_reference_df = pd.DataFrame(index=labels)
     for i in range(50):
-        err_ref_df[i] = pd.Series(get_aa_distribution(
+        err_reference_df[i] = pd.Series(get_aa_distribution(
         np.random.choice(np.array(mass_shifts_dict_formatted[zero_mass_shift_label][params_dict['peptides_column']]),
         size=(len(mass_shifts_dict_formatted[zero_mass_shift_label]) // 2), replace=False),
         expasy_rule)) / reference
+                         
     logging.info('Mass shifts:')
     distributions = pd.DataFrame(index=labels)
     p_values = pd.DataFrame(index=labels)
-
     for ms_label, ms_df in mass_shifts_dict_formatted.items():
-        distr = pd.Series(get_aa_distribution(ms_df[params_dict['peptides_column']], expasy_rule))
+        aa_statistics = pd.Series(get_aa_distribution(ms_df[params_dict['peptides_column']], expasy_rule))
         peptide_stat = pd.Series(get_peptide_statistics(ms_df[params_dict['peptides_column']], expasy_rule))
-#        formated_key = "{0:.3f}".format(mass_diff)
         number_of_PSMs[ms_label] = len(ms_df)
-        distr.fillna(0, inplace=True)
-        distributions[ms_label] = distr / reference
-        bar_plot, bar_left = plt.subplots()
-        bar_plot.set_size_inches(params_dict['figsize'])# = plt.figure(figsize=figsize)
-        p_vals, errors = calculate_error_and_p_vals(
-            ms_df[params_dict['peptides_column']], err_ref_df, reference, expasy_rule, labels)
-        errors.fillna(0, inplace=True)
+        aa_statistics.fillna(0, inplace=True)
+        distributions[ms_label] = aa_statistics / reference
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            p_vals, errors = calculate_error_and_p_vals(
+            ms_df[params_dict['peptides_column']], err_reference_df, reference, expasy_rule, labels)
+#        errors.fillna(0, inplace=True)
+
         p_values[ms_label] = p_vals
         distributions.fillna(0, inplace=True)
-        #bar1 = bar_plot.add_subplot(111)
-        bar_left.bar(np.arange(b, 2*len(labels), 2), distributions.loc[labels,ms_label],
-            yerr=errors.loc[labels], width=width, color=colors[2],linewidth=0,
-            label= ms_label + ' Da mass shift,\n' + str(len(ms_df)) +' peptides')
-        bar_left.set_ylabel('Relative AA abundance', color=colors[2])
+
         labels_df = pd.DataFrame(index=labels)
-        labels_df['label'] = labels_df.index
-        labels_df['pep_stat'] =pd.Series(peptide_stat)
+        labels_df['pep_stat'] = pd.Series(peptide_stat)
         labels_df.fillna(0, inplace=True)
-        labels_df['out'] = labels_df['label'] #+ pd.Series(['\n']*len(labels), index=labels) +labels_df['pep_stat']
-        #print(labels_df.loc[labels,'out'])
-        bar_left.set_xticks(np.arange(2*b, 2*len(labels)+2*b, 2))#
-        bar_left.set_xticklabels(labels_df.loc[labels,'out'])
-        bar_left.hlines(1, -1, 2* len(labels), linestyles='dashed', color=colors[3])
-        bar_right = bar_left.twinx()
-        bar_right.bar(np.arange(4 * b, 2 * len(labels) + 4 * b, 2),labels_df['pep_stat'],width=width, linewidth=0, color=colors[0])
-        bar_right.set_ylim(0,125)
-        bar_right.set_yticks(np.arange(0,120, 20))
-        bar_right.set_ylabel('Peptides with AA, %', color=colors[0])
-        
-        bar_left.spines['left'].set_color(colors[2])
-        bar_right.spines['left'].set_color(colors[2])
-        
-        bar_left.spines['right'].set_color(colors[0])
-        bar_right.spines['right'].set_color(colors[0])
-        bar_left.tick_params('y', colors=colors[2])
-        bar_right.tick_params('y', colors=colors[0])
-        bar_right.annotate(ms_label + ' Da mass shift,'  + '\n' + str(len(ms_df)) +' peptides',
-                      xy=(29,107), bbox=dict(boxstyle='round',fc='w', edgecolor='dimgrey'))
-        #plt.title('Mass shift = ' + formated_key + '; Peptides in bin = ' + str(len(out_data[binn]))) #PSMs
-        #bar1.legend()
-        bar_left.set_xlim(-3*b, 2*len(labels)-2 +9*b)
-        bar_left.set_ylim(0,distributions.loc[labels, ms_label].max()*1.3)
-        bar_plot.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
-        bar_plot.savefig(os.path.join(save_directory, ms_label + '.svg'))
-        plt.close()
+        plot_figure(ms_label, len(ms_df), [distributions, errors], labels_df['pep_stat'], params_dict, save_directory )
         logging.info('%s Da', ms_label)
-    pout = p_values.T
+
 #    pout.insert(0, 'mass shift', [mass_shifts[i] for i in pout.index])
-    pout.to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
-    return distributions, number_of_PSMs
+    pout = p_values.T
+    pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
+    return distributions, pd.Series(number_of_PSMs), mass_shifts_labels
 
 def render_html_report(table, params_dict, save_directory):
     labels = params_dict['labels']
@@ -391,12 +444,17 @@ def render_html_report(table, params_dict, save_directory):
             {'selector': 'td, th', 'props': [('text-align', 'center')]},
             {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
             ).format({'Unimod': '<a href="{}">search</a>'.format,
-                mslabel: '<a href="#">{:.3f}</a>'.format}
+                mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format}
             ).bar(subset='# peptides in bin', color=cc[2]).render() #PSMs
     report = report.replace(r'%%%', table_html)
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
+
 def get_parameters(params):
+    """
+    Reads paramenters from cfg file to one dict.
+    Returns dict.
+    """
     parameters_dict = {}
     #data
     parameters_dict['decoy_prefix'] = params.get('data', 'decoy prefix')
@@ -421,13 +479,17 @@ def get_parameters(params):
     
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     #fit    
-    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
-    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
+#    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
+#    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     return parameters_dict
 
 def get_additional_params(params_dict):
+    """
+    Updates dict with new paramenters.
+    Returns dict.
+    """
     if params_dict['specific_mass_shift_flag']:
         logging.info('Custom bin %s', params_dict['specific_window'])
         params_dict[ 'so_range'] = params_dict['specific_window'][:]
@@ -498,23 +560,26 @@ def main():
     final_mass_shifts = filter_mass_shifts(popt_pvar)
 #    print(final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
+#    print('======================',mass_shift_data_dict )
     zero_mass_shift = get_zero_mass_shift(list(mass_shift_data_dict.keys()))
-    logging.info("Systematic mass shift equals to %s", "{0:.4f}".format(zero_mass_shift) )
+    logging.info("Systematic mass shift equals to %s", mass_format(zero_mass_shift) )
     if len(mass_shift_data_dict) < 2:
         logging.info('Mass shifts were not found.')
         logging.info('Filtered mass shifts:')
         for i in mass_shift_data_dict.keys():
-            logging.info('{:.3} Da'.format(i))
+#            print(mass_shift_data_dict.keys())Da
+            logging.info('{:.4} Da'.format(i))
     else:
-        distributions, number_of_PSMs = plot_results(mass_shift_data_dict,zero_mass_shift,params_dict, args)
+        distributions, number_of_PSMs, ms_labels = calculate_statistics(mass_shift_data_dict, zero_mass_shift, params_dict, args)
     
-#    print(number_of_PSMs) 
-    table = save_table(distributions, number_of_PSMs, list(mass_shift_data_dict.keys()))
+#    print(mass_shift_data_dict) 
+    table = save_table(distributions, number_of_PSMs, ms_labels)
+#    print(table['mass shift'])
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
-
-    logging.info('Summarizing hist prepared')
+#    print('=======================', table)
+    
     summarizing_hist(table, save_directory)
-
+    logging.info('Summarizing hist prepared')
     render_html_report(table, params_dict, save_directory)
     logging.info('Results saved to %s', os.path.abspath(args.dir))
 
