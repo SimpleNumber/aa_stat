@@ -61,7 +61,8 @@ def get_peptide_statistics(peptide_list, rule):
     return d
 def get_aa_distribution(peptide_list, rule):
     """
-    Calculates amino acid statistics in a peptide list.
+    Calculates amino acid statistics in a `peptide_list` and cleave missed cleaved peptides according to the `rule`.
+    -----------
     Returns dict with amino acids as a keys and their relative(to the 'peptide list') abundance as a value. 
     """
     sum_aa = 0
@@ -81,29 +82,23 @@ def smooth(y, window_size=15, power=5):
 
 def save_table(distributions, number_of_PSMs, mass_shifts):
     '''
-    distributions - DataFrame with amino acids statistics, where indexes are amino acids, columns mass shifts (str)
-    number_of_PSMs Seriers where indexes are mass shifts (in str format) and values are numbers of filtered PSMs 
-    mass_shift a dict with relations between mass shift in str format (rounded) and actual mass shifts (float)
-    returns table with mass shifts, psms, aa statistics columns.
+    `distributions` - DataFrame with amino acids statistics, where indexes are amino acids, columns mass shifts (str)
+    `number_of_PSMs` Seriers where indexes are mass shifts (in str format) and values are numbers of filtered PSMs 
+    `mass_shift` a dict with relations between mass shift in str format (rounded) and actual mass shifts (float)
+    -----------
+    Returns table with mass shifts, psms, aa statistics columns.
     '''
 
     unimod = pd.Series({i: get_unimod_url(float(i)) for i in number_of_PSMs.index})
-#    print([ mass_shifts[k] for k in distributions.columns])
     df = pd.DataFrame({'mass shift': [ mass_shifts[k] for k in distributions.columns],
-                       '# peptides in bin': number_of_PSMs,
-                       'Unimod': unimod},
+                       '# peptides in bin': number_of_PSMs},
                       index=distributions.columns)
     df['# peptides in bin'] = df['# peptides in bin'].astype(np.int64)
-      
-#    print('1111111111111111111111111111111',df)
     out = pd.concat([df, distributions.T], axis=1)
+    out['Unimod'] = unimod
     out.index = range(len(out))
-    cols = list(out.columns)
-    cols.remove('Unimod')
-    cols = ['mass shift', '# peptides in bin'] + cols[2:] + ['Unimod']
-#    print('OUTTTTTTTTTTT', out)
     i = ((out.drop(columns=['mass shift', 'Unimod', '# peptides in bin']).max(axis=1) - 1) * out['# peptides in bin']).argsort()
-    return out.loc[i.values[::-1], cols]
+    return out.loc[i.values[::-1], :]
 
 def read_pepxml(fname, params_dict):
     return pepxml.DataFrame(fname, read_schema=False)
@@ -120,6 +115,7 @@ def read_csv(fname, params_dict):
 def read_input(args, params_dict):
     """
     Reads open search output, assemble all files in one DataFrame
+    -----------
     Returns DF
     """
     dfs = []
@@ -507,6 +503,14 @@ def get_additional_params(params_dict):
     params_dict['bins'] = np.arange(params_dict['so_range'][0], params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
     return params_dict
 
+def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
+   '''
+   `mass_shifts_dict` - dict where keys are mass shifts (float) and values DataFrames that correspond to this mass shift.
+   '''
+   out = {}
+   for k, v in mass_shifts_dict.items():
+       out[k-mass_correction] = v
+   return out
 def main():
     pars = argparse.ArgumentParser()
     pars.add_argument('--params', help='CFG file with parameters.'
@@ -540,16 +544,7 @@ def main():
     params_dict = get_parameters(params)
     params_dict = get_additional_params(params_dict) #params_dict 'window'
     
-    if args.mgf:
-        logging.info('Localization using MS/MS spectra...')
-        suffix = args.mgf[0].split('.')[-1]
-        spectra_dir =  '/'.join(args.mgf[0].split('/')[:-1])
-    elif args.mzml:
-        logging.info('Localization using MS/MS spectra...')
-        suffix = args.mgf[0].split('.')[-1]
-        spectra_dir =  '/'.join(args.mzml[0].split('/')[:-1])
-    else:
-        logging.info('No spectra files. MSMS spectrum localization is not performed.')
+
 
     
     data = read_input(args, params_dict)
@@ -562,7 +557,9 @@ def main():
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
 #    print('======================',mass_shift_data_dict )
     zero_mass_shift = get_zero_mass_shift(list(mass_shift_data_dict.keys()))
+    
     logging.info("Systematic mass shift equals to %s", mass_format(zero_mass_shift) )
+    mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, zero_mass_shift)
     if len(mass_shift_data_dict) < 2:
         logging.info('Mass shifts were not found.')
         logging.info('Filtered mass shifts:')
@@ -570,7 +567,7 @@ def main():
 #            print(mass_shift_data_dict.keys())Da
             logging.info('{:.4} Da'.format(i))
     else:
-        distributions, number_of_PSMs, ms_labels = calculate_statistics(mass_shift_data_dict, zero_mass_shift, params_dict, args)
+        distributions, number_of_PSMs, ms_labels = calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
     
 #    print(mass_shift_data_dict) 
     table = save_table(distributions, number_of_PSMs, ms_labels)
@@ -581,7 +578,20 @@ def main():
     summarizing_hist(table, save_directory)
     logging.info('Summarizing hist prepared')
     render_html_report(table, params_dict, save_directory)
-    logging.info('Results saved to %s', os.path.abspath(args.dir))
-
+    logging.info('AA_stat results saved to %s', os.path.abspath(args.dir))
+    if args.mgf:
+        logging.info('Starting ReMod. Localization using MS/MS spectra...')
+        suffix = args.mgf[0].split('.')[-1]
+        spectra_dir =  '/'.join(args.mgf[0].split('/')[:-1])
+    elif args.mzml:
+        logging.info('Starting ReMod. Localization using MS/MS spectra...')
+        suffix = args.mzml[0].split('.')[-1]
+        spectra_dir =  '/'.join(args.mzml[0].split('/')[:-1])
+    else:
+        logging.info('No spectra files. MSMS spectrum localization is not performed.')
+    ms_labels = pd.Series(ms_labels)
+    remod_df = pd.DataFrame({'mass shift':ms_labels})
+    remod_df['is isotope'] = remod_df['mass shift'].apply()
+#    print(remod_df)
 if __name__ == '__main__':
     main()

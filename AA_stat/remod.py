@@ -116,7 +116,7 @@ def peptide_isoforms(sequence, variable_mods,):
 
 def retrive_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
     """
-    Find modificationsfor `mass_shift` in Unimod.org database with a given `tolerance`.
+    Find modifications for `mass_shift` in Unimod.org database with a given `tolerance`.
     Returns dict. {'modification name': [list of amino acids]}
     
     """
@@ -126,5 +126,23 @@ def retrive_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
         sites_set.update(set(pd.DataFrame(i['specificity']).site))
     return unimod_db[ind], sites_set
 
-    
+def get_candidates_from_aastat():
+    pass
+
+def find_isotopes(mass_shift_list, mass_shift_data_dict, tolerance = 0.00001):
+    """
+    Find the isotopes from the `mass_shift_list` using mass difference of C13 and C12, information of amino acids statistics as well.
+    -----------
+    Returns list of boolean.
+    """
+    difference = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
+    out = []
+#    for ind, i in enumerate(mass_shift_list[:-1]):
+        
+def find_two_modifications():
+    pass
+
+def localization_of_modification():
+    pass
+        
 
