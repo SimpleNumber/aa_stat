@@ -14,6 +14,7 @@ from scipy.stats import ttest_ind
 from scipy.optimize import curve_fit
 import logging
 import warnings
+from . import locTools
 try:
     from configparser import ConfigParser
 except ImportError:
@@ -272,7 +273,8 @@ def summarizing_hist(table, save_directory):
 def get_zero_mass_shift(mass_shifts):
 #    print(mass_shifts)
     """
-    Shifts all masses according non-modified peak.
+    Shift of non-modified peak.
+    Returns float.
     """
     l  = np.argmin(np.abs(mass_shifts))
     return mass_shifts[l]
@@ -309,8 +311,9 @@ def group_specific_filtering(data, final_mass_shifts, params_dict):
     for mass_shift in final_mass_shifts:
         data_slice = data[np.abs(data[params_dict['mass_shifts_column']] - mass_shift[1]) < 3 * mass_shift[2] ].sort_values(by='expect') \
                          .drop_duplicates(subset=params_dict['peptides_column'])
-
-        df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")                 
+            df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
 #        print(len(df))
         if len(df) > 0:
             out_data[np.mean(df[params_dict['mass_shifts_column']])] = df   ###!!!!!!!mean of from gauss fit!!!!
@@ -323,9 +326,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     'left
     
     """
-#    print(ms_label)
-#    print(ms_counts)
-#    print(left)
+
      #figure parameters
     b = 0.2 # shift in bar plots
     width = 0.4 # for bar plots
@@ -423,7 +424,8 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
     return distributions, pd.Series(number_of_PSMs), mass_shifts_labels
 
-def render_html_report(table, params_dict, save_directory):
+def render_html_report(table_, params_dict, save_directory):
+    table = table_.copy()
     labels = params_dict['labels']
     report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
     with open(report_template) as f:
@@ -573,25 +575,32 @@ def main():
     table = save_table(distributions, number_of_PSMs, ms_labels)
 #    print(table['mass shift'])
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
-#    print('=======================', table)
+    print('=======================', table)
     
     summarizing_hist(table, save_directory)
     logging.info('Summarizing hist prepared')
     render_html_report(table, params_dict, save_directory)
     logging.info('AA_stat results saved to %s', os.path.abspath(args.dir))
+    print(table.columns)
+    table.index = table['mass shift'].apply(mass_format)
     if args.mgf:
-        logging.info('Starting ReMod. Localization using MS/MS spectra...')
+        logging.info('Starting Localization using MS/MS spectra...')
         suffix = args.mgf[0].split('.')[-1]
         spectra_dir =  '/'.join(args.mgf[0].split('/')[:-1])
     elif args.mzml:
-        logging.info('Starting ReMod. Localization using MS/MS spectra...')
+        logging.info('Starting Localization using MS/MS spectra...')
         suffix = args.mzml[0].split('.')[-1]
         spectra_dir =  '/'.join(args.mzml[0].split('/')[:-1])
     else:
         logging.info('No spectra files. MSMS spectrum localization is not performed.')
     ms_labels = pd.Series(ms_labels)
-    remod_df = pd.DataFrame({'mass shift':ms_labels})
-    remod_df['is isotope'] = remod_df['mass shift'].apply()
-#    print(remod_df)
+    locmod_df = pd.DataFrame({'mass shift':ms_labels})
+    locmod_df['# peptides in bin'] = table['# peptides in bin']
+    locmod_df['is isotope'] =  locTools.find_isotopes(locmod_df['mass shift'], tolerance=0.015)
+    locmod_df['sum of mass shifts'] = locTools.find_modifications(locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
+    locmod_df['sum of mass shifts'].fillna(False, inplace=True)
+    
+    print(locmod_df)
+
 if __name__ == '__main__':
     main()
