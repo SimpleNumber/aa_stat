@@ -114,7 +114,7 @@ def peptide_isoforms(sequence, variable_mods,):
         isoforms.uppend([''.join(i) for i in j])
     return isoforms
 
-def retrive_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
+def get_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
     """
     Find modifications for `mass_shift` in Unimod.org database with a given `tolerance`.
     Returns dict. {'modification name': [list of amino acids]}
@@ -124,11 +124,15 @@ def retrive_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
     sites_set = set()
     for i in unimod_db[ind]:
         sites_set.update(set(pd.DataFrame(i['specificity']).site))
-    return unimod_db[ind], sites_set
+    return list(sites_set)
 
-def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5,):
-    np.where(mass_shifts_table.loc[:,labels] > threshold)
-    return 0
+def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5,): 
+    df = mass_shifts_table.loc[:,labels]
+    ms, aa = np.where(df > threshold)
+    out = {ms:[] for ms in mass_shifts_table.index}
+    for i,j in zip(ms, aa):
+        out[df.index[i]].append(df.columns[j])
+    return pd.Series(out)
     
 def find_isotopes(ms, tolerance=0.01):
     """

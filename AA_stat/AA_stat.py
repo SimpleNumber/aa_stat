@@ -19,7 +19,7 @@ try:
     from configparser import ConfigParser
 except ImportError:
     from ConfigParser import ConfigParser
-from pyteomics import parser, pepxml
+from pyteomics import parser, pepxml, mass
 
 cc = ["#FF6600",
       "#FFCC00",
@@ -581,8 +581,9 @@ def main():
     logging.info('Summarizing hist prepared')
     render_html_report(table, params_dict, save_directory)
     logging.info('AA_stat results saved to %s', os.path.abspath(args.dir))
-    print(table.columns)
+    
     table.index = table['mass shift'].apply(mass_format)
+    print(table)
     if args.mgf:
         logging.info('Starting Localization using MS/MS spectra...')
         suffix = args.mgf[0].split('.')[-1]
@@ -599,8 +600,16 @@ def main():
     locmod_df['is isotope'] =  locTools.find_isotopes(locmod_df['mass shift'], tolerance=0.015)
     locmod_df['sum of mass shifts'] = locTools.find_modifications(locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
     locmod_df['sum of mass shifts'].fillna(False, inplace=True)
-    
+    locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table, 
+             labels=params_dict['labels'], threshold=1.5)
+    u = mass.Unimod().mods
+    unimod_db = np.array(u)
+    unimod_df = pd.DataFrame(u)
+    locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(lambda x: locTools.get_candidates_from_unimod(x, 0.01, unimod_db, unimod_df))
+    locmod_df['all candidates'] = locmod_df.apply(lambda x: set(x['unimod candidates']).union(set(x['aa_stat candidates'])), axis=1)
     print(locmod_df)
+    
+    
 
 if __name__ == '__main__':
     main()
