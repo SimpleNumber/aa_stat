@@ -8,7 +8,7 @@ import os
 import argparse
 import ast
 import seaborn as sb
-from collections import defaultdict
+from collections import defaultdict, Counter
 from scipy.signal import argrelextrema, savgol_filter
 from scipy.stats import ttest_ind
 from scipy.optimize import curve_fit
@@ -19,7 +19,7 @@ try:
     from configparser import ConfigParser
 except ImportError:
     from ConfigParser import ConfigParser
-from pyteomics import parser, pepxml, mass
+from pyteomics import parser, pepxml, mass, mgf
 
 cc = ["#FF6600",
       "#FFCC00",
@@ -141,6 +141,7 @@ def read_input(args, params_dict):
                 popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
                 logging.info('Systematic shift for file is {0:.4f} Da'.format(popt[1]))
                 df[params_dict['mass_shifts_column']] -= popt[1]
+                df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
                 dfs.append(df)
             break
     logging.info('Starting analysis...')
@@ -177,9 +178,6 @@ def fit_peaks(data, args, params_dict):
         y = hist[0][center - half_window: center + half_window + 1] #take non-smoothed data
 #        y_= hist_y[center - half_window: center + half_window + 1]
         popt, perr = gauss_fitting(hist[0][center], x, y)
-#        if hist[0][center]> 1000:
-#            print(hist[0][center])
-#            print(x, y)
         plt.subplot(shape, shape, index)
         if popt is None:
             label = 'NO FIT'
@@ -189,24 +187,18 @@ def fit_peaks(data, args, params_dict):
             and (perr[2]/popt[2] < params_dict['max_deviation_sigma']):
                 label = 'PASSED'
                 poptpvar.append(np.concatenate([popt, perr]))
-#                print(popt[1], np.array(perr) / np.array(popt) * 100)
                 plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval' )
                 plt.vlines(popt[1] + 3 * popt[2], 0, hist[0][center] )
             else:
                 label='FAILED'
         plt.plot(x, y, 'b+:', label=label)
-#        plt.scatter(x,y_, 
-#                        label='smoth' )
         if label != 'NO FIT':
             plt.scatter(x, gauss(x, *popt), 
                         label='Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]) )
            
             
         plt.legend()
-        
         plt.title("{0:.3f}".format(hist[1][center]))
-#        plt.xticks(rotation=45)
-#        plt.xticks(x[::4], ["{0:.3f}".format(i) for i in x[::4] ], rotation=45)
         plt.grid(True)
     plt.savefig(os.path.join(args.dir, 'gauss_fit.pdf'))
     plt.close()
@@ -481,6 +473,8 @@ def get_parameters(params):
 #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
+    #localization
+    parameters_dict['spectrum_column'] = 'spectrum'
     return parameters_dict
 
 def get_additional_params(params_dict):
@@ -513,6 +507,73 @@ def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
    for k, v in mass_shifts_dict.items():
        out[k-mass_correction] = v
    return out
+
+def read_mgf(file_path):
+    return mgf.IndexedMGF(file_path)
+
+def read_mzml(file_path): # write this
+    pass
+
+def read_spectra(args):
+    """
+    Reads spectra
+    -----------
+    Returns 
+    """
+    readers = {
+        'mgf': read_mgf,
+        'mzML': read_mzml,
+    }
+    out_dict = {}
+    for ftype, reader in readers.items():
+        filenames = getattr(args, ftype)
+        if filenames:
+            for filename in filenames:
+                name = os.path.split(filename)[-1].split('.')[0] #write it in a proper way
+                out_dict[name] = reader(filename)
+    return out_dict
+
+
+def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance= 0.02):
+#    print(row.index, row[params_dict['peptides_column']])
+    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']], mass_shift, list(loc_candidates))
+    exp_spec = spectra_dict[row['file']].get_by_id(row[params_dict['spectrum_column']])
+    tmp = exp_spec['m/z array'] / tolerance
+    tmp = tmp.astype(int)
+    loc_stat_dict = Counter()
+#    print(tmp)
+    exp_dict = {i:j for i, j in zip(tmp, exp_spec['intensity array'])}
+    mass_dict = mass.std_aa_mass
+    mass_dict.update({'m': mass_shift})
+    scores = []
+#    print(sequences)
+    for seq in sequences:
+        theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
+#        print(theor_spec)
+        scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], 4)[1])
+    try:    
+        top_isoform = sequences[np.argmax(scores)]
+    except:
+        print('=======================================')
+        print(row)
+        print('=======================================')
+        return row[params_dict['peptides_column']], {}
+    loc_index = top_isoform.find('m')
+    if top_isoform[loc_index + 1] in loc_candidates:
+        loc_stat_dict[top_isoform[loc_index + 1]] += 1
+    if 'N-term' in loc_candidates and loc_index == 0:
+        loc_stat_dict['N-term'] += 1
+    if 'C-term' in loc_candidates and loc_index == len(top_isoform) - 2:
+        loc_stat_dict['C-term'] += 1  
+#    print(sequences, scores, loc_stat_dict)
+    if len(loc_stat_dict) == 0:
+        return top_isoform, {}
+    else:
+        return top_isoform, loc_stat_dict
+    
+    
+        
+
 def main():
     pars = argparse.ArgumentParser()
     pars.add_argument('--params', help='CFG file with parameters.'
@@ -525,7 +586,7 @@ def main():
    
     input_spectra = pars.add_mutually_exclusive_group()
     input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications')
-    input_spectra.add_argument('--mzml',  nargs='+', help='mzML files to localize modifications')
+    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to localize modifications')
     
     input_file = pars.add_mutually_exclusive_group(required=True)
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
@@ -547,8 +608,8 @@ def main():
     params_dict = get_additional_params(params_dict) #params_dict 'window'
     
 
-
     
+
     data = read_input(args, params_dict)
     
     hist, popt_pvar = fit_peaks(data, args, params_dict)
@@ -567,7 +628,7 @@ def main():
         logging.info('Filtered mass shifts:')
         for i in mass_shift_data_dict.keys():
 #            print(mass_shift_data_dict.keys())Da
-            logging.info('{:.4} Da'.format(i))
+            logging.info(MASS_FORMAT.format(i))
     else:
         distributions, number_of_PSMs, ms_labels = calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
     
@@ -575,7 +636,7 @@ def main():
     table = save_table(distributions, number_of_PSMs, ms_labels)
 #    print(table['mass shift'])
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
-    print('=======================', table)
+#    print('=======================', table)
     
     summarizing_hist(table, save_directory)
     logging.info('Summarizing hist prepared')
@@ -583,15 +644,11 @@ def main():
     logging.info('AA_stat results saved to %s', os.path.abspath(args.dir))
     
     table.index = table['mass shift'].apply(mass_format)
-    print(table)
-    if args.mgf:
+#    print(table)
+#    print(args.mgf)
+    spectra_dict = read_spectra(args)
+    if spectra_dict.keys():
         logging.info('Starting Localization using MS/MS spectra...')
-        suffix = args.mgf[0].split('.')[-1]
-        spectra_dir =  '/'.join(args.mgf[0].split('/')[:-1])
-    elif args.mzml:
-        logging.info('Starting Localization using MS/MS spectra...')
-        suffix = args.mzml[0].split('.')[-1]
-        spectra_dir =  '/'.join(args.mzml[0].split('/')[:-1])
     else:
         logging.info('No spectra files. MSMS spectrum localization is not performed.')
     ms_labels = pd.Series(ms_labels)
@@ -606,8 +663,37 @@ def main():
     unimod_db = np.array(u)
     unimod_df = pd.DataFrame(u)
     locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(lambda x: locTools.get_candidates_from_unimod(x, 0.01, unimod_db, unimod_df))
-    locmod_df['all candidates'] = locmod_df.apply(lambda x: set(x['unimod candidates']).union(set(x['aa_stat candidates'])), axis=1)
+    locmod_df['all candidates'] = locmod_df.apply(lambda x: set(x['unimod candidates'])|(set(x['aa_stat candidates'])), axis=1)
+    locmod_df.to_csv(os.path.join(save_directory, 'test1.csv'))
+    localization_dict = {}
+    for ms, df in mass_shift_data_dict.items():
+#        print(df.head())
+        if ms != 0.0:
+            if not locmod_df['is isotope'][mass_format(ms)]:
+#                if abs(ms -17) < 0.5:
+#                print(ms)
+                locations = locmod_df.loc[mass_format(ms), 'all candidates']
+                logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
+                f = pd.DataFrame(df.apply(lambda x:localization_of_modification(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),
+                                 index=df.index, columns=['top_isoform', 'loc_counter'])
+        #        print(f)
+                df['top_isoform'] = f['top_isoform']
+                df['loc_counter'] = f['loc_counter']
+                localization_dict[mass_format(ms)] = df['loc_counter'].sum()
+    locmod_df['localization'] = pd.Series(localization_dict)
     print(locmod_df)
+    locmod_df.to_csv(os.path.join(save_directory, 'test2.csv'))
+    logging.info('Done')
+#        print(df)
+#        df['top isoform'] = top_isoforms
+#        df['loc_counter'] = loc_counter
+##        pd.DataFrame(index=locations)
+#        print(df['counter'].sum())
+#        print(df.columns)
+#        print(df.spectrum)
+#        print(df.peptide)
+#        break
+#        df.apply(lambda x: localization_of_modification(ms, x))
     
     
 

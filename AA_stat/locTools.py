@@ -10,17 +10,7 @@ import matplotlib
 matplotlib.use('Agg')
 import pandas as pd
 import numpy as  np
-import pylab as plt
-import os
-import argparse
-import ast
-import seaborn as sb
 from collections import defaultdict
-from scipy.signal import argrelextrema, savgol_filter
-from scipy.stats import ttest_ind
-from scipy.optimize import curve_fit
-import logging
-import warnings
 from pyteomics import parser, pepxml, mgf, mzml, mass
 from pyteomics import electrochem as ec
 from scipy.spatial import cKDTree
@@ -34,19 +24,37 @@ except ImportError:
 
 #    import customparser as cparser
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
-def get_spectra_from_mgf(file_dir, spectrum, suffix, tolerance=0.01):
-    """
-    Retrive MSMS `spectra` from `file_name` file.
-    Returns  spectrum_idict {int_mass:intensity}
-    """
-    file_name = '.'.join([spectrum.split('.')[0], suffix])
-    mgf_file = mgf.read(os.path.join(file_dir, file_name))
-    mgf_file.get_spectrum(spectrum)
-    experimantal_spectrum =  mgf_file.get_spectrum(spectrum)
-    mz = np.array(experimantal_spectrum['m/z array'])/ tolerance 
-    return dict(zip(mz.round(0).astype('int64'), experimantal_spectrum['intensity array']))
+#def get_spectra_from_mgf(file_dir, spectrum, suffix, tolerance=0.01):
+#    """
+#    Retrive MSMS `spectra` from `file_name` file.
+#    Returns  spectrum_idict {int_mass:intensity}
+#    """
+#    file_name = '.'.join([spectrum.split('.')[0], suffix])
+#    mgf_file = mgf.read(os.path.join(file_dir, file_name))
+#    mgf_file.get_spectrum(spectrum)
+#    experimantal_spectrum =  mgf_file.get_spectrum(spectrum)
+#    mz = np.array(experimantal_spectrum['m/z array'])/ tolerance 
+#    return dict(zip(mz.round(0).astype('int64'), experimantal_spectrum['intensity array']))
+#def generate_theor_spec (sequence, mod_mass_dict,  types=('b', 'y'), maxcharge=1):
+#    """
+#    Generates theor spectrum from `sequence` (where modified amino acid marked with lower case prefix 'x') with `mod_mass` on amino acid.
+#    Returns list of mz.
+#    
+#    """
+#    mass_dict = mass.std_aa_mass
+#    mass_dict.update(mod_mass_dict)
+#    for i in range(1, len(sequence)-1):
+#        if sequence[i-1].isupper() :
+#            for ion_type in types:
+#                for charge in range(1, maxcharge+1):              
+#                    if ion_type[0] in 'abc':
+#                        yield mass.fast_mass2(
+#                            sequence[:i], ion_type=ion_type, charge=charge, aa_data=mass_dict)
+#                    else:
+#                        yield mass.fast_mass2(
+#                            sequence[i:], ion_type=ion_type, charge=charge, aa_mass=mass_dict)
 
-def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, reshape=False, **kwargs):
+def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, reshape=False, **kwargs ):
     peaks = {}
     theoretical_set = defaultdict(set)
     pl = len(peptide) - 1
@@ -101,17 +109,26 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
         return 0, 0
     
     
-def peptide_isoforms(sequence, variable_mods,):
+def peptide_isoforms(sequence, ms, localizations):
     """
     Forms list of modified amino acid candidates.
-    `variable_mods` - dict of name (key) and amino acids (values)
-    Return list of lists. [[isoform1],[isoform2]] 
+    `variable_mods` - dict of modification's name (key) and amino acids (values)
+    Return list of isoforms [isoform1,isoform2] 
     
     """
-
+    if 'N-term' in localizations:
+        localizations.append(''.join(['nterm', sequence[0]]))
+        localizations.remove('N-term')
+    if 'C-term' in localizations:
+        localizations.append(''.join(['cterm', sequence[-1]]))
+        localizations.remove('C-term')
+    mass_dict = mass.std_aa_mass
+    mass_dict.update({'m': ms})
+    pep_mass = mass.fast_mass2(sequence) + ms
     isoforms = []
-    for j in  parser.isoforms(sequence, variable_mods=variable_mods, format='split'):
-        isoforms.uppend([''.join(i) for i in j])
+    for j in  parser.isoforms(sequence, variable_mods={'m':localizations}, ): #format='split'
+        if abs(mass.fast_mass2(j, aa_data=mass_dict) - pep_mass) < 0.1:
+            isoforms.append(j) #[''.join(i) for i in j]
     return isoforms
 
 def get_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
@@ -155,7 +172,7 @@ def find_mod_sum(x, df, sum_matrix, tolerance):
         return False
 def find_modifications(ms, tolerance=0.005):
     """
-    Finds the sums of mass shifts, if they exist.
+    Finds the sums of mass shifts, if it exists.
     Returns Series, where index is the mass in str format, values is list of mass shifts that form the mass shift. 
     """
     col = ms.drop('0.0000') #drop zero mass shift
@@ -165,7 +182,6 @@ def find_modifications(ms, tolerance=0.005):
     df.index = df['index']
     return df.out
 
-def localization_of_modification():
-    pass
+
         
 
