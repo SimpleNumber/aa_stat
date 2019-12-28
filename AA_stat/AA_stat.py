@@ -537,65 +537,20 @@ def read_spectra(args):
                 out_dict[name] = reader(filename)
     return out_dict
 
-def matching(l):
-    seq = l[0]
-    exp_dict =l[1]
-    tolerance =l[2]
-    mass_dict=l[3]
-    theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
-    return locTools.RNHS_fast(exp_dict, theor_spec[1], 4)[1]
+
 
 def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance= 0.02):
 #    print(row.index, row[params_dict['peptides_column']])
-    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']],set(loc_candidates))
+    sequences = list(locTools.peptide_isoforms(row[params_dict['peptides_column']], set(loc_candidates)))
     exp_spec = spectra_dict[row['file']].get_by_id(row[params_dict['spectrum_column']])
     tmp = exp_spec['m/z array'] / tolerance
     tmp = tmp.astype(int)
     loc_stat_dict = Counter()
-#    print(tmp)
     exp_dict = {i:j for i, j in zip(tmp, exp_spec['intensity array'])}
     mass_dict = mass.std_aa_mass
     mass_dict.update({'m': mass_shift})
     scores = []
 #    print(sequences)
-#    
-    with Pool(4) as p:
-        scores = list(p.map(matching, [[i, exp_dict, tolerance, mass_dict] for i in sequences]))
-#    for seq in sequences:
-#        theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
-##        print(theor_spec)
-#        scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], 4)[1])
-    try:    
-        top_isoform = sequences[np.argmax(scores)]
-    except:
-#        print('=======================================')
-#        print(row)
-#        print('=======================================')
-        return row[params_dict['peptides_column']], Counter()
-    loc_index = top_isoform.find('m')
-    if top_isoform[loc_index + 1] in loc_candidates:
-        loc_stat_dict[top_isoform[loc_index + 1]] += 1
-    if 'N-term' in loc_candidates and loc_index == 0:
-        loc_stat_dict['N-term'] += 1
-    if 'C-term' in loc_candidates and loc_index == len(top_isoform) - 2:
-        loc_stat_dict['C-term'] += 1  
-#    print(sequences, scores, loc_stat_dict)
-    if len(loc_stat_dict) == 0:
-        return top_isoform, {}
-    else:
-        return top_isoform, loc_stat_dict
-
-def localization_of_modification_(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance= 0.02):
-#    print(row.index, row[params_dict['peptides_column']])
-    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']], set(loc_candidates))
-    exp_spec = spectra_dict[row['file']].get_by_id(row[params_dict['spectrum_column']])
-    tmp = exp_spec['m/z array'] / tolerance
-    tmp = tmp.astype(int)
-    loc_stat_dict = Counter()
-    exp_dict = {i:j for i, j in zip(tmp, exp_spec['intensity array'])}
-    mass_dict = mass.std_aa_mass
-    mass_dict.update({'m': mass_shift})
-    scores = []
     for seq in sequences:
         theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
         scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], 4)[1])
@@ -747,7 +702,7 @@ def main():
     #                print(ms)
                 locations = locmod_df.loc[mass_format(ms), 'all candidates']
                 logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
-                f = pd.DataFrame(df.apply(lambda x:localization_of_modification_(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),
+                f = pd.DataFrame(df.apply(lambda x:localization_of_modification(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
                 df['top_isoform'] = f['top_isoform']
                 df['loc_counter'] = f['loc_counter']
