@@ -14,6 +14,8 @@ from scipy.stats import ttest_ind
 from scipy.optimize import curve_fit
 import logging
 import warnings
+from itertools import product
+from multiprocessing import Pool
 from . import locTools
 try:
     from configparser import ConfigParser
@@ -311,6 +313,7 @@ def group_specific_filtering(data, final_mass_shifts, params_dict):
             out_data[np.mean(df[params_dict['mass_shifts_column']])] = df   ###!!!!!!!mean of from gauss fit!!!!
     logging.info('# of filtered mass shifts = {}'.format(len(out_data)))
     return  out_data
+
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     """
     'ms_label' mass shift in string format.
@@ -357,6 +360,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     bar_plot.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
     bar_plot.savefig(os.path.join(save_directory, ms_label + '.svg'))
     plt.close()
+
 def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     """
     Plot amino acid statistics
@@ -533,6 +537,13 @@ def read_spectra(args):
                 out_dict[name] = reader(filename)
     return out_dict
 
+def matching(l):
+    seq = l[0]
+    exp_dict =l[1]
+    tolerance =l[2]
+    mass_dict=l[3]
+    theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
+    return locTools.RNHS_fast(exp_dict, theor_spec[1], 4)[1]
 
 def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance= 0.02):
 #    print(row.index, row[params_dict['peptides_column']])
@@ -547,17 +558,52 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     mass_dict.update({'m': mass_shift})
     scores = []
 #    print(sequences)
+#    
+    with Pool(4) as p:
+        scores = list(p.map(matching, [[i, exp_dict, tolerance, mass_dict] for i in sequences]))
+#    for seq in sequences:
+#        theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
+##        print(theor_spec)
+#        scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], 4)[1])
+    try:    
+        top_isoform = sequences[np.argmax(scores)]
+    except:
+#        print('=======================================')
+#        print(row)
+#        print('=======================================')
+        return row[params_dict['peptides_column']], Counter()
+    loc_index = top_isoform.find('m')
+    if top_isoform[loc_index + 1] in loc_candidates:
+        loc_stat_dict[top_isoform[loc_index + 1]] += 1
+    if 'N-term' in loc_candidates and loc_index == 0:
+        loc_stat_dict['N-term'] += 1
+    if 'C-term' in loc_candidates and loc_index == len(top_isoform) - 2:
+        loc_stat_dict['C-term'] += 1  
+#    print(sequences, scores, loc_stat_dict)
+    if len(loc_stat_dict) == 0:
+        return top_isoform, {}
+    else:
+        return top_isoform, loc_stat_dict
+
+def localization_of_modification_(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance= 0.02):
+#    print(row.index, row[params_dict['peptides_column']])
+    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']], mass_shift, list(loc_candidates))
+    exp_spec = spectra_dict[row['file']].get_by_id(row[params_dict['spectrum_column']])
+    tmp = exp_spec['m/z array'] / tolerance
+    tmp = tmp.astype(int)
+    loc_stat_dict = Counter()
+    exp_dict = {i:j for i, j in zip(tmp, exp_spec['intensity array'])}
+    mass_dict = mass.std_aa_mass
+    mass_dict.update({'m': mass_shift})
+    scores = []
     for seq in sequences:
         theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
-#        print(theor_spec)
         scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], 4)[1])
     try:    
         top_isoform = sequences[np.argmax(scores)]
     except:
-        print('=======================================')
-        print(row)
-        print('=======================================')
-        return row[params_dict['peptides_column']], {}
+
+        return row[params_dict['peptides_column']], Counter()
     loc_index = top_isoform.find('m')
     if top_isoform[loc_index + 1] in loc_candidates:
         loc_stat_dict[top_isoform[loc_index + 1]] += 1
@@ -571,8 +617,30 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     else:
         return top_isoform, loc_stat_dict
     
-    
-        
+def MP_localization(l):
+        ms = l[0]
+        df = l[2]
+        locmod_df =l[1]
+        params_dict = l[3]
+        spectra_dict= l[4]
+        if ms != 0.0:
+            if not locmod_df['is isotope'][mass_format(ms)]:
+#                if abs(ms -0.98) < 0.5:
+#                print(ms)
+                locations = locmod_df.loc[mass_format(ms), 'all candidates']
+                logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
+                f = pd.DataFrame(df.apply(lambda x:localization_of_modification(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),
+                                 index=df.index, columns=['top_isoform', 'loc_counter'])
+        #        print(f)
+                df['top_isoform'] = f['top_isoform']
+                df['loc_counter'] = f['loc_counter']
+                logging.info('Mass shift %s calculated', mass_format(ms))
+                return df['loc_counter'].sum()  
+            else:
+                return Counter()
+        else:
+            return Counter()
+
 
 def main():
     pars = argparse.ArgumentParser()
@@ -666,17 +734,21 @@ def main():
     locmod_df['all candidates'] = locmod_df.apply(lambda x: set(x['unimod candidates'])|(set(x['aa_stat candidates'])), axis=1)
     locmod_df.to_csv(os.path.join(save_directory, 'test1.csv'))
     localization_dict = {}
+#    s = list(mass_shift_data_dict.keys())
+#    print(s)
+#    with Pool(3) as p:
+#        loc = list(p.map(MP_localization, [[i, locmod_df, mass_shift_data_dict[i], params_dict, spectra_dict] for i in s[2:4] ]))
+#    print(loc)
     for ms, df in mass_shift_data_dict.items():
 #        print(df.head())
         if ms != 0.0:
             if not locmod_df['is isotope'][mass_format(ms)]:
-#                if abs(ms -17) < 0.5:
+#                if abs(ms -0.98) < 0.5 or abs(ms+17)<0.5:
 #                print(ms)
                 locations = locmod_df.loc[mass_format(ms), 'all candidates']
                 logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
-                f = pd.DataFrame(df.apply(lambda x:localization_of_modification(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),
+                f = pd.DataFrame(df.apply(lambda x:localization_of_modification_(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
-        #        print(f)
                 df['top_isoform'] = f['top_isoform']
                 df['loc_counter'] = f['loc_counter']
                 localization_dict[mass_format(ms)] = df['loc_counter'].sum()
