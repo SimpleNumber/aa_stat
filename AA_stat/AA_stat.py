@@ -547,7 +547,7 @@ def matching(l):
 
 def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance= 0.02):
 #    print(row.index, row[params_dict['peptides_column']])
-    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']], mass_shift, list(loc_candidates))
+    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']],set(loc_candidates))
     exp_spec = spectra_dict[row['file']].get_by_id(row[params_dict['spectrum_column']])
     tmp = exp_spec['m/z array'] / tolerance
     tmp = tmp.astype(int)
@@ -587,7 +587,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
 
 def localization_of_modification_(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance= 0.02):
 #    print(row.index, row[params_dict['peptides_column']])
-    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']], mass_shift, list(loc_candidates))
+    sequences = locTools.peptide_isoforms(row[params_dict['peptides_column']], set(loc_candidates))
     exp_spec = spectra_dict[row['file']].get_by_id(row[params_dict['spectrum_column']])
     tmp = exp_spec['m/z array'] / tolerance
     tmp = tmp.astype(int)
@@ -743,8 +743,8 @@ def main():
 #        print(df.head())
         if ms != 0.0:
             if not locmod_df['is isotope'][mass_format(ms)]:
-#                if abs(ms -0.98) < 0.5 or abs(ms+17)<0.5:
-#                print(ms)
+#                if abs(ms +128) < 0.5 or abs(ms+18)<0.5:
+    #                print(ms)
                 locations = locmod_df.loc[mass_format(ms), 'all candidates']
                 logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
                 f = pd.DataFrame(df.apply(lambda x:localization_of_modification_(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),

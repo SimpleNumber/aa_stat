@@ -109,27 +109,24 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
         return 0, 0
     
     
-def peptide_isoforms(sequence, ms, localizations):
+def peptide_isoforms(sequence, localizations):
     """
     Forms list of modified amino acid candidates.
     `variable_mods` - dict of modification's name (key) and amino acids (values)
     Return list of isoforms [isoform1,isoform2] 
     
     """
-    if 'N-term' in localizations:
-        localizations.append(''.join(['nterm', sequence[0]]))
-        localizations.remove('N-term')
-    if 'C-term' in localizations:
-        localizations.append(''.join(['cterm', sequence[-1]]))
-        localizations.remove('C-term')
-    mass_dict = mass.std_aa_mass
-    mass_dict.update({'m': ms})
-    pep_mass = mass.fast_mass2(sequence) + ms
     isoforms = []
-    for j in  parser.isoforms(sequence, variable_mods={'m':localizations}, ): #format='split'
-        if abs(mass.fast_mass2(j, aa_data=mass_dict) - pep_mass) < 0.1:
-            isoforms.append(j) #[''.join(i) for i in j]
-    return isoforms
+    if 'N-term' in localizations:
+        isoforms.append(''.join(['m', sequence]))
+    if 'C-term' in localizations:
+        isoforms.append(''.join([sequence[:-1],'m', sequence[-1] ]))
+
+    for i,j in  enumerate(sequence): #format='split'
+        if j in localizations:
+            isoforms.append(''.join([sequence[:i],'m', sequence[i:]]))
+            #[''.join(i) for i in j]
+    return set(isoforms)
 
 def get_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
     """
