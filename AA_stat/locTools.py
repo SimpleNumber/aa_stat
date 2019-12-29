@@ -24,37 +24,18 @@ except ImportError:
 
 #    import customparser as cparser
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
-#def get_spectra_from_mgf(file_dir, spectrum, suffix, tolerance=0.01):
-#    """
-#    Retrive MSMS `spectra` from `file_name` file.
-#    Returns  spectrum_idict {int_mass:intensity}
-#    """
-#    file_name = '.'.join([spectrum.split('.')[0], suffix])
-#    mgf_file = mgf.read(os.path.join(file_dir, file_name))
-#    mgf_file.get_spectrum(spectrum)
-#    experimantal_spectrum =  mgf_file.get_spectrum(spectrum)
-#    mz = np.array(experimantal_spectrum['m/z array'])/ tolerance 
-#    return dict(zip(mz.round(0).astype('int64'), experimantal_spectrum['intensity array']))
-#def generate_theor_spec (sequence, mod_mass_dict,  types=('b', 'y'), maxcharge=1):
-#    """
-#    Generates theor spectrum from `sequence` (where modified amino acid marked with lower case prefix 'x') with `mod_mass` on amino acid.
-#    Returns list of mz.
-#    
-#    """
-#    mass_dict = mass.std_aa_mass
-#    mass_dict.update(mod_mass_dict)
-#    for i in range(1, len(sequence)-1):
-#        if sequence[i-1].isupper() :
-#            for ion_type in types:
-#                for charge in range(1, maxcharge+1):              
-#                    if ion_type[0] in 'abc':
-#                        yield mass.fast_mass2(
-#                            sequence[:i], ion_type=ion_type, charge=charge, aa_data=mass_dict)
-#                    else:
-#                        yield mass.fast_mass2(
-#                            sequence[i:], ion_type=ion_type, charge=charge, aa_mass=mass_dict)
 
-def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, reshape=False, **kwargs ):
+def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, **kwargs ):
+    """
+    Calculates theoretical spectra in two ways: usual one. and formatter in integer (mz / frag_acc).
+    `peptide` -peptide sequence
+    `acc_frag` - accuracy of matching.
+    `types` - ion types.
+    `maxcharge` - maximum charge.
+    
+    ----------
+    Returns spectra in two ways (usual, integer)
+    """
     peaks = {}
     theoretical_set = defaultdict(set)
     pl = len(peptide) - 1
@@ -81,16 +62,22 @@ def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, res
             tmp = marr / acc_frag
             tmp = tmp.astype(int)
             theoretical_set[ion_type].update(tmp)
-            if not reshape:
-                marr.sort()
-            else:
-                n = marr.size
-                marr = marr.reshape((n, 1))
+            marr.sort()
             peaks[ion_type, charge] = marr
     return peaks, theoretical_set
 
 
 def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
+    """
+    Matches expetimental and theoretical spectra. 
+    `spectrum_idict` - mass in int format (real mz / fragment accuracy)
+    `theoretical_set` -output of get_theor_spec, dict where keys is ion type, values 
+    masses in int format.
+    `min_matched` - minumum peaks matched.
+    
+    ---------
+    Return score
+    """
     isum = 0
     matched_approx_b, matched_approx_y = 0, 0
     for ion in theoretical_set['b']:
