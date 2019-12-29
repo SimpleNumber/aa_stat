@@ -560,9 +560,10 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         theor_spec = locTools.get_theor_spectrum(seq, tolerance, aa_data = mass_dict)
         scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
     try:
-        sorted_sequences = sorted(sequences, reverse=True)
-        if abs(sorted_sequences[0] - sorted_sequences[1]) < 1:
-            print('Hereeeee')
+        sorted_scores= sorted(scores, reverse=True)
+#        print()
+        if sorted_scores[0] == sorted_scores[1]:
+#            print('Hereeeee')
             loc_stat_dict['non-localized'] += 1
             return row[params_dict['peptides_column']], loc_stat_dict
         else:
