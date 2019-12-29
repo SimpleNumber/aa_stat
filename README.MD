@@ -8,11 +8,13 @@ An open source software for amino acid residue modification analyses in proteomi
 
 **AA_stat** is a tool for shotgun proteomics that uncovers the unexpected modifications of amino acid residues in the protein sequences, as well as possible artefacts of data acquisition or processing, in the results of proteome analysis. 
 AA_stat calculates and visualizes amino acid occurrence frequencies for the identified peptides. AA_stat processes the results of open search and composes a list of identified mass shifts that can be attributed to modifications. The processing involves Gaussian fitting of potential peaks, group-specific FDR filtering, amino acid counting, and appearance frequency normalization for the particular mass shifts.
-The algorithm was implemented in Python as an open-source command-line tool available at [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/)
+The algorithm was implemented in Python as an open-source command-line tool available at [https://github.com/SimpleNumber/aa_stat](https://github.com/SimpleNumber/aa_stat)
+
+Project moved from [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/)
 
 ## Installation
 
-Download from BitBucket repository [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/)
+Download from Github repository [https://github.com/SimpleNumber/aa_stat](https://github.com/SimpleNumber/aa_stat)
 In the directory containing **setup.py** file run the following command:
 ```
 pip install .
@@ -68,6 +70,9 @@ This file has following parameters:
 | standard deviation threshold for sigma | 0.1 | Threshold value for the standard error of sigma, relative to sigma, as determined by the Gaussian fit algorithm. |
 | standard deviation threshold for height | 0.15 | Threshold value for the standard error of peak height, relative to peak height, as determined by the Gaussian fit algorithm. |
 | shift error                      | 10 | Minimal distance between fitted Gaussian peaks (in histogram bins). Closer peaks will be merged. |
+|                                  |**[localization]**|                          |
+| spectrum column                  | spectrum      | Name of column with spectrum IDs |
+| charge column               | assumed_charge         | Name of column with assumed charges |
 
 ### Open search results
 
@@ -78,7 +83,7 @@ AA_stat is compatible with the search results obtained using most existing searc
 
 ### Examples
 
-An example of the open search parameters file can be found in the BitBucket [repository](https://bitbucket.org/J_Bale/aa_stat/) of AA_stat. 
+An example of the open search parameters file can be found in the Github [repository](https://github.com/SimpleNumber/aa_stat) of AA_stat. 
 
 Example of MSFragger usage:
 
