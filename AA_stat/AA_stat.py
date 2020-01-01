@@ -547,12 +547,18 @@ def read_spectra(args):
 
 def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
 #    print(row.index, row[params_dict['peptides_column']])
-#    if sum_mod:
-#        mass_dict = mass.std_aa_mass
-#        mass_dict.update({'m': mass_shift[0]})
-#        mass_dict.update({'n': mass_shift[1]})
-#        mass_dict.update({'k': mass_shift[2]})
-    sequences = list(locTools.peptide_isoforms(row[params_dict['peptides_column']], set(loc_candidates)))
+    mass_dict = mass.std_aa_mass
+    sequences = list(locTools.peptide_isoforms(row[params_dict['peptides_column']], loc_candidates, sum_mod=sum_mod))
+#    print(sequences)
+    if sum_mod:      
+        mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
+#        print(mass_dict)
+#        print(sequences)
+        loc_cand, loc_cand_1, loc_cand_2  = loc_candidates
+    else:
+        mass_dict.update({'m': mass_shift[0]})
+        loc_cand = loc_candidates
+    
     if params_dict['mzml_files']:
         scan = row[params_dict['spectrum_column']].split('.')[1]
         spectrum_id = ''.join(['controllerType=0 controllerNumber=1 scan=', scan])
@@ -565,8 +571,6 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     tmp = tmp.astype(int)
     loc_stat_dict = Counter()
     exp_dict = {i:j for i, j in zip(tmp, exp_spec['intensity array'])}
-    mass_dict = mass.std_aa_mass
-    mass_dict.update({'m': mass_shift})
     scores = [] # write for same scores return non-loc
 #    print(sequences)
     charge = row[params_dict['charge_column']]
@@ -582,15 +586,32 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
             return row[params_dict['peptides_column']], loc_stat_dict
         else:
             top_isoform = sequences[np.argmax(scores)]
+#            print(top_isoform)
     except:
         return row[params_dict['peptides_column']], Counter()
     loc_index = top_isoform.find('m')
-    if top_isoform[loc_index + 1] in loc_candidates:
+    if top_isoform[loc_index + 1] in loc_cand:
         loc_stat_dict[top_isoform[loc_index + 1]] += 1
-    if 'N-term' in loc_candidates and loc_index == 0:
+    if 'N-term' in loc_cand and loc_index == 0:
         loc_stat_dict['N-term'] += 1
-    if 'C-term' in loc_candidates and loc_index == len(top_isoform) - 2:
-        loc_stat_dict['C-term'] += 1  
+    if 'C-term' in loc_cand and loc_index == len(top_isoform) - 2:
+        loc_stat_dict['C-term'] += 1 
+    loc_index = top_isoform.find('n')
+    loc_index_2 = top_isoform.find('k')
+    if loc_index > -1:
+#        1print('====', top_isoform)
+        if top_isoform[loc_index + 1] in loc_cand_1:
+            loc_stat_dict[top_isoform[loc_index + 1] +'_mod1'] += 1
+            loc_stat_dict[top_isoform[loc_index_2 + 1] +'_mod2'] += 1
+        if 'N-term' in loc_cand_1 and loc_index == 0:
+            loc_stat_dict['N-term_mod1'] += 1
+        if 'C-term' in loc_cand_1 and loc_index == len(top_isoform) - 2:
+            loc_stat_dict['C-term_mod1'] += 1    
+        if 'N-term' in loc_cand_2 and loc_index_2 == 0:
+            loc_stat_dict['N-term_mod2'] += 1
+        if 'C-term' in loc_cand_2 and loc_index_2 == len(top_isoform) - 2:
+            loc_stat_dict['C-term_mod2'] += 1
+#    print(loc_stat_dict)
 #    print(sequences, scores, loc_stat_dict)
     if len(loc_stat_dict) == 0:
         return top_isoform, {}
@@ -662,8 +683,6 @@ def main():
     logging.info('AA_stat results saved to %s', os.path.abspath(args.dir))
     
     table.index = table['mass shift'].apply(mass_format)
-#    print(table)
-#    print(args.mgf)
     spectra_dict = read_spectra(args)
     if spectra_dict.keys():
         if args.mgf:
@@ -694,66 +713,44 @@ def main():
 #            !print(locmod_df['all candidates'][i])
         localization_dict = {}
         for ms, df in mass_shift_data_dict.items():
-#        print(df.head())
-#            if ms != 0.0:
-#                if not locmod_df['is isotope'][mass_format(ms)]:
-    #                if abs(ms +128) < 0.5 or abs(ms+18)<0.5:
-    #                print(ms)
             if locmod_df['sum of mass shifts'][mass_format(ms)] == False and ms != 0.0:
                 locations_ms = locmod_df.loc[mass_format(ms), 'all candidates']
-                logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
+                logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations_ms))
                 f = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, locations_ms,
                                                                                 params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
                 df['top_isoform'] = f['top_isoform']
                 df['loc_counter'] = f['loc_counter']
                 localization_dict[mass_format(ms)] = df['loc_counter'].sum()
-#        for ms, df in mass_shift_data_dict.items():
-#            if ms != 0.0:
-        
-        
         localization_dict[mass_format(0.000000)]= Counter()
         masses_to_calc = set(locmod_df.index).difference(set(localization_dict.keys())) 
-        print(masses_to_calc)
         cond = True
         while cond:  
             for ms in masses_to_calc:
-#                print(ms)
                 masses = locmod_df['sum of mass shifts'][ms]
                 if masses != False:
                     if mass_format(masses[0]) in localization_dict and mass_format(masses[1]) in localization_dict:
 
                         df = mass_shift_data_dict[locmod_df['mass shift'][ms]]
-                        locations_ms = locmod_df.loc[mass_format(ms), 'all candidates']
-                        locations_ms1 =locmod_df.loc[masses[0], 'all candidates']
-                        locations_ms2 = locmod_df.loc[masses[1], 'all candidates']
-                        f = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],masses[0], masses[1]], x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, spectra_dict), axis=1).to_list(),
+                        locations_ms = locmod_df.loc[ms, 'all candidates']
+                        locations_ms1 =locmod_df.loc[mass_format(masses[0]), 'all candidates']
+                        locations_ms2 = locmod_df.loc[mass_format(masses[1]), 'all candidates']
+                        f = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],masses[0], masses[1]],
+                                                                                        x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, 
+                                                                                        spectra_dict, sum_mod=True), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
+                        df['top_isoform'] = f['top_isoform']
+                        df['loc_counter'] = f['loc_counter']
+                        localization_dict[ms] = df['loc_counter'].sum()
                         masses_to_calc = masses_to_calc.difference(set([ms]))
-#            print('====', masses_to_calc)
             if len(masses_to_calc) == 0:
                 cond = False
         locmod_df['localization'] = pd.Series(localization_dict)
         print(locmod_df)
-        locmod_df.to_csv(os.path.join(save_directory, 'test2.csv'))
-        logging.info('Done')
+        locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'))
+#        logging.info('Done')
     else:
         logging.info('No spectra files. MSMS spectrum localization is not performed.')
-    
-
-    
-#        print(df)
-#        df['top isoform'] = top_isoforms
-#        df['loc_counter'] = loc_counter
-##        pd.DataFrame(index=locations)
-#        print(df['counter'].sum())
-#        print(df.columns)
-#        print(df.spectrum)
-#        print(df.peptide)
-#        break
-#        df.apply(lambda x: localization_of_modification(ms, x))
-    
-    
 
 if __name__ == '__main__':
     main()

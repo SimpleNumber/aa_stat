@@ -103,9 +103,9 @@ def peptide_isoforms(sequence, localizations, sum_mod=False):
     
     """
     if sum_mod:
-        loc_ = localizations[0]
-        loc_1 = localizations[1]
-        loc_2 = localizations[2]
+        loc_ = set(localizations[0])
+        loc_1 = set(localizations[1])
+        loc_2 = set(localizations[2])
         sum_seq_1 = []  
         isoforms = []
         for i,j in  enumerate(sequence): 
@@ -118,7 +118,7 @@ def peptide_isoforms(sequence, localizations, sum_mod=False):
                 if j in loc_2 and new_s[i-1] !='n':
                     isoforms.append(''.join([new_s[1:i],'k', new_s[i:-1]]))
     else:
-        loc_ = localizations
+        loc_ = set(localizations)
         isoforms = []
     if 'N-term' in loc_:
         isoforms.append(''.join(['m', sequence]))
