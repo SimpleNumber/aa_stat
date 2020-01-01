@@ -14,8 +14,8 @@ from scipy.stats import ttest_ind
 from scipy.optimize import curve_fit
 import logging
 import warnings
-from itertools import product
-from multiprocessing import Pool
+#from itertools import product
+#from multiprocessing import Pool
 from . import locTools
 try:
     from configparser import ConfigParser
@@ -545,8 +545,13 @@ def read_spectra(args):
 
 
 
-def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC):
+def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
 #    print(row.index, row[params_dict['peptides_column']])
+#    if sum_mod:
+#        mass_dict = mass.std_aa_mass
+#        mass_dict.update({'m': mass_shift[0]})
+#        mass_dict.update({'n': mass_shift[1]})
+#        mass_dict.update({'k': mass_shift[2]})
     sequences = list(locTools.peptide_isoforms(row[params_dict['peptides_column']], set(loc_candidates)))
     if params_dict['mzml_files']:
         scan = row[params_dict['spectrum_column']].split('.')[1]
@@ -666,11 +671,11 @@ def main():
         else:
             params_dict['mzml_files'] = True
         logging.info('Starting Localization using MS/MS spectra...')
-        print(params_dict['mzml_files'])
+#        print(params_dict['mzml_files'])
         ms_labels = pd.Series(ms_labels)
         locmod_df = pd.DataFrame({'mass shift':ms_labels})
         locmod_df['# peptides in bin'] = table['# peptides in bin']
-        locmod_df['is isotope'] =  locTools.find_isotopes(locmod_df['mass shift'], tolerance=ISOTOPE_TOLERANCE)
+        locmod_df[['is isotope', 'isotop_ind']] =  locTools.find_isotopes(locmod_df['mass shift'], tolerance=ISOTOPE_TOLERANCE)
         locmod_df['sum of mass shifts'] = locTools.find_modifications(locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
         locmod_df['sum of mass shifts'].fillna(False, inplace=True)
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table, 
@@ -681,20 +686,53 @@ def main():
         locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(lambda x: locTools.get_candidates_from_unimod(x, UNIIMOD_TOLERANCE, unimod_db, unimod_df))
         locmod_df['all candidates'] = locmod_df.apply(lambda x: set(x['unimod candidates'])|(set(x['aa_stat candidates'])), axis=1)
         locmod_df.to_csv(os.path.join(save_directory, 'test1.csv'))
+        for i in locmod_df.loc[locmod_df['is isotope']].index:
+#            print(i)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                locmod_df['all candidates'][i] = locmod_df['all candidates'][i].union(locmod_df['all candidates'][locmod_df['isotop_ind'][i]])
+#            !print(locmod_df['all candidates'][i])
         localization_dict = {}
         for ms, df in mass_shift_data_dict.items():
 #        print(df.head())
-            if ms != 0.0:
-                if not locmod_df['is isotope'][mass_format(ms)]:
+#            if ms != 0.0:
+#                if not locmod_df['is isotope'][mass_format(ms)]:
     #                if abs(ms +128) < 0.5 or abs(ms+18)<0.5:
-        #                print(ms)
-                    locations = locmod_df.loc[mass_format(ms), 'all candidates']
-                    logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
-                    f = pd.DataFrame(df.apply(lambda x:localization_of_modification(ms, x, locations, params_dict, spectra_dict), axis=1).to_list(),
-                                     index=df.index, columns=['top_isoform', 'loc_counter'])
-                    df['top_isoform'] = f['top_isoform']
-                    df['loc_counter'] = f['loc_counter']
-                    localization_dict[mass_format(ms)] = df['loc_counter'].sum()
+    #                print(ms)
+            if locmod_df['sum of mass shifts'][mass_format(ms)] == False and ms != 0.0:
+                locations_ms = locmod_df.loc[mass_format(ms), 'all candidates']
+                logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations))
+                f = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, locations_ms,
+                                                                                params_dict, spectra_dict), axis=1).to_list(),
+                                 index=df.index, columns=['top_isoform', 'loc_counter'])
+                df['top_isoform'] = f['top_isoform']
+                df['loc_counter'] = f['loc_counter']
+                localization_dict[mass_format(ms)] = df['loc_counter'].sum()
+#        for ms, df in mass_shift_data_dict.items():
+#            if ms != 0.0:
+        
+        
+        localization_dict[mass_format(0.000000)]= Counter()
+        masses_to_calc = set(locmod_df.index).difference(set(localization_dict.keys())) 
+        print(masses_to_calc)
+        cond = True
+        while cond:  
+            for ms in masses_to_calc:
+#                print(ms)
+                masses = locmod_df['sum of mass shifts'][ms]
+                if masses != False:
+                    if mass_format(masses[0]) in localization_dict and mass_format(masses[1]) in localization_dict:
+
+                        df = mass_shift_data_dict[locmod_df['mass shift'][ms]]
+                        locations_ms = locmod_df.loc[mass_format(ms), 'all candidates']
+                        locations_ms1 =locmod_df.loc[masses[0], 'all candidates']
+                        locations_ms2 = locmod_df.loc[masses[1], 'all candidates']
+                        f = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],masses[0], masses[1]], x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, spectra_dict), axis=1).to_list(),
+                                 index=df.index, columns=['top_isoform', 'loc_counter'])
+                        masses_to_calc = masses_to_calc.difference(set([ms]))
+#            print('====', masses_to_calc)
+            if len(masses_to_calc) == 0:
+                cond = False
         locmod_df['localization'] = pd.Series(localization_dict)
         print(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'test2.csv'))

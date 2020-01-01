@@ -11,18 +11,17 @@ matplotlib.use('Agg')
 import pandas as pd
 import numpy as  np
 from collections import defaultdict
-from pyteomics import parser, pepxml, mgf, mzml, mass
+from pyteomics import  mass #parser, pepxml, mgf, mzml,
 from pyteomics import electrochem as ec
-from scipy.spatial import cKDTree
-import numpy as np
+#from scipy.spatial import cKDTree
 from math import factorial
-from copy import copy
+#from copy import copy
 try:
     from pyteomics import cmass
 except ImportError:
     cmass = mass
 
-#    import customparser as cparser
+
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
 
 def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, **kwargs ):
@@ -96,23 +95,41 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
         return 0, 0
     
     
-def peptide_isoforms(sequence, localizations):
+def peptide_isoforms(sequence, localizations, sum_mod=False):
     """
     Forms list of modified amino acid candidates.
     `variable_mods` - dict of modification's name (key) and amino acids (values)
     Return list of isoforms [isoform1,isoform2] 
     
     """
-    isoforms = []
-    if 'N-term' in localizations:
+    if sum_mod:
+        loc_ = localizations[0]
+        loc_1 = localizations[1]
+        loc_2 = localizations[2]
+        sum_seq_1 = []  
+        isoforms = []
+        for i,j in  enumerate(sequence): 
+            if j in loc_1:
+                sum_seq_1.append(''.join([sequence[:i],'n', sequence[i:]]))
+        for s in sum_seq_1:
+            new_s = ''.join(['0', s, '0'])
+            for i,j in  enumerate(new_s[1:-1], 1): 
+                
+                if j in loc_2 and new_s[i-1] !='n':
+                    isoforms.append(''.join([new_s[1:i],'k', new_s[i:-1]]))
+    else:
+        loc_ = localizations
+        isoforms = []
+    if 'N-term' in loc_:
         isoforms.append(''.join(['m', sequence]))
-    if 'C-term' in localizations:
+    if 'C-term' in loc_:
         isoforms.append(''.join([sequence[:-1],'m', sequence[-1] ]))
 
     for i,j in  enumerate(sequence): #format='split'
-        if j in localizations:
+        if j in loc_:
             isoforms.append(''.join([sequence[:i],'m', sequence[i:]]))
-            #[''.join(i) for i in j]
+     #[''.join(i) for i in j]
+
     return set(isoforms)
 
 def get_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
@@ -142,11 +159,12 @@ def find_isotopes(ms, tolerance=0.01):
     -----------
     Returns Series of boolean.
     """
-    out = pd.Series(False, index=ms.index)
+    out = pd.DataFrame({'isotope':False, 'monoisotop_index': False}, index=ms.index)
     np_ms = ms.to_numpy()
     difference_matrix = np.abs(np_ms.reshape(-1, 1) - np_ms.reshape(1, -1) - DIFF_C13)
     isotop, monoisotop = np.where(difference_matrix < tolerance)
-    out.iloc[isotop] = True
+    out.iloc[isotop, 0] = True
+    out.iloc[isotop, 1] = out.iloc[monoisotop, :].index
     return out
 def find_mod_sum(x, df, sum_matrix, tolerance):
     out = df.loc[np.where(np.abs(sum_matrix - x['mass_shift']) < tolerance)[0],'mass_shift'].to_list() 
