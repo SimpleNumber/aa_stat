@@ -747,7 +747,7 @@ def main():
                 cond = False
         locmod_df['localization'] = pd.Series(localization_dict)
         print(locmod_df)
-        locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'))
+        locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 #        logging.info('Done')
     else:
         logging.info('No spectra files. MSMS spectrum localization is not performed.')
