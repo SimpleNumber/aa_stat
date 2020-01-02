@@ -724,18 +724,27 @@ def main():
                 localization_dict[mass_format(ms)] = df['loc_counter'].sum()
         localization_dict[mass_format(0.000000)]= Counter()
         masses_to_calc = set(locmod_df.index).difference(set(localization_dict.keys())) 
-        cond = True
+        if any(locmod_df['sum of mass shifts'] != False):
+            cond = True
+        else:
+            cond = False
+        locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
         while cond:  
             for ms in masses_to_calc:
                 masses = locmod_df['sum of mass shifts'][ms]
                 if masses != False:
-                    if mass_format(masses[0]) in localization_dict and mass_format(masses[1]) in localization_dict:
+                    if len(masses) == 1:
+                        mass_1 = masses[0]
+                        mass_2 = masses[0]
+                    else:
+                        mass_1, mass_2 = masses
+                    if mass_format(mass_1) in localization_dict and mass_format(mass_2) in localization_dict:
 
                         df = mass_shift_data_dict[locmod_df['mass shift'][ms]]
                         locations_ms = locmod_df.loc[ms, 'all candidates']
-                        locations_ms1 =locmod_df.loc[mass_format(masses[0]), 'all candidates']
-                        locations_ms2 = locmod_df.loc[mass_format(masses[1]), 'all candidates']
-                        f = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],masses[0], masses[1]],
+                        locations_ms1 =locmod_df.loc[mass_format(mass_1), 'all candidates']
+                        locations_ms2 = locmod_df.loc[mass_format(mass_2), 'all candidates']
+                        f = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
                                                                                         x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, 
                                                                                         spectra_dict, sum_mod=True), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
