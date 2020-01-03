@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as  np
 import pylab as plt
 import os
-import argparse
+
 import ast
 import seaborn as sb
 from collections import defaultdict, Counter
@@ -14,14 +14,9 @@ from scipy.stats import ttest_ind
 from scipy.optimize import curve_fit
 import logging
 import warnings
-#from itertools import product
-#from multiprocessing import Pool
 from . import locTools
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
 from pyteomics import parser, pepxml, mass, mgf, mzml
+logger = logging.getLogger(__name__)
 
 cc = ["#FF6600",
       "#FFCC00",
@@ -38,14 +33,17 @@ FRAG_ACC = 0.02
 AA_STAT_CAND_THRESH = 1.5
 ISOTOPE_TOLERANCE = 0.015
 UNIIMOD_TOLERANCE = 0.01
+
+
 def mass_format(mass):
     return MASS_FORMAT.format(mass)
 
+
 def get_unimod_url(mass_shift):
-#    return 0
     return ('http://www.unimod.org/modifications_list.php'
         '?a=search&value=1&SearchFor={:.0f}.&'
         'SearchOption=Starts+with+...&SearchField=mono_mass'.format(mass_shift))
+
 
 def make_0mc_peptides(pep_list, rule):
     out_set = set()
@@ -53,9 +51,8 @@ def make_0mc_peptides(pep_list, rule):
         out_set.update(parser.cleave(i, rule))
     return out_set
 
-    
-def get_peptide_statistics(peptide_list, rule):
 
+def get_peptide_statistics(peptide_list, rule):
     sum_aa = 0
     pep_set = set(peptide_list)
     d = defaultdict(int)
@@ -66,11 +63,12 @@ def get_peptide_statistics(peptide_list, rule):
     for i in d:
         d[i] = int(100 * d[i] / sum_aa)
     return d
+
+
 def get_aa_distribution(peptide_list, rule):
     """
-    Calculates amino acid statistics in a `peptide_list` and cleave missed cleaved peptides according to the `rule`.
-    -----------
-    Returns dict with amino acids as a keys and their relative(to the 'peptide list') abundance as a value. 
+    Calculates amino acid statistics in a `peptide_list` and cleaves miscleaved peptides according to `rule`.
+    Returns dict with amino acids as keys and their relative abundances as values.
     """
     sum_aa = 0
     pep_set = make_0mc_peptides(peptide_list, rule)
@@ -80,24 +78,35 @@ def get_aa_distribution(peptide_list, rule):
             d[let] += 1
             sum_aa += 1
     for i in d:
-        d[i] = d[i] / sum_aa
+        d[i] /= sum_aa
     return d
+
 
 def smooth(y, window_size=15, power=5):
     y_smooth = savgol_filter(y, window_size, power)
     return y_smooth
 
+
 def save_table(distributions, number_of_PSMs, mass_shifts):
     '''
-    `distributions` - DataFrame with amino acids statistics, where indexes are amino acids, columns mass shifts (str)
-    `number_of_PSMs` Seriers where indexes are mass shifts (in str format) and values are numbers of filtered PSMs 
-    `mass_shift` a dict with relations between mass shift in str format (rounded) and actual mass shifts (float)
-    -----------
-    Returns table with mass shifts, psms, aa statistics columns.
+    Parameters
+    ----------
+    distributions : DataFrame
+        Amino acids statistics, where indexes are amino acids, columns mass shifts (str)
+    number_of_PSMs : Series
+        Indexes are mass shifts (in str format) and values are numbers of filtered PSMs
+    mass_shifts : dict
+        Mass shift in str format (rounded) -> actual mass shift (float)
+
+
+    Returns
+    -------
+
+    A table with mass shifts, psms, aa statistics columns.
     '''
 
     unimod = pd.Series({i: get_unimod_url(float(i)) for i in number_of_PSMs.index})
-    df = pd.DataFrame({'mass shift': [ mass_shifts[k] for k in distributions.columns],
+    df = pd.DataFrame({'mass shift': [mass_shifts[k] for k in distributions.columns],
                        '# peptides in bin': number_of_PSMs},
                       index=distributions.columns)
     df['# peptides in bin'] = df['# peptides in bin'].astype(np.int64)
@@ -107,29 +116,30 @@ def save_table(distributions, number_of_PSMs, mass_shifts):
     i = ((out.drop(columns=['mass shift', 'Unimod', '# peptides in bin']).max(axis=1) - 1) * out['# peptides in bin']).argsort()
     return out.loc[i.values[::-1], :]
 
+
 def read_pepxml(fname, params_dict):
     return pepxml.DataFrame(fname, read_schema=False)
 
+
 def read_csv(fname, params_dict):
     df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
-    if df[params_dict['proteins_column']].str[0].all() == '[' and df[params_dict['proteins_column']].str[-1].all() == ']':
-        df[params_dict['proteins_column']] = df[params_dict['proteins_column']].apply(ast.literal_eval)
+    protein = params_dict['proteins_column']
+    if (df[protein].str[0] == '[').all() and (df[protein].str[-1] == ']').all():
+        df[protein] = df[protein].apply(ast.literal_eval)
     else:
-        df[params_dict['proteins_column']] = df[params_dict['proteins_column']].str.split(
-            params_dict['proteins_delimeter'])
+        df[protein] = df[protein].str.split(params_dict['proteins_delimeter'])
     return df
+
 
 def read_input(args, params_dict):
     """
-    Reads open search output, assemble all files in one DataFrame
-    -----------
-    Returns DF
+    Reads open search output, assembles all data in one DataFrame.
     """
     dfs = []
     data = pd.DataFrame()
     window = 0.3
     zero_bin = 0
-    logging.info('Reading input files...')
+    logger.info('Reading input files...')
     readers = {
         'pepxml': read_pepxml,
         'csv': read_csv,
@@ -141,11 +151,11 @@ def read_input(args, params_dict):
                 logging.info('Reading %s', filename)
                 df = reader(filename, params_dict)
                 hist_0 = np.histogram(df[abs(df[params_dict['mass_shifts_column']] - zero_bin) < window/2][params_dict['mass_shifts_column']], bins=10000)
-#                print(hist_0)
+                logger.debug('hist_0:', hist_0)
                 hist_y = hist_0[0]
                 hist_x = 1/2 * (hist_0[1][:-1] +hist_0[1][1:])
                 popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
-                logging.info('Systematic shift for file is {0:.4f} Da'.format(popt[1]))
+                logger.info('Systematic shift for file is {0:.4f} Da'.format(popt[1]))
                 df[params_dict['mass_shifts_column']] -= popt[1]
                 df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
                 dfs.append(df)
@@ -155,13 +165,13 @@ def read_input(args, params_dict):
     data.index = range(len(data))
     data['is_decoy'] = data[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
-    
+
     data['bin'] = np.digitize(data[params_dict['mass_shifts_column']], params_dict['bins'])
 #    data[params_dict['mass_shifts_column']].to_csv('mass_shift.csv', sep='\t')
     return data
 def fit_peaks(data, args, params_dict):
     """
-    Returns 
+    Returns
     """
     logging.info('Performing Gaussian fit...')
 
@@ -179,7 +189,7 @@ def fit_peaks(data, args, params_dict):
     plt.figure(figsize=(shape * 3, shape * 4))
     plt.tight_layout()
     for index, center in enumerate(loc_max_candidates_ind, 1):
-        
+
         x = hist_x[center - half_window: center + half_window + 1]
         y = hist[0][center - half_window: center + half_window + 1] #take non-smoothed data
 #        y_= hist_y[center - half_window: center + half_window + 1]
@@ -188,7 +198,7 @@ def fit_peaks(data, args, params_dict):
         if popt is None:
             label = 'NO FIT'
         else:
-            
+
             if x[0] <= popt[1] and popt[1] <= x[-1] and(perr[0]/popt[0] < params_dict['max_deviation_height']) \
             and (perr[2]/popt[2] < params_dict['max_deviation_sigma']):
                 label = 'PASSED'
@@ -199,10 +209,10 @@ def fit_peaks(data, args, params_dict):
                 label='FAILED'
         plt.plot(x, y, 'b+:', label=label)
         if label != 'NO FIT':
-            plt.scatter(x, gauss(x, *popt), 
+            plt.scatter(x, gauss(x, *popt),
                         label='Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]) )
-           
-            
+
+
         plt.legend()
         plt.title("{0:.3f}".format(hist[1][center]))
         plt.grid(True)
@@ -232,9 +242,9 @@ def gauss_fitting(center_y, x, y):
     `center_y` - starting point for `a` parameter of gauss
     `x` numpy array of mass shifts
     `y` numpy array of number of psms in this mass shifts
-    
+
     """
-    mean = sum(x *y) / sum(y)                  
+    mean = sum(x *y) / sum(y)
     sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
     a = center_y*sigma*np.sqrt(2*np.pi)
     try:
@@ -246,7 +256,7 @@ def gauss_fitting(center_y, x, y):
 
 
 def summarizing_hist(table, save_directory):
-    
+
     ax = table.sort_values('mass shift').plot(
         y='# peptides in bin', kind='bar', color=colors[2], figsize=(len(table), 5))
     ax.set_title("Peptides in mass shifts", fontsize=12) #PSMs
@@ -267,8 +277,8 @@ def summarizing_hist(table, save_directory):
     plt.tight_layout()
     plt.savefig(os.path.join(save_directory, 'summary.png'), dpi=500)
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
-    
-            
+
+
 def get_zero_mass_shift(mass_shifts):
 #    print(mass_shifts)
     """
@@ -282,7 +292,7 @@ def filter_mass_shifts(results):
 
     """
     Filter mass_shifts that close to each other.
-    
+
     Return poptperr matrix.
     """
     logging.info('Discarding bad peaks...')
@@ -292,7 +302,7 @@ def filter_mass_shifts(results):
         mean_diff = (results[ind][1] - results[ind+1][1]) ** 2
         sigma_diff = (results[ind][2] + results[ind+1][2]) ** 2
 #        print(results[ind][:3], results[ind+1][:3], mean_diff+sigma_diff)
-        if mean_diff > sigma_diff: 
+        if mean_diff > sigma_diff:
             out.append(mass_shift)
         else:
             logging.info('Joined mass shifts {:.4} {:.4}'.format( results[ind][1], results[ind+1][1]))
@@ -306,12 +316,12 @@ def group_specific_filtering(data, final_mass_shifts, params_dict):
     Returns....
     """
     logging.info('Performing group-wise FDR filtering...')
-    out_data = {} # dict corresponds list 
+    out_data = {} # dict corresponds list
     for mass_shift in final_mass_shifts:
         data_slice = data[np.abs(data[params_dict['mass_shifts_column']] - mass_shift[1]) < 3 * mass_shift[2] ].sort_values(by='expect') \
                          .drop_duplicates(subset=params_dict['peptides_column'])
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")                 
+            warnings.simplefilter("ignore")
             df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
 #        print(len(df))
         if len(df) > 0:
@@ -324,7 +334,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     'ms_label' mass shift in string format.
     'ms_counts' entries in a mass shift.
     'left
-    
+
     """
 
      #figure parameters
@@ -350,10 +360,10 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     bar_right.set_ylim(0,125)
     bar_right.set_yticks(np.arange(0,120, 20))
     bar_right.set_ylabel('Peptides with AA, %', color=colors[0])
-    
+
     bar_left.spines['left'].set_color(colors[2])
     bar_right.spines['left'].set_color(colors[2])
-    
+
     bar_left.spines['right'].set_color(colors[0])
     bar_right.spines['right'].set_color(colors[0])
     bar_left.tick_params('y', colors=colors[2])
@@ -370,8 +380,8 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     """
     Plot amino acid statistics
     'zero_mass_shift' is a systematic shift of zero masss shift, float.
-    'mass_shifts_dict' is a dict there keys are mass shifts(float) 
-    and values are DataFrames of filtered windows(3 sigma) around this mass.  
+    'mass_shifts_dict' is a dict there keys are mass shifts(float)
+    and values are DataFrames of filtered windows(3 sigma) around this mass.
     'params_dict' is a dict of parameters from parsed cfg file.
     'args' files paths (need to take the saving directory)
     """
@@ -387,7 +397,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     number_of_PSMs = dict()#pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
     reference = pd.Series(get_aa_distribution(mass_shifts_dict_formatted[zero_mass_shift_label][params_dict['peptides_column']], expasy_rule))
     reference.fillna( 0, inplace=True)
-    
+
     #bootstraping for errors and p values calculation in reference(zero) mass shift
     err_reference_df = pd.DataFrame(index=labels)
     for i in range(50):
@@ -395,7 +405,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
         np.random.choice(np.array(mass_shifts_dict_formatted[zero_mass_shift_label][params_dict['peptides_column']]),
         size=(len(mass_shifts_dict_formatted[zero_mass_shift_label]) // 2), replace=False),
         expasy_rule)) / reference
-                         
+
     logging.info('Mass shifts:')
     distributions = pd.DataFrame(index=labels)
     p_values = pd.DataFrame(index=labels)
@@ -472,19 +482,19 @@ def get_parameters(params):
     parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins') # area_thresh
     parameters_dict['walking_window'] = params.getfloat('general', 'shifting window') #shifting_window
     parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction') #corrction
-    
+
     parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window') #spec_window_flag
     parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')] #spec_window
-    
+
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
-    #fit    
+    #fit
 #    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
 #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     #localization
     parameters_dict['spectrum_column'] =  params.get('localization', 'spectrum column')
-    parameters_dict['charge_column'] = params.get('localization', 'charge column') 
+    parameters_dict['charge_column'] = params.get('localization', 'charge column')
     return parameters_dict
 
 def get_additional_params(params_dict):
@@ -498,7 +508,7 @@ def get_additional_params(params_dict):
 
     elif params_dict[ 'so_range'][1] - params_dict[ 'so_range'][0] > params_dict['walking_window']:
         window = params_dict['walking_window'] /  params_dict['bin_width']
-       
+
     else:
         window = ( params_dict[ 'so_range'][1] -  params_dict[ 'so_range']) / params_dict['bin_width']
     if int(window) % 2 == 0:
@@ -528,7 +538,7 @@ def read_spectra(args):
     """
     Reads spectra
     -----------
-    Returns 
+    Returns
     """
     readers = {
         'mgf': read_mgf,
@@ -550,7 +560,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     mass_dict = mass.std_aa_mass
     sequences = list(locTools.peptide_isoforms(row[params_dict['peptides_column']], loc_candidates, sum_mod=sum_mod))
 #    print(sequences)
-    if sum_mod:      
+    if sum_mod:
         mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
 #        print(mass_dict)
 #        print(sequences)
@@ -558,7 +568,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     else:
         mass_dict.update({'m': mass_shift[0]})
         loc_cand = loc_candidates
-    
+
     if params_dict['mzml_files']:
         scan = row[params_dict['spectrum_column']].split('.')[1]
         spectrum_id = ''.join(['controllerType=0 controllerNumber=1 scan=', scan])
@@ -578,7 +588,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         theor_spec = locTools.get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_data=mass_dict)
         scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
     if len(scores) != 1:
-        
+
         try:
             sorted_scores = sorted(scores, reverse=True)
     #        print()
@@ -599,7 +609,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     if 'N-term' in loc_cand and loc_index == 0:
         loc_stat_dict['N-term'] += 1
     if 'C-term' in loc_cand and loc_index == len(top_isoform) - 2:
-        loc_stat_dict['C-term'] += 1 
+        loc_stat_dict['C-term'] += 1
     loc_index = top_isoform.find('n')
     loc_index_2 = top_isoform.find('k')
     if loc_index > -1:
@@ -610,7 +620,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         if 'N-term' in loc_cand_1 and loc_index == 0:
             loc_stat_dict['N-term_mod1'] += 1
         if 'C-term' in loc_cand_1 and loc_index == len(top_isoform) - 2:
-            loc_stat_dict['C-term_mod1'] += 1    
+            loc_stat_dict['C-term_mod1'] += 1
         if 'N-term' in loc_cand_2 and loc_index_2 == 0:
             loc_stat_dict['N-term_mod2'] += 1
         if 'C-term' in loc_cand_2 and loc_index_2 == len(top_isoform) - 2:
@@ -621,177 +631,3 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         return top_isoform, {}
     else:
         return top_isoform, loc_stat_dict
-    
-    
-def main():
-    pars = argparse.ArgumentParser()
-    pars.add_argument('--params', help='CFG file with parameters.'
-        'An example can be found at https://github.com/SimpleNumber/aa_stat',
-        required=True)
-    pars.add_argument('--dir', help='Directory to store the results. '
-        'Default value is current directory.', default='.')
-    pars.add_argument('-v', '--verbosity', action='count', default=1, help='Increase output verbosity')
-   
-    input_spectra = pars.add_mutually_exclusive_group()
-    input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications')
-    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to localize modifications')
-    
-    input_file = pars.add_mutually_exclusive_group(required=True)
-    input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
-    input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
-    levels = [logging.ERROR, logging.INFO, logging.DEBUG]
-    args = pars.parse_args()
-    save_directory = args.dir
-    level = 2 if args.verbosity >= 2 else args.verbosity
-    logging.basicConfig(format='%(levelname)5s: %(asctime)s %(message)s',
-                        datefmt='[%H:%M:%S]', level=levels[level])
-    logging.info("Starting...")
-
-
-    params = ConfigParser(delimiters=('=', ':'),
-                          comment_prefixes=('#'),
-                          inline_comment_prefixes=('#'))
-    params.read(args.params)
-    params_dict = get_parameters(params)
-    params_dict = get_additional_params(params_dict) #params_dict 'window'
-
-    data = read_input(args, params_dict)
-    
-    hist, popt_pvar = fit_peaks(data, args, params_dict)
-#    print(popt_pvar)
-#    print('=======================================')
-    final_mass_shifts = filter_mass_shifts(popt_pvar)
-#    print(final_mass_shifts)
-    mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
-#    print('======================',mass_shift_data_dict )
-    zero_mass_shift = get_zero_mass_shift(list(mass_shift_data_dict.keys()))
-    
-    logging.info("Systematic mass shift equals to %s", mass_format(zero_mass_shift) )
-    mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, zero_mass_shift)
-    if len(mass_shift_data_dict) < 2:
-        logging.info('Mass shifts were not found.')
-        logging.info('Filtered mass shifts:')
-        for i in mass_shift_data_dict.keys():
-#            print(mass_shift_data_dict.keys())Da
-            logging.info(MASS_FORMAT.format(i))
-    else:
-        distributions, number_of_PSMs, ms_labels = calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
-    
-#    print(mass_shift_data_dict) 
-    table = save_table(distributions, number_of_PSMs, ms_labels)
-#    print(table['mass shift'])
-    table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
-#    print('=======================', table)
-    
-    summarizing_hist(table, save_directory)
-    logging.info('Summarizing hist prepared')
-    render_html_report(table, params_dict, save_directory)
-    logging.info('AA_stat results saved to %s', os.path.abspath(args.dir))
-    
-    table.index = table['mass shift'].apply(mass_format)
-    spectra_dict = read_spectra(args)
-    if spectra_dict.keys():
-        if args.mgf:
-            params_dict['mzml_files'] = False
-        else:
-            params_dict['mzml_files'] = True
-        logging.info('Starting Localization using MS/MS spectra...')
-#        print(params_dict['mzml_files'])
-        ms_labels = pd.Series(ms_labels)
-        locmod_df = pd.DataFrame({'mass shift':ms_labels})
-        locmod_df['# peptides in bin'] = table['# peptides in bin']
-        locmod_df[['is isotope', 'isotop_ind']] =  locTools.find_isotopes(locmod_df['mass shift'], tolerance=ISOTOPE_TOLERANCE)
-        locmod_df['sum of mass shifts'] = locTools.find_modifications(locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
-        locmod_df['sum of mass shifts'].fillna(False, inplace=True)
-        locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table, 
-                 labels=params_dict['labels'], threshold=AA_STAT_CAND_THRESH)
-        u = mass.Unimod().mods
-        unimod_db = np.array(u)
-        unimod_df = pd.DataFrame(u)
-        locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(lambda x: locTools.get_candidates_from_unimod(x, UNIIMOD_TOLERANCE, unimod_db, unimod_df))
-        locmod_df['all candidates'] = locmod_df.apply(lambda x: set(x['unimod candidates'])|(set(x['aa_stat candidates'])), axis=1)
-        locmod_df.to_csv(os.path.join(save_directory, 'test1.csv'))
-        for i in locmod_df.loc[locmod_df['is isotope']].index:
-#            print(i)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                locmod_df['all candidates'][i] = locmod_df['all candidates'][i].union(locmod_df['all candidates'][locmod_df['isotop_ind'][i]])
-#            !print(locmod_df['all candidates'][i])
-        localization_dict = {}
-        for ms, df in mass_shift_data_dict.items():
-            if locmod_df['sum of mass shifts'][mass_format(ms)] == False and ms != 0.0:
-#                if abs(ms - 125) < 0.3:
-#                    print('here')
-#                    print([x for x in df[params_dict['peptides_column']] if 'C' in x])
-                locations_ms = locmod_df.loc[mass_format(ms), 'all candidates']
-                logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations_ms))
-                tmp = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, locations_ms,
-                                                                                params_dict, spectra_dict), axis=1).to_list(),
-                                 index=df.index, columns=['top_isoform', 'loc_counter'])
-#                print(tmp['loc_counter'].sum())
-                new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
-#                print(new_localizations)
-                df[['top_isoform', 'loc_counter' ]] = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, new_localizations,
-                                                                                params_dict, spectra_dict), axis=1).to_list(),
-                                 index=df.index, columns=['top_isoform', 'loc_counter'])
-                localization_dict[mass_format(ms)] = df['loc_counter'].sum()
-#                print(df['loc_counter'].sum())
-        localization_dict[mass_format(0.000000)]= Counter()
-        masses_to_calc = set(locmod_df.index).difference(set(localization_dict.keys())) 
-        if any(locmod_df['sum of mass shifts'] != False):
-            cond = True
-        else:
-            cond = False
-        locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
-        while cond:  
-            for ms in masses_to_calc:
-                masses = locmod_df['sum of mass shifts'][ms]
-                if masses != False:
-                    if len(masses) == 1:
-                        mass_1 = masses[0]
-                        mass_2 = masses[0]
-                    else:
-                        mass_1, mass_2 = masses
-                    if mass_format(mass_1) in localization_dict and mass_format(mass_2) in localization_dict:
-
-                        df = mass_shift_data_dict[locmod_df['mass shift'][ms]]
-                        locations_ms = locmod_df.loc[ms, 'all candidates']
-                        locations_ms1 = set([x for x in localization_dict[mass_format(mass_1)].keys() if len(x) == 1])
-                        locations_ms2 = set([x for x in localization_dict[mass_format(mass_2)].keys() if len(x) == 1])
-                        tmp = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
-                                                                                        x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, 
-                                                                                        spectra_dict, sum_mod=True), axis=1).to_list(),
-                                 index=df.index, columns=['top_isoform', 'loc_counter'])
-#                        print(tmp['loc_counter'].sum())
-                        new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
-                        locations_ms = []
-                        locations_ms1 = []
-                        locations_ms2 = []
-                        for i in new_localizations:
-                            if i.endswith('mod1'):
-                                locations_ms1.append(i.split('_')[0])
-                            elif i.endswith('mod2'):
-                                locations_ms2.append(i.split('_')[0])
-                            else:
-                                locations_ms.append(i)
-#                        print(new_localizations)
-#                        print(locations_ms1)
-#                        print(locations_ms2)
-                        df[['top_isoform', 'loc_counter']] = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
-                                                                                        x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, 
-                                                                                        spectra_dict, sum_mod=True), axis=1).to_list(),
-                                 index=df.index, columns=['top_isoform', 'loc_counter'])
-                        localization_dict[ms] = df['loc_counter'].sum()
-#                        print(df['loc_counter'].sum())
-                        masses_to_calc = masses_to_calc.difference(set([ms]))
-            if len(masses_to_calc) == 0:
-                cond = False
-        locmod_df['localization'] = pd.Series(localization_dict)
-        print(locmod_df)
-        locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
-#        logging.info('Done')
-    else:
-        logging.info('No spectra files. MSMS spectrum localization is not performed.')
-
-if __name__ == '__main__':
-    main()
