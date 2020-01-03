@@ -728,12 +728,14 @@ def main():
                 tmp = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, locations_ms,
                                                                                 params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
+#                print(tmp['loc_counter'].sum())
                 new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
 #                print(new_localizations)
                 df[['top_isoform', 'loc_counter' ]] = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, new_localizations,
                                                                                 params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
                 localization_dict[mass_format(ms)] = df['loc_counter'].sum()
+#                print(df['loc_counter'].sum())
         localization_dict[mass_format(0.000000)]= Counter()
         masses_to_calc = set(locmod_df.index).difference(set(localization_dict.keys())) 
         if any(locmod_df['sum of mass shifts'] != False):
@@ -754,12 +756,13 @@ def main():
 
                         df = mass_shift_data_dict[locmod_df['mass shift'][ms]]
                         locations_ms = locmod_df.loc[ms, 'all candidates']
-                        locations_ms1 =locmod_df.loc[mass_format(mass_1), 'all candidates']
-                        locations_ms2 = locmod_df.loc[mass_format(mass_2), 'all candidates']
+                        locations_ms1 = set([x for x in localization_dict[mass_format(mass_1)].keys() if len(x) == 1])
+                        locations_ms2 = set([x for x in localization_dict[mass_format(mass_2)].keys() if len(x) == 1])
                         tmp = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
                                                                                         x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, 
                                                                                         spectra_dict, sum_mod=True), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
+#                        print(tmp['loc_counter'].sum())
                         new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
                         locations_ms = []
                         locations_ms1 = []
@@ -779,6 +782,7 @@ def main():
                                                                                         spectra_dict, sum_mod=True), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
                         localization_dict[ms] = df['loc_counter'].sum()
+#                        print(df['loc_counter'].sum())
                         masses_to_calc = masses_to_calc.difference(set([ms]))
             if len(masses_to_calc) == 0:
                 cond = False
