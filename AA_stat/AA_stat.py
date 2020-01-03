@@ -148,32 +148,33 @@ def read_input(args, params_dict):
         filenames = getattr(args, ftype)
         if filenames:
             for filename in filenames:
-                logging.info('Reading %s', filename)
+                logger.info('Reading %s', filename)
                 df = reader(filename, params_dict)
                 hist_0 = np.histogram(df[abs(df[params_dict['mass_shifts_column']] - zero_bin) < window/2][params_dict['mass_shifts_column']], bins=10000)
-                logger.debug('hist_0:', hist_0)
+                logger.debug('hist_0: %s', hist_0)
                 hist_y = hist_0[0]
                 hist_x = 1/2 * (hist_0[1][:-1] +hist_0[1][1:])
                 popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
-                logger.info('Systematic shift for file is {0:.4f} Da'.format(popt[1]))
+                logger.info('Systematic shift for file is %.4f Da', popt[1])
                 df[params_dict['mass_shifts_column']] -= popt[1]
                 df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
                 dfs.append(df)
             break
-    logging.info('Starting analysis...')
+    logger.info('Starting analysis...')
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))
     data['is_decoy'] = data[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
 
     data['bin'] = np.digitize(data[params_dict['mass_shifts_column']], params_dict['bins'])
-#    data[params_dict['mass_shifts_column']].to_csv('mass_shift.csv', sep='\t')
     return data
+
+
 def fit_peaks(data, args, params_dict):
     """
     Returns
     """
-    logging.info('Performing Gaussian fit...')
+    logger.info('Performing Gaussian fit...')
 
     half_window = int(params_dict['window']/2) + 1
     hist = np.histogram(data[params_dict['mass_shifts_column']], bins=params_dict['bins'])
@@ -295,7 +296,7 @@ def filter_mass_shifts(results):
 
     Return poptperr matrix.
     """
-    logging.info('Discarding bad peaks...')
+    logger.info('Discarding bad peaks...')
     out = []
     for ind, mass_shift in enumerate(results[:-1]):
 #        intensity_diff = (results[ind][0] - results[ind+1][0])**2 #/ (1/2*(results[ind][0]+ results[ind+1][0])) ** 2
@@ -305,9 +306,9 @@ def filter_mass_shifts(results):
         if mean_diff > sigma_diff:
             out.append(mass_shift)
         else:
-            logging.info('Joined mass shifts {:.4} {:.4}'.format( results[ind][1], results[ind+1][1]))
+            logger.info('Joined mass shifts %.4f and %.4f', results[ind][1], results[ind+1][1])
 #    print('final', out.T[1])
-    logging.info('Peaks for following analysis {}'.format(len(out)))
+    logger.info('Peaks for following analysis: %s', len(out))
     return out
 
 def group_specific_filtering(data, final_mass_shifts, params_dict):
@@ -315,7 +316,7 @@ def group_specific_filtering(data, final_mass_shifts, params_dict):
     Selects window around found mass shift and filter using TDA. Window is defined as mu +- 3*sigma.
     Returns....
     """
-    logging.info('Performing group-wise FDR filtering...')
+    logger.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list
     for mass_shift in final_mass_shifts:
         data_slice = data[np.abs(data[params_dict['mass_shifts_column']] - mass_shift[1]) < 3 * mass_shift[2] ].sort_values(by='expect') \
@@ -326,7 +327,7 @@ def group_specific_filtering(data, final_mass_shifts, params_dict):
 #        print(len(df))
         if len(df) > 0:
             out_data[np.mean(df[params_dict['mass_shifts_column']])] = df   ###!!!!!!!mean of from gauss fit!!!!
-    logging.info('# of filtered mass shifts = {}'.format(len(out_data)))
+    logger.info('# of filtered mass shifts = %s', len(out_data))
     return  out_data
 
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
@@ -386,7 +387,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     'args' files paths (need to take the saving directory)
     """
 #    print(mass_shifts_dict)
-    logging.info('Plotting distributions...')
+    logger.info('Plotting distributions...')
     labels = params_dict['labels']
     rule = params_dict['rule']
     expasy_rule = parser.expasy_rules.get(rule, rule)
@@ -406,7 +407,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
         size=(len(mass_shifts_dict_formatted[zero_mass_shift_label]) // 2), replace=False),
         expasy_rule)) / reference
 
-    logging.info('Mass shifts:')
+    logger.info('Mass shifts:')
     distributions = pd.DataFrame(index=labels)
     p_values = pd.DataFrame(index=labels)
     for ms_label, ms_df in mass_shifts_dict_formatted.items():
@@ -428,7 +429,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
         labels_df['pep_stat'] = pd.Series(peptide_stat)
         labels_df.fillna(0, inplace=True)
         plot_figure(ms_label, len(ms_df), [distributions, errors], labels_df['pep_stat'], params_dict, save_directory )
-        logging.info('%s Da', ms_label)
+        logger.info('%s Da', ms_label)
 
 #    pout.insert(0, 'mass shift', [mass_shifts[i] for i in pout.index])
     pout = p_values.T
@@ -503,8 +504,8 @@ def get_additional_params(params_dict):
     Returns dict.
     """
     if params_dict['specific_mass_shift_flag']:
-        logging.info('Custom bin %s', params_dict['specific_window'])
-        params_dict[ 'so_range'] = params_dict['specific_window'][:]
+        logger.info('Custom bin: %s', params_dict['specific_window'])
+        params_dict['so_range'] = params_dict['specific_window'][:]
 
     elif params_dict[ 'so_range'][1] - params_dict[ 'so_range'][0] > params_dict['walking_window']:
         window = params_dict['walking_window'] /  params_dict['bin_width']
