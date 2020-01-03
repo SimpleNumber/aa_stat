@@ -577,18 +577,22 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     for seq in sequences:
         theor_spec = locTools.get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_data=mass_dict)
         scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
-    try:
-        sorted_scores = sorted(scores, reverse=True)
-#        print()
-        if sorted_scores[0] == sorted_scores[1]:
-#            print('Hereeeee')
-            loc_stat_dict['non-localized'] += 1
-            return row[params_dict['peptides_column']], loc_stat_dict
-        else:
-            top_isoform = sequences[np.argmax(scores)]
-#            print(top_isoform)
-    except:
-        return row[params_dict['peptides_column']], Counter()
+    if len(scores) != 1:
+        
+        try:
+            sorted_scores = sorted(scores, reverse=True)
+    #        print()
+            if sorted_scores[0] == sorted_scores[1]:
+    #            print('Hereeeee')
+                loc_stat_dict['non-localized'] += 1
+                return row[params_dict['peptides_column']], loc_stat_dict
+            else:
+                top_isoform = sequences[np.argmax(scores)]
+    #            print(top_isoform)
+        except:
+            return row[params_dict['peptides_column']], Counter()
+    else:
+        top_isoform = sequences[0]
     loc_index = top_isoform.find('m')
     if top_isoform[loc_index + 1] in loc_cand:
         loc_stat_dict[top_isoform[loc_index + 1]] += 1
@@ -617,6 +621,8 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         return top_isoform, {}
     else:
         return top_isoform, loc_stat_dict
+    
+    
 def main():
     pars = argparse.ArgumentParser()
     pars.add_argument('--params', help='CFG file with parameters.'
@@ -714,13 +720,19 @@ def main():
         localization_dict = {}
         for ms, df in mass_shift_data_dict.items():
             if locmod_df['sum of mass shifts'][mass_format(ms)] == False and ms != 0.0:
+#                if abs(ms - 125) < 0.3:
+#                    print('here')
+#                    print([x for x in df[params_dict['peptides_column']] if 'C' in x])
                 locations_ms = locmod_df.loc[mass_format(ms), 'all candidates']
                 logging.info('For %s mass shift candidates %s', mass_format(ms), str(locations_ms))
-                f = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, locations_ms,
+                tmp = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, locations_ms,
                                                                                 params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
-                df['top_isoform'] = f['top_isoform']
-                df['loc_counter'] = f['loc_counter']
+                new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
+#                print(new_localizations)
+                df[['top_isoform', 'loc_counter' ]] = pd.DataFrame(df.apply(lambda x:localization_of_modification([ms], x, new_localizations,
+                                                                                params_dict, spectra_dict), axis=1).to_list(),
+                                 index=df.index, columns=['top_isoform', 'loc_counter'])
                 localization_dict[mass_format(ms)] = df['loc_counter'].sum()
         localization_dict[mass_format(0.000000)]= Counter()
         masses_to_calc = set(locmod_df.index).difference(set(localization_dict.keys())) 
@@ -744,12 +756,28 @@ def main():
                         locations_ms = locmod_df.loc[ms, 'all candidates']
                         locations_ms1 =locmod_df.loc[mass_format(mass_1), 'all candidates']
                         locations_ms2 = locmod_df.loc[mass_format(mass_2), 'all candidates']
-                        f = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
+                        tmp = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
                                                                                         x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, 
                                                                                         spectra_dict, sum_mod=True), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
-                        df['top_isoform'] = f['top_isoform']
-                        df['loc_counter'] = f['loc_counter']
+                        new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
+                        locations_ms = []
+                        locations_ms1 = []
+                        locations_ms2 = []
+                        for i in new_localizations:
+                            if i.endswith('mod1'):
+                                locations_ms1.append(i.split('_')[0])
+                            elif i.endswith('mod2'):
+                                locations_ms2.append(i.split('_')[0])
+                            else:
+                                locations_ms.append(i)
+#                        print(new_localizations)
+#                        print(locations_ms1)
+#                        print(locations_ms2)
+                        df[['top_isoform', 'loc_counter']] = pd.DataFrame(df.apply(lambda x:localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
+                                                                                        x, [locations_ms, locations_ms1,locations_ms2 ], params_dict, 
+                                                                                        spectra_dict, sum_mod=True), axis=1).to_list(),
+                                 index=df.index, columns=['top_isoform', 'loc_counter'])
                         localization_dict[ms] = df['loc_counter'].sum()
                         masses_to_calc = masses_to_calc.difference(set([ms]))
             if len(masses_to_calc) == 0:
