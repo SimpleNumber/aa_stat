@@ -497,7 +497,7 @@ def get_parameters(params):
     return parameters_dict
 
 
-def get_additional_params(params_dict):
+def set_additional_params(params_dict):
     """
     Updates dict with new paramenters.
     Returns dict.
@@ -515,10 +515,8 @@ def get_additional_params(params_dict):
         params_dict['window'] = int(window) + 1
     else:
         params_dict['window'] = int(window)  #should be odd
-#    print(params_dict['window'])
     params_dict['bins'] = np.arange(params_dict['so_range'][0],
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
-    return params_dict
 
 
 def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
