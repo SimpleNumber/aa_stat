@@ -253,11 +253,15 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     loc_index_2 = top_isoform.find('k')
     if loc_index > -1:
         if loc_index_2 == -1:
-            loc_index_2 = top_isoform.rfind('n')
-        logger.debug('%s: %s, %s', top_isoform, loc_index, loc_index_2)
+            loc_index_1 = top_isoform.rfind('n')
+            # this should happen for duplicates where k was changed to n
+            logger.debug('%s: %s, %s', top_isoform, loc_index, loc_index_2)
         if top_isoform[loc_index + 1] in loc_cand_1:
             loc_stat_dict[top_isoform[loc_index + 1] +'_mod1'] += 1
-            loc_stat_dict[top_isoform[loc_index_2 + 1] +'_mod2'] += 1
+            if loc_index_2 == -1:
+                loc_stat_dict[top_isoform[loc_index_1 + 1] +'_mod1'] += 1
+            else:
+                loc_stat_dict[top_isoform[loc_index_2 + 1] +'_mod2'] += 1
         if 'N-term' in loc_cand_1 and loc_index == 0:
             loc_stat_dict['N-term_mod1'] += 1
         if 'C-term' in loc_cand_1 and loc_index == len(top_isoform) - 2:

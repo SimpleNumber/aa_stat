@@ -157,6 +157,8 @@ def main():
                                 locations_ms2.append(i.split('_')[0])
                             else:
                                 locations_ms.append(i)
+                        if mass_1 == mass_2:
+                            locations_ms2 = locations_ms1[:]
                         logger.debug('new locs: %s, %s, %s', locations_ms, locations_ms1, locations_ms2)
                         df['loc_counter'] = df.apply(lambda x: locTools.localization_of_modification(
                                 [locmod_df.at[ms, 'mass shift'], mass_1, mass_2], x,
