@@ -107,13 +107,13 @@ def main():
             if locmod_df['sum of mass shifts'][AA_stat.mass_format(ms)] == False and ms != 0.0:
                 locations_ms = locmod_df.loc[AA_stat.mass_format(ms), 'all candidates']
                 logger.info('For %s mass shift candidates %s', AA_stat.mass_format(ms), str(locations_ms))
-                tmp = pd.DataFrame(df.apply(lambda x: AA_stat.localization_of_modification([ms], x, locations_ms,
+                tmp = pd.DataFrame(df.apply(lambda x: locTools.localization_of_modification([ms], x, locations_ms,
                                                                                 params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
                 new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
                 logger.debug('new localizations: %s', new_localizations)
                 df[['top_isoform', 'loc_counter' ]] = pd.DataFrame(
-                    df.apply(lambda x: AA_stat.localization_of_modification([ms], x, new_localizations,
+                    df.apply(lambda x: locTools.localization_of_modification([ms], x, new_localizations,
                              params_dict, spectra_dict), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
                 localization_dict[AA_stat.mass_format(ms)] = df['loc_counter'].sum()
@@ -140,9 +140,10 @@ def main():
                         locations_ms = locmod_df.loc[ms, 'all candidates']
                         locations_ms1 = set([x for x in localization_dict[AA_stat.mass_format(mass_1)].keys() if len(x) == 1])
                         locations_ms2 = set([x for x in localization_dict[AA_stat.mass_format(mass_2)].keys() if len(x) == 1])
-                        tmp = pd.DataFrame(df.apply(lambda x: AA_stat.localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
-                                                                                        x, [locations_ms, locations_ms1,locations_ms2 ], params_dict,
-                                                                                        spectra_dict, sum_mod=True), axis=1).to_list(),
+                        tmp = pd.DataFrame(df.apply(
+                            lambda x: locTools.localization_of_modification([locmod_df['mass shift'][ms],mass_1, mass_2],
+                                            x, [locations_ms, locations_ms1,locations_ms2 ], params_dict,
+                                            spectra_dict, sum_mod=True), axis=1).to_list(),
                                  index=df.index, columns=['top_isoform', 'loc_counter'])
                         logger.debug('tmp counter sum: %s', tmp['loc_counter'].sum())
                         new_localizations = set(tmp['loc_counter'].sum().keys()).difference({'non-localized'})
@@ -158,7 +159,7 @@ def main():
                                 locations_ms.append(i)
 
                         df[['top_isoform', 'loc_counter']] = pd.DataFrame(
-                            df.apply(lambda x: AA_stat.localization_of_modification(
+                            df.apply(lambda x: locTools.localization_of_modification(
                                 [locmod_df['mass shift'][ms],mass_1, mass_2], x,
                                 [locations_ms, locations_ms1,locations_ms2 ], params_dict,
                                 spectra_dict, sum_mod=True),

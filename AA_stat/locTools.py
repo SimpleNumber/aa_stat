@@ -10,21 +10,20 @@ import matplotlib
 matplotlib.use('Agg')
 import pandas as pd
 import numpy as  np
-from collections import defaultdict
-from pyteomics import  mass #parser, pepxml, mgf, mzml,
+from collections import defaultdict, Counter
+from pyteomics import  mass
 from pyteomics import electrochem as ec
-#from scipy.spatial import cKDTree
 from math import factorial
-#from copy import copy
 try:
     from pyteomics import cmass
 except ImportError:
     cmass = mass
 
-
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
+FRAG_ACC = 0.02
+MIN_SPEC_MATCHED = 4
 
-def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, **kwargs ):
+def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, **kwargs):
     """
     Calculates theoretical spectra in two ways: usual one. and formatter in integer (mz / frag_acc).
     `peptide` -peptide sequence
@@ -68,7 +67,7 @@ def get_theor_spectrum(peptide, acc_frag,  types=('b', 'y'), maxcharge=None, **k
 
 def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
     """
-    Matches expetimental and theoretical spectra.
+    Matches experimental and theoretical spectra.
     `spectrum_idict` - mass in int format (real mz / fragment accuracy)
     `theoretical_set` -output of get_theor_spec, dict where keys is ion type, values
     masses in int format.
@@ -88,6 +87,7 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
         if ion in spectrum_idict:
             matched_approx_y += 1
             isum += spectrum_idict[ion]
+
     matched_approx = matched_approx_b + matched_approx_y
     if matched_approx >= min_matched:
         return matched_approx, factorial(matched_approx_b) * factorial(matched_approx_y) * isum
@@ -115,7 +115,7 @@ def peptide_isoforms(sequence, localizations, sum_mod=False):
             new_s = ''.join(['0', s, '0'])
             for i,j in  enumerate(new_s[1:-1], 1):
 
-                if j in loc_2 and new_s[i-1] !='n':
+                if j in loc_2 and new_s[i-1] != 'n':
                     isoforms.append(''.join([new_s[1:i],'k', new_s[i:-1]]))
     else:
         loc_ = set(localizations)
@@ -128,9 +128,9 @@ def peptide_isoforms(sequence, localizations, sum_mod=False):
     for i,j in  enumerate(sequence): #format='split'
         if j in loc_:
             isoforms.append(''.join([sequence[:i],'m', sequence[i:]]))
-     #[''.join(i) for i in j]
 
     return set(isoforms)
+
 
 def get_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
     """
@@ -144,13 +144,15 @@ def get_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
         sites_set.update(set(pd.DataFrame(i['specificity']).site))
     return list(sites_set)
 
-def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5,):
-    df = mass_shifts_table.loc[:,labels]
+
+def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5):
+    df = mass_shifts_table.loc[:, labels]
     ms, aa = np.where(df > threshold)
-    out = {ms:[] for ms in mass_shifts_table.index}
-    for i,j in zip(ms, aa):
+    out = {ms: [] for ms in mass_shifts_table.index}
+    for i, j in zip(ms, aa):
         out[df.index[i]].append(df.columns[j])
     return pd.Series(out)
+
 
 def find_isotopes(ms, tolerance=0.01):
     """
@@ -159,27 +161,109 @@ def find_isotopes(ms, tolerance=0.01):
     -----------
     Returns Series of boolean.
     """
-    out = pd.DataFrame({'isotope':False, 'monoisotop_index': False}, index=ms.index)
+    out = pd.DataFrame({'isotope': False, 'monoisotop_index': False}, index=ms.index)
     np_ms = ms.to_numpy()
     difference_matrix = np.abs(np_ms.reshape(-1, 1) - np_ms.reshape(1, -1) - DIFF_C13)
     isotop, monoisotop = np.where(difference_matrix < tolerance)
     out.iloc[isotop, 0] = True
     out.iloc[isotop, 1] = out.iloc[monoisotop, :].index
     return out
+
+
 def find_mod_sum(x, df, sum_matrix, tolerance):
     out = df.loc[np.where(np.abs(sum_matrix - x['mass_shift']) < tolerance)[0],'mass_shift'].to_list()
     if len(out):
         return out
     else:
         return False
+
+
 def find_modifications(ms, tolerance=0.005):
     """
     Finds the sums of mass shifts, if it exists.
     Returns Series, where index is the mass in str format, values is list of mass shifts that form the mass shift.
     """
     col = ms.drop('0.0000') #drop zero mass shift
-    df = pd.DataFrame({'mass_shift':col.values, 'index':col.index}, index=range(len(col)) )
-    sum_matrix = df['mass_shift'].to_numpy().reshape(-1,1) + df['mass_shift'].to_numpy().reshape(1, -1)
+    df = pd.DataFrame({'mass_shift': col.values, 'index': col.index}, index=range(len(col)))
+    sum_matrix = df['mass_shift'].to_numpy().reshape(-1, 1) + df['mass_shift'].to_numpy().reshape(1, -1)
     df['out'] = df.apply(lambda x: find_mod_sum(x, df, sum_matrix, tolerance), axis=1)
     df.index = df['index']
     return df.out
+
+
+def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
+#    print(row.index, row[params_dict['peptides_column']])
+    mass_dict = mass.std_aa_mass
+    sequences = list(peptide_isoforms(row[params_dict['peptides_column']], loc_candidates, sum_mod=sum_mod))
+#    print(sequences)
+    if sum_mod:
+        mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
+#        print(mass_dict)
+#        print(sequences)
+        loc_cand, loc_cand_1, loc_cand_2  = loc_candidates
+    else:
+        mass_dict.update({'m': mass_shift[0]})
+        loc_cand = loc_candidates
+
+    if params_dict['mzml_files']:
+        scan = row[params_dict['spectrum_column']].split('.')[1]
+        spectrum_id = ''.join(['controllerType=0 controllerNumber=1 scan=', scan])
+#        print(scan)
+    else:
+        spectrum_id = row[params_dict['spectrum_column']]
+#    print(spectrum_id)
+    exp_spec = spectra_dict[row['file']].get_by_id(spectrum_id)
+    tmp = exp_spec['m/z array'] / tolerance
+    tmp = tmp.astype(int)
+    loc_stat_dict = Counter()
+    exp_dict = {i:j for i, j in zip(tmp, exp_spec['intensity array'])}
+    scores = [] # write for same scores return non-loc
+#    print(sequences)
+    charge = row[params_dict['charge_column']]
+    for seq in sequences:
+        theor_spec = get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_data=mass_dict)
+        scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
+    if len(scores) != 1:
+
+        try:
+            sorted_scores = sorted(scores, reverse=True)
+    #        print()
+            if sorted_scores[0] == sorted_scores[1]:
+    #            print('Hereeeee')
+                loc_stat_dict['non-localized'] += 1
+                return row[params_dict['peptides_column']], loc_stat_dict
+            else:
+                top_isoform = sequences[np.argmax(scores)]
+    #            print(top_isoform)
+        except:
+            return row[params_dict['peptides_column']], Counter()
+    else:
+        top_isoform = sequences[0]
+    loc_index = top_isoform.find('m')
+    if top_isoform[loc_index + 1] in loc_cand:
+        loc_stat_dict[top_isoform[loc_index + 1]] += 1
+    if 'N-term' in loc_cand and loc_index == 0:
+        loc_stat_dict['N-term'] += 1
+    if 'C-term' in loc_cand and loc_index == len(top_isoform) - 2:
+        loc_stat_dict['C-term'] += 1
+    loc_index = top_isoform.find('n')
+    loc_index_2 = top_isoform.find('k')
+    if loc_index > -1:
+#        1print('====', top_isoform)
+        if top_isoform[loc_index + 1] in loc_cand_1:
+            loc_stat_dict[top_isoform[loc_index + 1] +'_mod1'] += 1
+            loc_stat_dict[top_isoform[loc_index_2 + 1] +'_mod2'] += 1
+        if 'N-term' in loc_cand_1 and loc_index == 0:
+            loc_stat_dict['N-term_mod1'] += 1
+        if 'C-term' in loc_cand_1 and loc_index == len(top_isoform) - 2:
+            loc_stat_dict['C-term_mod1'] += 1
+        if 'N-term' in loc_cand_2 and loc_index_2 == 0:
+            loc_stat_dict['N-term_mod2'] += 1
+        if 'C-term' in loc_cand_2 and loc_index_2 == len(top_isoform) - 2:
+            loc_stat_dict['C-term_mod2'] += 1
+#    print(loc_stat_dict)
+#    print(sequences, scores, loc_stat_dict)
+    if len(loc_stat_dict) == 0:
+        return top_isoform, {}
+    else:
+        return top_isoform, loc_stat_dict

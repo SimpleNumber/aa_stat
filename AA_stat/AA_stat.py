@@ -8,14 +8,13 @@ import os
 
 import ast
 import seaborn as sb
-from collections import defaultdict, Counter
+from collections import defaultdict
 from scipy.signal import argrelextrema, savgol_filter
 from scipy.stats import ttest_ind
 from scipy.optimize import curve_fit
 import logging
 import warnings
-from . import locTools
-from pyteomics import parser, pepxml, mass, mgf, mzml
+from pyteomics import parser, pepxml, mgf, mzml
 logger = logging.getLogger(__name__)
 
 cc = ["#FF6600",
@@ -26,10 +25,8 @@ cc = ["#FF6600",
       "#7137C8",
       ]
 sb.set_style('white')
-colors = sb.color_palette(palette = cc)
+colors = sb.color_palette(palette=cc)
 MASS_FORMAT = '{:.4f}'
-MIN_SPEC_MATCHED = 4
-FRAG_ACC = 0.02
 AA_STAT_CAND_THRESH = 1.5
 ISOTOPE_TOLERANCE = 0.015
 UNIIMOD_TOLERANCE = 0.01
@@ -221,6 +218,7 @@ def fit_peaks(data, args, params_dict):
     plt.close()
     return hist, np.array(poptpvar)
 
+
 def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
     d = pd.DataFrame(index=l)
     for i in range(50):
@@ -232,10 +230,12 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
         p_val[i] = ttest_ind(err_ref_df.loc[i, :], d.loc[i, :])[1]
     return p_val, d.std(axis=1)
 
+
 def gauss(x,a,  x0, sigma):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return a/sigma/np.sqrt(2*np.pi) * np.exp(- (x - x0) * (x - x0) / (2 * sigma ** 2))
+        return a/sigma/np.sqrt(2*np.pi) * np.exp(-(x - x0) * (x - x0) / (2 * sigma ** 2))
+
 
 def gauss_fitting(center_y, x, y):
     """
@@ -245,9 +245,9 @@ def gauss_fitting(center_y, x, y):
     `y` numpy array of number of psms in this mass shifts
 
     """
-    mean = sum(x *y) / sum(y)
+    mean = sum(x*y) / sum(y)
     sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
-    a = center_y*sigma*np.sqrt(2*np.pi)
+    a = center_y * sigma * np.sqrt(2*np.pi)
     try:
         popt, pcov = curve_fit(gauss, x, y, p0=(a, mean, sigma))
         perr = np.sqrt(np.diag(pcov))
@@ -289,6 +289,7 @@ def get_zero_mass_shift(mass_shifts):
     l  = np.argmin(np.abs(mass_shifts))
     return mass_shifts[l]
 
+
 def filter_mass_shifts(results):
 
     """
@@ -299,17 +300,15 @@ def filter_mass_shifts(results):
     logger.info('Discarding bad peaks...')
     out = []
     for ind, mass_shift in enumerate(results[:-1]):
-#        intensity_diff = (results[ind][0] - results[ind+1][0])**2 #/ (1/2*(results[ind][0]+ results[ind+1][0])) ** 2
         mean_diff = (results[ind][1] - results[ind+1][1]) ** 2
         sigma_diff = (results[ind][2] + results[ind+1][2]) ** 2
-#        print(results[ind][:3], results[ind+1][:3], mean_diff+sigma_diff)
         if mean_diff > sigma_diff:
             out.append(mass_shift)
         else:
             logger.info('Joined mass shifts %.4f and %.4f', results[ind][1], results[ind+1][1])
-#    print('final', out.T[1])
     logger.info('Peaks for following analysis: %s', len(out))
     return out
+
 
 def group_specific_filtering(data, final_mass_shifts, params_dict):
     """
@@ -324,11 +323,11 @@ def group_specific_filtering(data, final_mass_shifts, params_dict):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
-#        print(len(df))
         if len(df) > 0:
             out_data[np.mean(df[params_dict['mass_shifts_column']])] = df   ###!!!!!!!mean of from gauss fit!!!!
     logger.info('# of filtered mass shifts = %s', len(out_data))
     return  out_data
+
 
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     """
@@ -344,11 +343,8 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     labels = params_dict['labels']
     distributions = left[0]
     errors = left[1]
-#    print(right)
     bar_plot, bar_left = plt.subplots()
     bar_plot.set_size_inches(params_dict['figsize'])
-#    print(np.arange(b, 2*len(labels), 2), len(np.arange(b, 2*len(labels), 2)))
-#    print(distributions.loc[labels,ms_label], len(distributions.loc[labels,ms_label]))
     bar_left.bar(np.arange(b, 2 * len(labels), 2), distributions.loc[labels,ms_label],
             yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0,
             label=ms_label+' Da mass shift,\n'+str(ms_counts)+' peptides')
@@ -377,7 +373,8 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     bar_plot.savefig(os.path.join(save_directory, ms_label + '.svg'))
     plt.close()
 
-def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
+
+def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     """
     Plot amino acid statistics
     'zero_mass_shift' is a systematic shift of zero masss shift, float.
@@ -386,7 +383,6 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     'params_dict' is a dict of parameters from parsed cfg file.
     'args' files paths (need to take the saving directory)
     """
-#    print(mass_shifts_dict)
     logger.info('Plotting distributions...')
     labels = params_dict['labels']
     rule = params_dict['rule']
@@ -436,6 +432,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict ,args):
     pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
     return distributions, pd.Series(number_of_PSMs), mass_shifts_labels
 
+
 def render_html_report(table_, params_dict, save_directory):
     table = table_.copy()
     labels = params_dict['labels']
@@ -459,6 +456,7 @@ def render_html_report(table_, params_dict, save_directory):
     report = report.replace(r'%%%', table_html)
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
+
 
 def get_parameters(params):
     """
@@ -498,6 +496,7 @@ def get_parameters(params):
     parameters_dict['charge_column'] = params.get('localization', 'charge column')
     return parameters_dict
 
+
 def get_additional_params(params_dict):
     """
     Updates dict with new paramenters.
@@ -507,18 +506,20 @@ def get_additional_params(params_dict):
         logger.info('Custom bin: %s', params_dict['specific_window'])
         params_dict['so_range'] = params_dict['specific_window'][:]
 
-    elif params_dict[ 'so_range'][1] - params_dict[ 'so_range'][0] > params_dict['walking_window']:
-        window = params_dict['walking_window'] /  params_dict['bin_width']
+    elif params_dict['so_range'][1] - params_dict['so_range'][0] > params_dict['walking_window']:
+        window = params_dict['walking_window'] / params_dict['bin_width']
 
     else:
-        window = ( params_dict[ 'so_range'][1] -  params_dict[ 'so_range']) / params_dict['bin_width']
+        window = (params_dict['so_range'][1] - params_dict['so_range']) / params_dict['bin_width']
     if int(window) % 2 == 0:
-        params_dict['window']  = int(window) + 1
+        params_dict['window'] = int(window) + 1
     else:
-        params_dict['window']  = int(window)  #should be odd
+        params_dict['window'] = int(window)  #should be odd
 #    print(params_dict['window'])
-    params_dict['bins'] = np.arange(params_dict['so_range'][0], params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
+    params_dict['bins'] = np.arange(params_dict['so_range'][0],
+        params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
     return params_dict
+
 
 def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
    '''
@@ -529,11 +530,14 @@ def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
        out[k-mass_correction] = v
    return out
 
+
 def read_mgf(file_path):
     return mgf.IndexedMGF(file_path)
 
+
 def read_mzml(file_path): # write this
     return mzml.PreIndexedMzML(file_path)
+
 
 def read_spectra(args):
     """
@@ -553,82 +557,3 @@ def read_spectra(args):
                 name = os.path.split(filename)[-1].split('.')[0] #write it in a proper way
                 out_dict[name] = reader(filename)
     return out_dict
-
-
-
-def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
-#    print(row.index, row[params_dict['peptides_column']])
-    mass_dict = mass.std_aa_mass
-    sequences = list(locTools.peptide_isoforms(row[params_dict['peptides_column']], loc_candidates, sum_mod=sum_mod))
-#    print(sequences)
-    if sum_mod:
-        mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
-#        print(mass_dict)
-#        print(sequences)
-        loc_cand, loc_cand_1, loc_cand_2  = loc_candidates
-    else:
-        mass_dict.update({'m': mass_shift[0]})
-        loc_cand = loc_candidates
-
-    if params_dict['mzml_files']:
-        scan = row[params_dict['spectrum_column']].split('.')[1]
-        spectrum_id = ''.join(['controllerType=0 controllerNumber=1 scan=', scan])
-#        print(scan)
-    else:
-        spectrum_id = row[params_dict['spectrum_column']]
-#    print(spectrum_id)
-    exp_spec = spectra_dict[row['file']].get_by_id(spectrum_id)
-    tmp = exp_spec['m/z array'] / tolerance
-    tmp = tmp.astype(int)
-    loc_stat_dict = Counter()
-    exp_dict = {i:j for i, j in zip(tmp, exp_spec['intensity array'])}
-    scores = [] # write for same scores return non-loc
-#    print(sequences)
-    charge = row[params_dict['charge_column']]
-    for seq in sequences:
-        theor_spec = locTools.get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_data=mass_dict)
-        scores.append(locTools.RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
-    if len(scores) != 1:
-
-        try:
-            sorted_scores = sorted(scores, reverse=True)
-    #        print()
-            if sorted_scores[0] == sorted_scores[1]:
-    #            print('Hereeeee')
-                loc_stat_dict['non-localized'] += 1
-                return row[params_dict['peptides_column']], loc_stat_dict
-            else:
-                top_isoform = sequences[np.argmax(scores)]
-    #            print(top_isoform)
-        except:
-            return row[params_dict['peptides_column']], Counter()
-    else:
-        top_isoform = sequences[0]
-    loc_index = top_isoform.find('m')
-    if top_isoform[loc_index + 1] in loc_cand:
-        loc_stat_dict[top_isoform[loc_index + 1]] += 1
-    if 'N-term' in loc_cand and loc_index == 0:
-        loc_stat_dict['N-term'] += 1
-    if 'C-term' in loc_cand and loc_index == len(top_isoform) - 2:
-        loc_stat_dict['C-term'] += 1
-    loc_index = top_isoform.find('n')
-    loc_index_2 = top_isoform.find('k')
-    if loc_index > -1:
-#        1print('====', top_isoform)
-        if top_isoform[loc_index + 1] in loc_cand_1:
-            loc_stat_dict[top_isoform[loc_index + 1] +'_mod1'] += 1
-            loc_stat_dict[top_isoform[loc_index_2 + 1] +'_mod2'] += 1
-        if 'N-term' in loc_cand_1 and loc_index == 0:
-            loc_stat_dict['N-term_mod1'] += 1
-        if 'C-term' in loc_cand_1 and loc_index == len(top_isoform) - 2:
-            loc_stat_dict['C-term_mod1'] += 1
-        if 'N-term' in loc_cand_2 and loc_index_2 == 0:
-            loc_stat_dict['N-term_mod2'] += 1
-        if 'C-term' in loc_cand_2 and loc_index_2 == len(top_isoform) - 2:
-            loc_stat_dict['C-term_mod2'] += 1
-#    print(loc_stat_dict)
-#    print(sequences, scores, loc_stat_dict)
-    if len(loc_stat_dict) == 0:
-        return top_isoform, {}
-    else:
-        return top_isoform, loc_stat_dict
