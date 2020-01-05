@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import warnings
 from collections import Counter
 try:
     from configparser import ConfigParser
@@ -11,8 +10,7 @@ import pandas as pd
 import numpy as np
 from pyteomics import mass
 
-from . import AA_stat, locTools
-
+from . import AA_stat, locTools, utils
 
 
 def main():
@@ -44,13 +42,13 @@ def main():
                           comment_prefixes=('#'),
                           inline_comment_prefixes=('#'))
     params.read(args.params)
-    params_dict = AA_stat.get_parameters(params)
-    AA_stat.set_additional_params(params_dict)
+    params_dict = utils.get_parameters(params)
+    utils.set_additional_params(params_dict)
     params_dict['out_dir'] = args.dir
 
-    data = AA_stat.read_input(args, params_dict)
+    data = utils.read_input(args, params_dict)
 
-    hist, popt_pvar = AA_stat.fit_peaks(data, args, params_dict)
+    hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
     logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = AA_stat.filter_mass_shifts(popt_pvar)
     logger.debug('final_mass_shifts: %s', final_mass_shifts)
@@ -58,13 +56,13 @@ def main():
     logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     zero_mass_shift = AA_stat.get_zero_mass_shift(list(mass_shift_data_dict.keys()))
 
-    logger.info("Systematic mass shift equals to %s", AA_stat.mass_format(zero_mass_shift))
+    logger.info("Systematic mass shift equals to %s", utils.mass_format(zero_mass_shift))
     mass_shift_data_dict = AA_stat.systematic_mass_shift_correction(mass_shift_data_dict, zero_mass_shift)
     if len(mass_shift_data_dict) < 2:
         logger.info('Mass shifts were not found.')
         logger.info('Filtered mass shifts:')
-        for i in mass_shift_data_dict.keys():
-            logger.info(AA_stat.MASS_FORMAT.format(i))
+        for i in mass_shift_data_dict:
+            logger.info(utils.masss_format(i))
     else:
         distributions, number_of_PSMs, ms_labels = AA_stat.calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
 
@@ -76,8 +74,8 @@ def main():
     AA_stat.render_html_report(table, params_dict, save_directory)
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
 
-    table.index = table['mass shift'].apply(AA_stat.mass_format)
-    spectra_dict = AA_stat.read_spectra(args)
+    table.index = table['mass shift'].apply(utils.mass_format)
+    spectra_dict = utils.read_spectra(args)
     if spectra_dict:
         if args.mgf:
             params_dict['mzml_files'] = False
@@ -106,9 +104,9 @@ def main():
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
         localization_dict = {}
         for ms, df in mass_shift_data_dict.items():
-            if locmod_df.at[AA_stat.mass_format(ms), 'sum of mass shifts'] == False and ms != 0.0:
-                locations_ms = locmod_df.at[AA_stat.mass_format(ms), 'all candidates']
-                logger.info('For %s mass shift candidates %s', AA_stat.mass_format(ms), str(locations_ms))
+            if locmod_df.at[utils.mass_format(ms), 'sum of mass shifts'] == False and ms != 0.0:
+                locations_ms = locmod_df.at[utils.mass_format(ms), 'all candidates']
+                logger.info('For %s mass shift candidates %s', utils.mass_format(ms), str(locations_ms))
                 tmp = df.apply(lambda x: locTools.localization_of_modification(
                     [ms], x, locations_ms, params_dict, spectra_dict), axis=1)
                 new_localizations = set(tmp.sum().keys()).difference({'non-localized'})
@@ -118,9 +116,9 @@ def main():
                         [ms], x, new_localizations, params_dict, spectra_dict), axis=1)
                 else:
                     df['loc_counter'] = tmp
-                localization_dict[AA_stat.mass_format(ms)] = df['loc_counter'].sum()
+                localization_dict[utils.mass_format(ms)] = df['loc_counter'].sum()
                 logger.debug('counter sum: %s', df['loc_counter'].sum())
-        localization_dict[AA_stat.mass_format(0.0)] = Counter()
+        localization_dict[utils.mass_format(0.0)] = Counter()
         masses_to_calc = set(locmod_df.index).difference(localization_dict)
         if (locmod_df['sum of mass shifts'] != False).any():
             cond = True
@@ -136,11 +134,11 @@ def main():
                         mass_2 = masses[0]
                     else:
                         mass_1, mass_2 = masses
-                    if AA_stat.mass_format(mass_1) in localization_dict and AA_stat.mass_format(mass_2) in localization_dict:
+                    if utils.mass_format(mass_1) in localization_dict and utils.mass_format(mass_2) in localization_dict:
                         df = mass_shift_data_dict[locmod_df.at[ms, 'mass shift']]
                         locations_ms = locmod_df.at[ms, 'all candidates']
-                        locations_ms1 = set(x for x in localization_dict[AA_stat.mass_format(mass_1)] if len(x) == 1)
-                        locations_ms2 = set(x for x in localization_dict[AA_stat.mass_format(mass_2)] if len(x) == 1)
+                        locations_ms1 = set(x for x in localization_dict[utils.mass_format(mass_1)] if len(x) == 1)
+                        locations_ms2 = set(x for x in localization_dict[utils.mass_format(mass_2)] if len(x) == 1)
                         tmp = df.apply(lambda x: locTools.localization_of_modification(
                             [locmod_df.at[ms, 'mass shift'], mass_1, mass_2],
                             x, [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=True),

@@ -19,7 +19,7 @@ try:
     from pyteomics import cmass
 except ImportError:
     cmass = mass
-from . import AA_stat
+from . import utils
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
 FRAG_ACC = 0.02
 MIN_SPEC_MATCHED = 4
@@ -227,7 +227,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     scores = scores[i]
     sequences = sequences[i]
     if logger.level <= logging.DEBUG:
-        fname = os.path.join(params_dict['out_dir'], AA_stat.mass_format(mass_shift[0])+'.txt')
+        fname = os.path.join(params_dict['out_dir'], utils.mass_format(mass_shift[0])+'.txt')
         # logger.debug('Writing isoform scores for %s to %s', row[peptide], fname)
         with open(fname, 'a') as dump:
             for seq, score in zip(sequences, scores):
