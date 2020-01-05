@@ -104,7 +104,6 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
 
 
 def summarizing_hist(table, save_directory):
-
     ax = table.sort_values('mass shift').plot(
         y='# peptides in bin', kind='bar', color=colors[2], figsize=(len(table), 5))
     ax.set_title("Peptides in mass shifts", fontsize=12) #PSMs
@@ -128,31 +127,35 @@ def summarizing_hist(table, save_directory):
 
 
 def get_zero_mass_shift(mass_shifts):
-#    print(mass_shifts)
     """
     Shift of non-modified peak.
     Returns float.
     """
-    l  = np.argmin(np.abs(mass_shifts))
+    l = np.argmin(np.abs(mass_shifts))
     return mass_shifts[l]
 
 
-def filter_mass_shifts(results):
+def check_difference(shift1, shift2):
+    mean_diff = (shift1[1] - shift2[1]) ** 2
+    sigma_diff = (shift1[2] + shift2[2]) ** 2
+    return mean_diff > sigma_diff
 
+
+def filter_mass_shifts(results):
     """
-    Filter mass_shifts that close to each other.
+    Filter mass_shifts too close to each other.
 
     Return poptperr matrix.
     """
     logger.info('Discarding bad peaks...')
     out = []
     for ind, mass_shift in enumerate(results[:-1]):
-        mean_diff = (results[ind][1] - results[ind+1][1]) ** 2
-        sigma_diff = (results[ind][2] + results[ind+1][2]) ** 2
-        if mean_diff > sigma_diff:
+        cond = check_difference(results[ind], results[ind+1])
+        if cond:
             out.append(mass_shift)
         else:
             logger.info('Joined mass shifts %.4f and %.4f', results[ind][1], results[ind+1][1])
+    out.append(results[-1])
     logger.info('Peaks for following analysis: %s', len(out))
     return out
 
@@ -185,7 +188,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     'left
 
     """
-
     b = 0.2 # shift in bar plots
     width = 0.4 # for bar plots
     labels = params_dict['labels']
@@ -243,7 +245,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     reference = pd.Series(get_aa_distribution(mass_shifts_dict_formatted[zero_mass_shift_label][params_dict['peptides_column']], expasy_rule))
     reference.fillna( 0, inplace=True)
 
-    #bootstraping for errors and p values calculation in reference(zero) mass shift
+    #bootstraping for errors and p values calculation in reference (zero) mass shift
     err_reference_df = pd.DataFrame(index=labels)
     for i in range(50):
         err_reference_df[i] = pd.Series(get_aa_distribution(

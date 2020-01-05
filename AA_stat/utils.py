@@ -40,6 +40,7 @@ def read_csv(fname, params_dict):
         df[protein] = df[protein].str.split(params_dict['proteins_delimeter'])
     return df
 
+
 def read_input(args, params_dict):
     """
     Reads open search output, assembles all data in one DataFrame.
@@ -118,18 +119,16 @@ def gauss_fitting(center_y, x, y):
 
 
 def fit_peaks(data, args, params_dict):
-    """
-    Returns
-    """
     logger.info('Performing Gaussian fit...')
 
     half_window = int(params_dict['window']/2) + 1
     hist = np.histogram(data[params_dict['mass_shifts_column']], bins=params_dict['bins'])
     hist_y = smooth(hist[0], window_size=params_dict['window'], power=5)
-    hist_x = 1/2 * (hist[1][:-1] +hist[1][1:])
+    hist_x = 0.5 * (hist[1][:-1] + hist[1][1:])
     loc_max_candidates_ind = argrelextrema(hist_y, np.greater_equal)[0]
     # smoothing and finding local maxima
-    min_height = 2 * np.median([x for x in hist[0] if (x>1)])  # minimum bin height expected to be peak approximate noise level as median of all non-negative
+    min_height = 2 * np.median([x for x in hist[0] if x > 1])
+    # minimum bin height expected to be peak approximate noise level as median of all non-negative
     loc_max_candidates_ind = loc_max_candidates_ind[hist_y[loc_max_candidates_ind] >= min_height]
 
     poptpvar = []
@@ -147,12 +146,12 @@ def fit_peaks(data, args, params_dict):
             label = 'NO FIT'
         else:
 
-            if x[0] <= popt[1] and popt[1] <= x[-1] and(perr[0]/popt[0] < params_dict['max_deviation_height']) \
-            and (perr[2]/popt[2] < params_dict['max_deviation_sigma']):
+            if (x[0] <= popt[1] and popt[1] <= x[-1] and perr[0]/popt[0] < params_dict['max_deviation_height']
+                and perr[2]/popt[2] < params_dict['max_deviation_sigma']):
                 label = 'PASSED'
                 poptpvar.append(np.concatenate([popt, perr]))
                 plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval' )
-                plt.vlines(popt[1] + 3 * popt[2], 0, hist[0][center] )
+                plt.vlines(popt[1] + 3 * popt[2], 0, hist[0][center])
             else:
                 label='FAILED'
         plt.plot(x, y, 'b+:', label=label)
