@@ -54,7 +54,7 @@ def main():
     logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = AA_stat.group_specific_filtering(data, final_mass_shifts, params_dict)
     logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
-    zero_mass_shift = AA_stat.get_zero_mass_shift(list(mass_shift_data_dict.keys()))
+    zero_mass_shift = AA_stat.get_zero_mass_shift(mass_shift_data_dict)
 
     logger.info("Systematic mass shift equals to %s", utils.mass_format(zero_mass_shift))
     mass_shift_data_dict = AA_stat.systematic_mass_shift_correction(mass_shift_data_dict, zero_mass_shift)
@@ -64,8 +64,9 @@ def main():
         for i in mass_shift_data_dict:
             logger.info(utils.masss_format(i))
     else:
-        distributions, number_of_PSMs, ms_labels = AA_stat.calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
+        distributions, number_of_PSMs = AA_stat.calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
 
+    ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
     table = AA_stat.save_table(distributions, number_of_PSMs, ms_labels)
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
@@ -103,7 +104,7 @@ def main():
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
         localization_dict = {}
-        for ms, df in mass_shift_data_dict.items():
+        for ms_label, (ms, df) in mass_shift_data_dict.items():
             if locmod_df.at[utils.mass_format(ms), 'sum of mass shifts'] == False and ms != 0.0:
                 locations_ms = locmod_df.at[utils.mass_format(ms), 'all candidates']
                 logger.info('For %s mass shift candidates %s', utils.mass_format(ms), str(locations_ms))
@@ -127,7 +128,7 @@ def main():
         # locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
         while cond:
             for ms in masses_to_calc:
-                masses = locmod_df['sum of mass shifts'][ms]
+                masses = locmod_df.at[ms, 'sum of mass shifts']
                 if masses != False:
                     if len(masses) == 1:
                         mass_1 = masses[0]
@@ -135,7 +136,7 @@ def main():
                     else:
                         mass_1, mass_2 = masses
                     if utils.mass_format(mass_1) in localization_dict and utils.mass_format(mass_2) in localization_dict:
-                        df = mass_shift_data_dict[locmod_df.at[ms, 'mass shift']]
+                        df = mass_shift_data_dict[ms][1]
                         locations_ms = locmod_df.at[ms, 'all candidates']
                         locations_ms1 = set(x for x in localization_dict[utils.mass_format(mass_1)] if len(x) == 1)
                         locations_ms2 = set(x for x in localization_dict[utils.mass_format(mass_2)] if len(x) == 1)

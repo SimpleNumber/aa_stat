@@ -131,8 +131,9 @@ def get_zero_mass_shift(mass_shifts):
     Shift of non-modified peak.
     Returns float.
     """
-    l = np.argmin(np.abs(mass_shifts))
-    return mass_shifts[l]
+    values = [v[0] for v in mass_shifts.values()]
+    l = np.argmin(np.abs(values))
+    return values[l]
 
 
 def check_difference(shift1, shift2):
@@ -156,27 +157,27 @@ def filter_mass_shifts(results):
         else:
             logger.info('Joined mass shifts %.4f and %.4f', results[ind][1], results[ind+1][1])
     out.append(results[-1])
-    logger.info('Peaks for following analysis: %s', len(out))
+    logger.info('Peaks for subsequent analysis: %s', len(out))
     return out
 
 
 def group_specific_filtering(data, mass_shifts, params_dict):
     """
-    Selects window around found mass shift and filter using TDA. Window is defined as mu +- 3*sigma.
-    Returns....
+    Selects window around found mass shift and filters using TDA. Window is defined as mu +- 3*sigma.
     """
     shifts = params_dict['mass_shifts_column']
     logger.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list
     for mass_shift in mass_shifts:
-        data_slice = data[np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]].sort_values(by='expect') \
-                         .drop_duplicates(subset=params_dict['peptides_column'])
+        mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
+        data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             df = pepxml.filter_df(data_slice,
                 fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
         if len(df) > 0:
-            out_data[np.mean(df[shifts])] = df   ###!!!!!!!mean of from gauss fit!!!!
+            shift = np.mean(df[shifts]) ###!!!!!!!mean of from gauss fit!!!!
+            out_data[utils.mass_format(shift)] = (shift, df)
     logger.info('# of filtered mass shifts = %s', len(out_data))
     return out_data
 
@@ -228,8 +229,8 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     """
     Plot amino acid statistics
     'zero_mass_shift' is a systematic shift of zero masss shift, float.
-    'mass_shifts_dict' is a dict there keys are mass shifts(float)
-    and values are DataFrames of filtered windows(3 sigma) around this mass.
+    'mass_shifts_dict' is a dict there keys are mass shifts(formatted)
+    and values are mass shift values and DataFrames of filtered windows(3 sigma) around this mass.
     'params_dict' is a dict of parameters from parsed cfg file.
     'args' files paths (need to take the saving directory)
     """
@@ -238,34 +239,36 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     rule = params_dict['rule']
     expasy_rule = parser.expasy_rules.get(rule, rule)
     save_directory = args.dir
-    mass_shifts_dict_formatted ={utils.mass_format(k): mass_shifts_dict[k] for k in mass_shifts_dict.keys()} # mass_shift_dict with printable labels
-    mass_shifts_labels = {utils.mass_format(i): i for i in mass_shifts_dict.keys()}
+    peptides = params_dict['peptides_column']
     zero_mass_shift_label = utils.mass_format(zero_mass_shift)
+    zero_bin = mass_shifts_dict[zero_mass_shift_label][1]
+
+    # mass_shifts_dict_formatted ={utils.mass_format(k): mass_shifts_dict[k] for k in mass_shifts_dict.keys()} # mass_shift_dict with printable labels
+    # mass_shifts_labels = {utils.mass_format(i): i for i in mass_shifts_dict.keys()}
+
     number_of_PSMs = dict()#pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
-    reference = pd.Series(get_aa_distribution(mass_shifts_dict_formatted[zero_mass_shift_label][params_dict['peptides_column']], expasy_rule))
+    reference = pd.Series(get_aa_distribution(zero_bin[peptides], expasy_rule))
     reference.fillna( 0, inplace=True)
 
     #bootstraping for errors and p values calculation in reference (zero) mass shift
     err_reference_df = pd.DataFrame(index=labels)
     for i in range(50):
         err_reference_df[i] = pd.Series(get_aa_distribution(
-        np.random.choice(np.array(mass_shifts_dict_formatted[zero_mass_shift_label][params_dict['peptides_column']]),
-        size=(len(mass_shifts_dict_formatted[zero_mass_shift_label]) // 2), replace=False),
+            np.random.choice(np.array(zero_bin[peptides]), size=(len(zero_bin) // 2), replace=False),
         expasy_rule)) / reference
 
     logger.info('Mass shifts:')
     distributions = pd.DataFrame(index=labels)
     p_values = pd.DataFrame(index=labels)
-    for ms_label, ms_df in mass_shifts_dict_formatted.items():
-        aa_statistics = pd.Series(get_aa_distribution(ms_df[params_dict['peptides_column']], expasy_rule))
-        peptide_stat = pd.Series(get_peptide_statistics(ms_df[params_dict['peptides_column']], expasy_rule))
+    for ms_label, (ms, ms_df) in mass_shifts_dict.items():
+        aa_statistics = pd.Series(get_aa_distribution(ms_df[peptides], expasy_rule))
+        peptide_stat = pd.Series(get_peptide_statistics(ms_df[peptides], expasy_rule))
         number_of_PSMs[ms_label] = len(ms_df)
         aa_statistics.fillna(0, inplace=True)
         distributions[ms_label] = aa_statistics / reference
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            p_vals, errors = calculate_error_and_p_vals(
-            ms_df[params_dict['peptides_column']], err_reference_df, reference, expasy_rule, labels)
+            p_vals, errors = calculate_error_and_p_vals(ms_df[peptides], err_reference_df, reference, expasy_rule, labels)
 #        errors.fillna(0, inplace=True)
 
         p_values[ms_label] = p_vals
@@ -274,13 +277,13 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
         labels_df = pd.DataFrame(index=labels)
         labels_df['pep_stat'] = pd.Series(peptide_stat)
         labels_df.fillna(0, inplace=True)
-        plot_figure(ms_label, len(ms_df), [distributions, errors], labels_df['pep_stat'], params_dict, save_directory )
+        plot_figure(ms_label, len(ms_df), [distributions, errors], labels_df['pep_stat'], params_dict, save_directory)
         logger.info('%s Da', ms_label)
 
 #    pout.insert(0, 'mass shift', [mass_shifts[i] for i in pout.index])
     pout = p_values.T
     pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
-    return distributions, pd.Series(number_of_PSMs), mass_shifts_labels
+    return distributions, pd.Series(number_of_PSMs)#, mass_shifts_labels
 
 
 def render_html_report(table_, params_dict, save_directory):
@@ -314,5 +317,6 @@ def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
    '''
    out = {}
    for k, v in mass_shifts_dict.items():
-       out[k-mass_correction] = v
+        corr_mass = v[0] - mass_correction
+        out[utils.mass_format(corr_mass)] = (corr_mass, v[1])
    return out
