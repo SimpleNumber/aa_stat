@@ -7,7 +7,6 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser
 import pandas as pd
-import numpy as np
 from pyteomics import mass
 
 from . import AA_stat, locTools, utils
@@ -62,7 +61,7 @@ def main():
         logger.info('Mass shifts were not found.')
         logger.info('Filtered mass shifts:')
         for i in mass_shift_data_dict:
-            logger.info(utils.masss_format(i))
+            logger.info(i)
     else:
         distributions, number_of_PSMs = AA_stat.calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
 
@@ -94,12 +93,12 @@ def main():
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table,
                  labels=params_dict['labels'], threshold=AA_stat.AA_STAT_CAND_THRESH)
         u = mass.Unimod().mods
-        unimod_db = np.array(u)
         unimod_df = pd.DataFrame(u)
         locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(
-            lambda x: locTools.get_candidates_from_unimod(x, AA_stat.UNIIMOD_TOLERANCE, unimod_db, unimod_df))
-        locmod_df['all candidates'] = locmod_df.apply(lambda x: set(x['unimod candidates'])|(set(x['aa_stat candidates'])), axis=1)
-        locmod_df.to_csv(os.path.join(save_directory, 'test1.csv'))
+            lambda x: locTools.get_candidates_from_unimod(x, AA_stat.UNIIMOD_TOLERANCE, unimod_df))
+        locmod_df['all candidates'] = locmod_df.apply(
+            lambda x: set(x['unimod candidates']) | (set(x['aa_stat candidates'])), axis=1)
+        # locmod_df.to_csv(os.path.join(save_directory, 'test1.csv'))
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])

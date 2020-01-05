@@ -128,16 +128,16 @@ def peptide_isoforms(sequence, localizations, sum_mod=False):
     return set(isoforms)
 
 
-def get_candidates_from_unimod(mass_shift, tolerance, unimod_db, unimod_df):
+def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
     """
     Find modifications for `mass_shift` in Unimod.org database with a given `tolerance`.
     Returns dict. {'modification name': [list of amino acids]}
 
     """
-    ind = list(unimod_df[abs(unimod_df['mono_mass']-mass_shift) < tolerance].index)
+    ind = abs(unimod_df['mono_mass']-mass_shift) < tolerance
     sites_set = set()
-    for i in unimod_db[ind]:
-        sites_set.update(set(pd.DataFrame(i['specificity']).site))
+    for i, row in unimod_df.loc[ind].iterrows():
+        sites_set.update(set(pd.DataFrame(row['specificity']).site))
     return list(sites_set)
 
 

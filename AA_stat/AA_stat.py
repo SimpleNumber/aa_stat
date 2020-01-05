@@ -186,8 +186,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     """
     'ms_label' mass shift in string format.
     'ms_counts' entries in a mass shift.
-    'left
-
     """
     b = 0.2 # shift in bar plots
     width = 0.4 # for bar plots
@@ -202,9 +200,9 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     bar_left.set_ylabel('Relative AA abundance', color=colors[2])
     bar_left.set_xticks(np.arange(2 * b , 2 * len(labels) + 2 * b, 2))#
     bar_left.set_xticklabels(labels)
-    bar_left.hlines(1, -1, 2* len(labels), linestyles='dashed', color=colors[3])
+    bar_left.hlines(1, -1, 2 * len(labels), linestyles='dashed', color=colors[3])
     bar_right = bar_left.twinx()
-    bar_right.bar(np.arange(4 * b, 2 * len(labels) + 4 * b, 2),right, width=width, linewidth=0, color=colors[0])
+    bar_right.bar(np.arange(4 * b, 2 * len(labels) + 4 * b, 2), right, width=width, linewidth=0, color=colors[0])
     bar_right.set_ylim(0,125)
     bar_right.set_yticks(np.arange(0,120, 20))
     bar_right.set_ylabel('Peptides with AA, %', color=colors[0])
@@ -217,9 +215,9 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     bar_left.tick_params('y', colors=colors[2])
     bar_right.tick_params('y', colors=colors[0])
     bar_right.annotate(ms_label + ' Da mass shift,'  + '\n' + str(ms_counts) +' peptides',
-                      xy=(29,107), bbox=dict(boxstyle='round',fc='w', edgecolor='dimgrey'))
-    bar_left.set_xlim(-3*b, 2*len(labels)-2 +9*b)
-    bar_left.set_ylim(0,distributions.loc[labels, ms_label].max()*1.3)
+                      xy=(29, 107), bbox=dict(boxstyle='round', fc='w', edgecolor='dimgrey'))
+    bar_left.set_xlim(-3*b, 2*len(labels)-2 + 9*b)
+    bar_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.3)
     bar_plot.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
     bar_plot.savefig(os.path.join(save_directory, ms_label + '.svg'))
     plt.close()
@@ -312,9 +310,6 @@ def render_html_report(table_, params_dict, save_directory):
 
 
 def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
-   '''
-   `mass_shifts_dict` - dict where keys are mass shifts (float) and values DataFrames that correspond to this mass shift.
-   '''
    out = {}
    for k, v in mass_shifts_dict.items():
         corr_mass = v[0] - mass_correction
