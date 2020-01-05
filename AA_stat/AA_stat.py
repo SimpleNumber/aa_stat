@@ -190,19 +190,19 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     b = 0.2 # shift in bar plots
     width = 0.4 # for bar plots
     labels = params_dict['labels']
+    labeltext = ms_label + ' Da mass shift,\n' + str(ms_counts) + ' peptides'
     distributions = left[0]
     errors = left[1]
     bar_plot, bar_left = plt.subplots()
     bar_plot.set_size_inches(params_dict['figsize'])
-    bar_left.bar(np.arange(b, 2 * len(labels), 2), distributions.loc[labels,ms_label],
-            yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0,
-            label=ms_label+' Da mass shift,\n'+str(ms_counts)+' peptides')
+    bar_left.bar(np.arange(b, 2 * len(labels), 2), distributions.loc[labels, ms_label],
+            yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0)
     bar_left.set_ylabel('Relative AA abundance', color=colors[2])
     bar_left.set_xticks(np.arange(2 * b , 2 * len(labels) + 2 * b, 2))#
     bar_left.set_xticklabels(labels)
     bar_left.hlines(1, -1, 2 * len(labels), linestyles='dashed', color=colors[3])
     bar_right = bar_left.twinx()
-    bar_right.bar(np.arange(4 * b, 2 * len(labels) + 4 * b, 2), right, width=width, linewidth=0, color=colors[0])
+    bar_right.bar(np.arange(4*b, 2*len(labels) + 4*b, 2), right, width=width, linewidth=0, color=colors[0])
     bar_right.set_ylim(0,125)
     bar_right.set_yticks(np.arange(0,120, 20))
     bar_right.set_ylabel('Peptides with AA, %', color=colors[0])
@@ -214,8 +214,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
     bar_right.spines['right'].set_color(colors[0])
     bar_left.tick_params('y', colors=colors[2])
     bar_right.tick_params('y', colors=colors[0])
-    bar_right.annotate(ms_label + ' Da mass shift,'  + '\n' + str(ms_counts) +' peptides',
-                      xy=(29, 107), bbox=dict(boxstyle='round', fc='w', edgecolor='dimgrey'))
+    bar_right.annotate(labeltext, xy=(29, 107), bbox=dict(boxstyle='round', fc='w', edgecolor='dimgrey'))
     bar_left.set_xlim(-3*b, 2*len(labels)-2 + 9*b)
     bar_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.3)
     bar_plot.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
@@ -224,15 +223,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
 
 
 def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
-    """
-    Plot amino acid statistics
-    'zero_mass_shift' is a systematic shift of zero masss shift, float.
-    'mass_shifts_dict' is a dict there keys are mass shifts(formatted)
-    and values are mass shift values and DataFrames of filtered windows(3 sigma) around this mass.
-    'params_dict' is a dict of parameters from parsed cfg file.
-    'args' files paths (need to take the saving directory)
-    """
-    logger.info('Plotting distributions...')
+    logger.info('Calculating distributions...')
     labels = params_dict['labels']
     rule = params_dict['rule']
     expasy_rule = parser.expasy_rules.get(rule, rule)
@@ -241,12 +232,9 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     zero_mass_shift_label = utils.mass_format(zero_mass_shift)
     zero_bin = mass_shifts_dict[zero_mass_shift_label][1]
 
-    # mass_shifts_dict_formatted ={utils.mass_format(k): mass_shifts_dict[k] for k in mass_shifts_dict.keys()} # mass_shift_dict with printable labels
-    # mass_shifts_labels = {utils.mass_format(i): i for i in mass_shifts_dict.keys()}
-
     number_of_PSMs = dict()#pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
     reference = pd.Series(get_aa_distribution(zero_bin[peptides], expasy_rule))
-    reference.fillna( 0, inplace=True)
+    reference.fillna(0, inplace=True)
 
     #bootstraping for errors and p values calculation in reference (zero) mass shift
     err_reference_df = pd.DataFrame(index=labels)
@@ -258,6 +246,9 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     logger.info('Mass shifts:')
     distributions = pd.DataFrame(index=labels)
     p_values = pd.DataFrame(index=labels)
+
+    figure_args = {}
+
     for ms_label, (ms, ms_df) in mass_shifts_dict.items():
         aa_statistics = pd.Series(get_aa_distribution(ms_df[peptides], expasy_rule))
         peptide_stat = pd.Series(get_peptide_statistics(ms_df[peptides], expasy_rule))
@@ -275,13 +266,13 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
         labels_df = pd.DataFrame(index=labels)
         labels_df['pep_stat'] = pd.Series(peptide_stat)
         labels_df.fillna(0, inplace=True)
-        plot_figure(ms_label, len(ms_df), [distributions, errors], labels_df['pep_stat'], params_dict, save_directory)
+        figure_args[ms_label] = (len(ms_df), [distributions, errors], labels_df['pep_stat'])
+        # plot_figure(ms_label, len(ms_df), [distributions, errors], labels_df['pep_stat'], params_dict, save_directory)
         logger.info('%s Da', ms_label)
 
-#    pout.insert(0, 'mass shift', [mass_shifts[i] for i in pout.index])
     pout = p_values.T
     pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
-    return distributions, pd.Series(number_of_PSMs)#, mass_shifts_labels
+    return distributions, pd.Series(number_of_PSMs), figure_args
 
 
 def render_html_report(table_, params_dict, save_directory):

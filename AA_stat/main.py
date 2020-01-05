@@ -28,9 +28,11 @@ def main():
     input_file = pars.add_mutually_exclusive_group(required=True)
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
-    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
+
     args = pars.parse_args()
     save_directory = args.dir
+
+    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
     logger = logging.getLogger(__name__)
@@ -57,15 +59,16 @@ def main():
 
     logger.info("Systematic mass shift equals to %s", utils.mass_format(zero_mass_shift))
     mass_shift_data_dict = AA_stat.systematic_mass_shift_correction(mass_shift_data_dict, zero_mass_shift)
+    ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
     if len(mass_shift_data_dict) < 2:
         logger.info('Mass shifts were not found.')
         logger.info('Filtered mass shifts:')
         for i in mass_shift_data_dict:
             logger.info(i)
-    else:
-        distributions, number_of_PSMs = AA_stat.calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
+        return
 
-    ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
+    distributions, number_of_PSMs, figure_data = AA_stat.calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
+
     table = AA_stat.save_table(distributions, number_of_PSMs, ms_labels)
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
@@ -76,6 +79,7 @@ def main():
 
     table.index = table['mass shift'].apply(utils.mass_format)
     spectra_dict = utils.read_spectra(args)
+
     if spectra_dict:
         if args.mgf:
             params_dict['mzml_files'] = False
@@ -173,3 +177,8 @@ def main():
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
     else:
         logger.info('No spectrum files. MS/MS localization is not performed.')
+
+    logger.info('Plotting mass shift figures...')
+    for ms_label, data in figure_data.items():
+        AA_stat.plot_figure(ms_label, *data, params_dict, save_directory)
+    logger.info('Done.')
