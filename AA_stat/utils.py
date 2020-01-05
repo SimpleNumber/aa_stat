@@ -53,19 +53,21 @@ def read_input(args, params_dict):
         'pepxml': read_pepxml,
         'csv': read_csv,
     }
+    shifts = params_dict['mass_shifts_column']
     for ftype, reader in readers.items():
         filenames = getattr(args, ftype)
         if filenames:
             for filename in filenames:
                 logger.info('Reading %s', filename)
                 df = reader(filename, params_dict)
-                hist_0 = np.histogram(df[abs(df[params_dict['mass_shifts_column']] - zero_bin) < window/2][params_dict['mass_shifts_column']], bins=10000)
+                hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts],
+                    bins=10000)
                 logger.debug('hist_0: %s', hist_0)
                 hist_y = hist_0[0]
-                hist_x = 1/2 * (hist_0[1][:-1] +hist_0[1][1:])
+                hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
                 popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
                 logger.info('Systematic shift for file is %.4f Da', popt[1])
-                df[params_dict['mass_shifts_column']] -= popt[1]
+                df[shifts] -= popt[1]
                 df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
                 dfs.append(df)
             break
@@ -75,7 +77,7 @@ def read_input(args, params_dict):
     data['is_decoy'] = data[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
 
-    data['bin'] = np.digitize(data[params_dict['mass_shifts_column']], params_dict['bins'])
+    data['bin'] = np.digitize(data[shifts], params_dict['bins'])
     return data
 
 
@@ -165,6 +167,7 @@ def fit_peaks(data, args, params_dict):
     plt.savefig(os.path.join(args.dir, 'gauss_fit.pdf'))
     plt.close()
     return hist, np.array(poptpvar)
+
 
 def read_mgf(file_path):
     return mgf.IndexedMGF(file_path)

@@ -61,7 +61,6 @@ def get_aa_distribution(peptide_list, rule):
     return d
 
 
-
 def save_table(distributions, number_of_PSMs, mass_shifts):
     '''
     Parameters
@@ -90,7 +89,6 @@ def save_table(distributions, number_of_PSMs, mass_shifts):
     out.index = range(len(out))
     i = ((out.drop(columns=['mass shift', 'Unimod', '# peptides in bin']).max(axis=1) - 1) * out['# peptides in bin']).argsort()
     return out.loc[i.values[::-1], :]
-
 
 
 def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
@@ -159,21 +157,23 @@ def filter_mass_shifts(results):
     return out
 
 
-def group_specific_filtering(data, final_mass_shifts, params_dict):
+def group_specific_filtering(data, mass_shifts, params_dict):
     """
     Selects window around found mass shift and filter using TDA. Window is defined as mu +- 3*sigma.
     Returns....
     """
+    shifts = params_dict['mass_shifts_column']
     logger.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list
-    for mass_shift in final_mass_shifts:
-        data_slice = data[np.abs(data[params_dict['mass_shifts_column']] - mass_shift[1]) < 3 * mass_shift[2] ].sort_values(by='expect') \
+    for mass_shift in mass_shifts:
+        data_slice = data[np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]].sort_values(by='expect') \
                          .drop_duplicates(subset=params_dict['peptides_column'])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            df = pepxml.filter_df(data_slice, fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
+            df = pepxml.filter_df(data_slice,
+                fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
         if len(df) > 0:
-            out_data[np.mean(df[params_dict['mass_shifts_column']])] = df   ###!!!!!!!mean of from gauss fit!!!!
+            out_data[np.mean(df[shifts])] = df   ###!!!!!!!mean of from gauss fit!!!!
     logger.info('# of filtered mass shifts = %s', len(out_data))
     return out_data
 
@@ -186,7 +186,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
 
     """
 
-     #figure parameters
     b = 0.2 # shift in bar plots
     width = 0.4 # for bar plots
     labels = params_dict['labels']
