@@ -10,11 +10,23 @@ import pandas as pd
 import numpy as  np
 import warnings
 from collections import defaultdict
+import seaborn as sb
+
 from pyteomics import parser, pepxml, mgf, mzml
 
 logger = logging.getLogger(__name__)
-MASS_FORMAT = '{:.4f}'
+MASS_FORMAT = '{:+.4f}'
 
+
+cc = ["#FF6600",
+      "#FFCC00",
+      "#88AA00",
+      "#006688",
+      "#5FBCD3",
+      "#7137C8",
+      ]
+sb.set_style('white')
+colors = sb.color_palette(palette=cc)
 
 def mass_format(mass):
     return MASS_FORMAT.format(mass)
@@ -255,3 +267,133 @@ def set_additional_params(params_dict):
         params_dict['window'] = int(window)  #should be odd
     params_dict['bins'] = np.arange(params_dict['so_range'][0],
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
+
+
+def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, localizations=None, sumof=None):
+    """
+    'ms_label' mass shift in string format.
+    'ms_counts' entries in a mass shift.
+    """
+    b = 0.1 # shift in bar plots
+    width = 0.2 # for bar plots
+    labels = params_dict['labels']
+    labeltext = ms_label + ' Da mass shift,\n' + str(ms_counts) + ' peptides'
+    x = np.arange(len(labels))
+    distributions = left[0]
+    errors = left[1]
+    fig, ax_left = plt.subplots()
+    fig.set_size_inches(params_dict['figsize'])
+
+    ax_left.bar(x-b, distributions.loc[labels, ms_label],
+            yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0)
+
+    ax_left.set_ylabel('Relative AA abundance', color=colors[2])
+    ax_left.set_xticks(x)
+    ax_left.set_xticklabels(labels)
+    ax_left.hlines(1, -1, x[-1] + 1, linestyles='dashed', color=colors[3])
+    ax_right = ax_left.twinx()
+
+    ax_right.bar(x+b, right, width=width, linewidth=0, color=colors[0])
+
+    ax_right.set_ylim(0, 125)
+    ax_right.set_yticks(np.arange(0, 120, 20))
+    ax_right.set_ylabel('Peptides with AA, %', color=colors[0])
+
+    ax_left.spines['left'].set_color(colors[2])
+    ax_right.spines['left'].set_color(colors[2])
+
+    ax_left.spines['right'].set_color(colors[0])
+    ax_right.spines['right'].set_color(colors[0])
+    ax_left.tick_params('y', colors=colors[2])
+    ax_right.tick_params('y', colors=colors[0])
+
+    ax_right.annotate(labeltext, xy=(0.75, 0.85), xycoords='axes fraction',
+        bbox=dict(boxstyle='round', fc='w', edgecolor='dimgrey'))
+
+    ax_left.set_xlim(-1, x[-1] + 1)
+    ax_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.3)
+
+    if localizations:
+        Mkstyle = matplotlib.markers.MarkerStyle
+        styles = [Mkstyle('o', fillstyle=fs) for fs in ['full', 'left', 'right']]
+        ax3 = ax_left.twinx()
+        ax3.spines["right"].set_position(("axes", 1.1))
+        ax3.set_frame_on(True)
+        ax3.patch.set_visible(False)
+        ax3.set_ylabel('Modification localized at AA', color=colors[3])
+        for sp in ax3.spines.values():
+            sp.set_visible(False)
+        ax3.spines["right"].set_visible(True)
+        ax3.spines['right'].set_color(colors[3])
+        ax3.tick_params('y', colors=colors[3])
+        # plot simple modifications (not sum) with the first style,
+        # then parts of sum as second and third style
+        values = [localizations.get(key) for key in labels]
+        label_prefix = 'Location of '
+        ax3.scatter(x, values, marker=styles[0], color=colors[3], label=label_prefix+ms_label)
+        if sumof:
+            values_1 = [localizations.get(key + '_mod1') for key in labels]
+            ax3.scatter(x, values_1, marker=styles[1], color=colors[3], label=label_prefix+mass_format(sumof[0]))
+
+            if len(sumof) > 1:
+                values_2 = [localizations.get(key + '_mod2') for key in labels]
+                ax3.scatter(x, values_2, marker=styles[2], color=colors[3], label=label_prefix+mass_format(sumof[1]))
+            else:
+                values_2 = []
+            ax3.legend(loc='upper left')
+        else:
+            values_1 = values_2 = []
+        ax3.set_ylim(0, 1.2 * max(x for x in values + values_1 + values_2 if x is not None))
+
+    fig.tight_layout()
+    fig.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
+    fig.savefig(os.path.join(save_directory, ms_label + '.svg'))
+    plt.close()
+
+
+def summarizing_hist(table, save_directory):
+    ax = table.sort_values('mass shift').plot(
+        y='# peptides in bin', kind='bar', color=colors[2], figsize=(len(table), 5))
+    ax.set_title("Peptides in mass shifts", fontsize=12) #PSMs
+    ax.set_xlabel("Mass shift", fontsize=10)
+    ax.set_ylabel('Number of peptides')
+    ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply(lambda x: round(x, 2)))
+
+    total = sum(i.get_height() for i in ax.patches)
+    max_height = 0
+    for i in ax.patches:
+        current_height = i.get_height()
+        if current_height > max_height:
+            max_height = current_height
+        ax.text(i.get_x()-.03, current_height + 200,
+            '{:.2%}'.format(i.get_height() / total), fontsize=10, color='dimgrey')
+
+    plt.ylim(0, max_height * 1.2)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_directory, 'summary.png'), dpi=500)
+    plt.savefig(os.path.join(save_directory, 'summary.svg'))
+
+
+def render_html_report(table_, params_dict, save_directory):
+    table = table_.copy()
+    labels = params_dict['labels']
+    report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
+    with open(report_template) as f:
+        report = f.read()
+    with pd.option_context('display.max_colwidth', -1):
+        columns = list(table.columns)
+        mslabel = '<a id="binh" href="#">mass shift</a>'
+        columns[0] = mslabel
+        table.columns = columns
+        table_html = table.style.hide_index().applymap(
+            lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
+            ).set_precision(3).set_table_styles([
+            {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
+            {'selector': 'td, th', 'props': [('text-align', 'center')]},
+            {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
+            ).format({'Unimod': '<a href="{}">search</a>'.format,
+                mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format}
+            ).bar(subset='# peptides in bin', color=cc[2]).render() #PSMs
+    report = report.replace(r'%%%', table_html)
+    with open(os.path.join(save_directory, 'report.html'), 'w') as f:
+        f.write(report)

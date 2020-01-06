@@ -1,12 +1,8 @@
 from __future__ import print_function, division
-import matplotlib
-matplotlib.use('Agg')
 import pandas as pd
 import numpy as  np
-import pylab as plt
 import os
 
-import seaborn as sb
 from collections import defaultdict
 from scipy.stats import ttest_ind
 
@@ -16,15 +12,6 @@ from pyteomics import parser, pepxml
 from . import utils
 logger = logging.getLogger(__name__)
 
-cc = ["#FF6600",
-      "#FFCC00",
-      "#88AA00",
-      "#006688",
-      "#5FBCD3",
-      "#7137C8",
-      ]
-sb.set_style('white')
-colors = sb.color_palette(palette=cc)
 
 AA_STAT_CAND_THRESH = 1.5
 ISOTOPE_TOLERANCE = 0.015
@@ -103,29 +90,6 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
     return p_val, d.std(axis=1)
 
 
-def summarizing_hist(table, save_directory):
-    ax = table.sort_values('mass shift').plot(
-        y='# peptides in bin', kind='bar', color=colors[2], figsize=(len(table), 5))
-    ax.set_title("Peptides in mass shifts", fontsize=12) #PSMs
-    ax.set_xlabel("Mass shift", fontsize=10)
-    ax.set_ylabel('Number of peptides')
-    ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply(lambda x: round(x, 2)))
-
-    total = sum(i.get_height() for i in ax.patches)
-    max_height = 0
-    for i in ax.patches:
-        current_height = i.get_height()
-        if current_height > max_height:
-            max_height = current_height
-        ax.text(i.get_x()-.03, current_height + 200,
-            '{:.2%}'.format(i.get_height() / total), fontsize=10, color='dimgrey')
-
-    plt.ylim(0, max_height * 1.2)
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_directory, 'summary.png'), dpi=500)
-    plt.savefig(os.path.join(save_directory, 'summary.svg'))
-
-
 def get_zero_mass_shift(mass_shifts):
     """
     Shift of non-modified peak.
@@ -182,46 +146,6 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     return out_data
 
 
-def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory):
-    """
-    'ms_label' mass shift in string format.
-    'ms_counts' entries in a mass shift.
-    """
-    b = 0.2 # shift in bar plots
-    width = 0.4 # for bar plots
-    labels = params_dict['labels']
-    labeltext = ms_label + ' Da mass shift,\n' + str(ms_counts) + ' peptides'
-    distributions = left[0]
-    errors = left[1]
-    bar_plot, bar_left = plt.subplots()
-    bar_plot.set_size_inches(params_dict['figsize'])
-    bar_left.bar(np.arange(b, 2 * len(labels), 2), distributions.loc[labels, ms_label],
-            yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0)
-    bar_left.set_ylabel('Relative AA abundance', color=colors[2])
-    bar_left.set_xticks(np.arange(2 * b , 2 * len(labels) + 2 * b, 2))#
-    bar_left.set_xticklabels(labels)
-    bar_left.hlines(1, -1, 2 * len(labels), linestyles='dashed', color=colors[3])
-    bar_right = bar_left.twinx()
-    bar_right.bar(np.arange(4*b, 2*len(labels) + 4*b, 2), right, width=width, linewidth=0, color=colors[0])
-    bar_right.set_ylim(0,125)
-    bar_right.set_yticks(np.arange(0,120, 20))
-    bar_right.set_ylabel('Peptides with AA, %', color=colors[0])
-
-    bar_left.spines['left'].set_color(colors[2])
-    bar_right.spines['left'].set_color(colors[2])
-
-    bar_left.spines['right'].set_color(colors[0])
-    bar_right.spines['right'].set_color(colors[0])
-    bar_left.tick_params('y', colors=colors[2])
-    bar_right.tick_params('y', colors=colors[0])
-    bar_right.annotate(labeltext, xy=(29, 107), bbox=dict(boxstyle='round', fc='w', edgecolor='dimgrey'))
-    bar_left.set_xlim(-3*b, 2*len(labels)-2 + 9*b)
-    bar_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.3)
-    bar_plot.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
-    bar_plot.savefig(os.path.join(save_directory, ms_label + '.svg'))
-    plt.close()
-
-
 def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     logger.info('Calculating distributions...')
     labels = params_dict['labels']
@@ -273,31 +197,6 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     pout = p_values.T
     pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
     return distributions, pd.Series(number_of_PSMs), figure_args
-
-
-def render_html_report(table_, params_dict, save_directory):
-    table = table_.copy()
-    labels = params_dict['labels']
-    report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
-    with open(report_template) as f:
-        report = f.read()
-    with pd.option_context('display.max_colwidth', -1):
-        columns = list(table.columns)
-        mslabel = '<a id="binh" href="#">mass shift</a>'
-        columns[0] = mslabel
-        table.columns = columns
-        table_html = table.style.hide_index().applymap(
-            lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
-            ).set_precision(3).set_table_styles([
-            {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
-            {'selector': 'td, th', 'props': [('text-align', 'center')]},
-            {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
-            ).format({'Unimod': '<a href="{}">search</a>'.format,
-                mslabel: '<a href="#">{}</a>'.format(utils.MASS_FORMAT).format}
-            ).bar(subset='# peptides in bin', color=cc[2]).render() #PSMs
-    report = report.replace(r'%%%', table_html)
-    with open(os.path.join(save_directory, 'report.html'), 'w') as f:
-        f.write(report)
 
 
 def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):

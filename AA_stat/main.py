@@ -60,6 +60,7 @@ def main():
     logger.info("Systematic mass shift equals to %s", utils.mass_format(zero_mass_shift))
     mass_shift_data_dict = AA_stat.systematic_mass_shift_correction(mass_shift_data_dict, zero_mass_shift)
     ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
+    logger.debug('Final shift labels: %s', ms_labels.keys())
     if len(mass_shift_data_dict) < 2:
         logger.info('Mass shifts were not found.')
         logger.info('Filtered mass shifts:')
@@ -72,9 +73,9 @@ def main():
     table = AA_stat.save_table(distributions, number_of_PSMs, ms_labels)
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
-    AA_stat.summarizing_hist(table, save_directory)
+    utils.summarizing_hist(table, save_directory)
     logger.info('Summarizing hist prepared')
-    AA_stat.render_html_report(table, params_dict, save_directory)
+    utils.render_html_report(table, params_dict, save_directory)
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
 
     table.index = table['mass shift'].apply(utils.mass_format)
@@ -91,6 +92,7 @@ def main():
         locmod_df['# peptides in bin'] = table['# peptides in bin']
         locmod_df[['is isotope', 'isotop_ind']] = locTools.find_isotopes(
             locmod_df['mass shift'], tolerance=AA_stat.ISOTOPE_TOLERANCE)
+        logger.debug('Isotopes: %s', locmod_df.loc[locmod_df['is isotope']])
         locmod_df['sum of mass shifts'] = locTools.find_modifications(
             locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
         locmod_df['sum of mass shifts'].fillna(False, inplace=True)
@@ -106,7 +108,9 @@ def main():
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
+
         localization_dict = {}
+
         for ms_label, (ms, df) in mass_shift_data_dict.items():
             if locmod_df.at[utils.mass_format(ms), 'sum of mass shifts'] == False and ms != 0.0:
                 locations_ms = locmod_df.at[utils.mass_format(ms), 'all candidates']
@@ -124,6 +128,8 @@ def main():
                 logger.debug('counter sum: %s', df['loc_counter'].sum())
         localization_dict[utils.mass_format(0.0)] = Counter()
         masses_to_calc = set(locmod_df.index).difference(localization_dict)
+
+        logger.info('Localizing potential sums of mass shifts...')
         if (locmod_df['sum of mass shifts'] != False).any():
             cond = True
         else:
@@ -148,7 +154,7 @@ def main():
                             x, [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=True),
                         axis=1)
                         logger.debug('tmp counter sum: %s', tmp.sum())
-                        new_localizations = set(tmp.sum().keys()).difference({'non-localized'})
+                        new_localizations = set(tmp.sum()).difference({'non-localized'})
                         locations_ms = []
                         locations_ms1 = []
                         locations_ms2 = []
@@ -176,9 +182,16 @@ def main():
         logger.debug(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
     else:
+        locmod_df = None
         logger.info('No spectrum files. MS/MS localization is not performed.')
 
     logger.info('Plotting mass shift figures...')
     for ms_label, data in figure_data.items():
-        AA_stat.plot_figure(ms_label, *data, params_dict, save_directory)
+        if locmod_df is not None:
+            localizations = locmod_df.at[ms_label, 'localization']
+            sumof = locmod_df.at[ms_label, 'sum of mass shifts']
+        else:
+            localizations = None
+            sumof = None
+        utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
     logger.info('Done.')

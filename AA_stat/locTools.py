@@ -179,7 +179,7 @@ def find_modifications(ms, tolerance=0.005):
     Finds the sums of mass shifts, if it exists.
     Returns Series, where index is the mass in str format, values is list of mass shifts that form the mass shift.
     """
-    col = ms.drop('0.0000') #drop zero mass shift
+    col = ms.drop(utils.mass_format(0.0)) #drop zero mass shift
     df = pd.DataFrame({'mass_shift': col.values, 'index': col.index}, index=range(len(col)))
     sum_matrix = df['mass_shift'].to_numpy().reshape(-1, 1) + df['mass_shift'].to_numpy().reshape(1, -1)
     df['out'] = df.apply(lambda x: find_mod_sum(x, df, sum_matrix, tolerance), axis=1)
