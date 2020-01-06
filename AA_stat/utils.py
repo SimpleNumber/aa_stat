@@ -307,8 +307,10 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     ax_left.tick_params('y', colors=colors[2])
     ax_right.tick_params('y', colors=colors[0])
 
-    ax_right.annotate(labeltext, xy=(0.75, 0.85), xycoords='axes fraction',
-        bbox=dict(boxstyle='round', fc='w', edgecolor='dimgrey'))
+    # ax_right.annotate(labeltext, xy=(0.75, 0.85), xycoords='axes fraction',
+    #     bbox=dict(boxstyle='round', fc='w', edgecolor='dimgrey'))
+    p = matplotlib.lines.Line2D([], [], marker=None, label=labeltext, alpha=0)
+    ax_right.legend(handles=[p], loc='upper right', edgecolor='dimgrey', fancybox=True, handlelength=0)
 
     ax_left.set_xlim(-1, x[-1] + 1)
     ax_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.3)
