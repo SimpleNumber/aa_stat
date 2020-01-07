@@ -179,7 +179,12 @@ def find_modifications(ms, tolerance=0.005):
     Finds the sums of mass shifts, if it exists.
     Returns Series, where index is the mass in str format, values is list of mass shifts that form the mass shift.
     """
-    col = ms.drop(utils.mass_format(0.0)) #drop zero mass shift
+    zero = utils.mass_format(0.0)
+    if zero in ms.index:
+        col = ms.drop(zero)
+    else:
+        col = ms
+        logger.info('Zero mass shift not found in candidates.')
     df = pd.DataFrame({'mass_shift': col.values, 'index': col.index}, index=range(len(col)))
     sum_matrix = df['mass_shift'].to_numpy().reshape(-1, 1) + df['mass_shift'].to_numpy().reshape(1, -1)
     df['out'] = df.apply(lambda x: find_mod_sum(x, df, sum_matrix, tolerance), axis=1)
@@ -188,7 +193,6 @@ def find_modifications(ms, tolerance=0.005):
 
 
 def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
-#    print(row.index, row[params_dict['peptides_column']])
     mass_dict = mass.std_aa_mass
     peptide = params_dict['peptides_column']
     sequences = peptide_isoforms(row[peptide], loc_candidates, sum_mod=sum_mod)
@@ -275,3 +279,33 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         return Counter()
     else:
         return loc_stat_dict
+
+
+def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_mod=False):
+    logger.debug('Localizing %s (sum_mod = %s)', ms, sum_mod)
+    tmp = df.apply(lambda x: localization_of_modification(
+                    ms, x, locations_ms, params_dict, spectra_dict, sum_mod=sum_mod), axis=1)
+    new_localizations = set(tmp.sum().keys()).difference({'non-localized'})
+
+    if sum_mod:
+        locations_ms0 = []
+        locations_ms1 = []
+        locations_ms2 = []
+        for i in new_localizations:
+            if i.endswith('mod1'):
+                locations_ms1.append(i.split('_')[0])
+            elif i.endswith('mod2'):
+                locations_ms2.append(i.split('_')[0])
+            else:
+                locations_ms0.append(i)
+        if ms[1] == ms[-1]:
+            locations_ms2 = locations_ms1[:]
+        logger.debug('new locs: %s, %s, %s', locations_ms0, locations_ms1, locations_ms2)
+        new_localizations = [locations_ms0, locations_ms1, locations_ms2]
+
+    if new_localizations != locations_ms:
+        logger.debug('new localizations: %s', new_localizations)
+        df['loc_counter'] = df.apply(lambda x: localization_of_modification(
+            ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1)
+    else:
+        df['loc_counter'] = tmp
