@@ -127,6 +127,7 @@ def main():
         else:
             cond = False
         logger.debug('Sums of mass shifts: %s', locmod_df.loc[locmod_df['sum of mass shifts'] != False].index)
+        deferred = set()
         while cond:
             logger.debug('Masses left to locate: %s', masses_to_calc)
             for ms in masses_to_calc:
@@ -149,6 +150,20 @@ def main():
                         localization_dict[ms] = df['loc_counter'].sum()
                         logger.debug('counter sum: %s', df['loc_counter'].sum())
                         masses_to_calc = masses_to_calc.difference(set([ms]))
+                    elif ms in deferred:
+                        logger.debug('Breaking the loop for %s', ms)
+                        locations_ms = locmod_df.at[ms, 'all candidates']
+                        locations_ms1 = locmod_df.at[utils.mass_format(mass_1), 'all candidates']
+                        locations_ms2 = locmod_df.at[utils.mass_format(mass_2), 'all candidates']
+                        locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_1, mass_2],
+                            [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=True)
+
+                        localization_dict[ms] = df['loc_counter'].sum()
+                        logger.debug('counter sum: %s', df['loc_counter'].sum())
+                        masses_to_calc = masses_to_calc.difference(set([ms]))
+                    else:
+                        logger.debug('Deferring the localization of %s', ms)
+                        deferred.add(ms)
             if not masses_to_calc:
                 cond = False
         locmod_df['localization'] = pd.Series(localization_dict)
