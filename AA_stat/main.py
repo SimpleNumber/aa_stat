@@ -1,7 +1,7 @@
 import argparse
 import logging
 import os
-from collections import Counter
+from collections import Counter, defaultdict
 try:
     from configparser import ConfigParser
 except ImportError:
@@ -109,15 +109,15 @@ def main():
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
 
-        localization_dict = {}
+        localization_dict = defaultdict(Counter)
         logger.debug('Locmod:\n%s', locmod_df)
         for ms_label, (ms, df) in mass_shift_data_dict.items():
             if not isinstance(locmod_df.at[utils.mass_format(ms), 'sum of mass shifts'], list) and ms != 0.0:
                 locations_ms = locmod_df.at[utils.mass_format(ms), 'all candidates']
                 logger.info('For %s mass shift candidates %s', utils.mass_format(ms), str(locations_ms))
-                locTools.two_step_localization(df, [ms], locations_ms, params_dict, spectra_dict)
-                localization_dict[ms_label] = df['loc_counter'].sum()
-                logger.debug('counter sum: %s', df['loc_counter'].sum())
+                counter = locTools.two_step_localization(df, [ms], locations_ms, params_dict, spectra_dict)
+                localization_dict[ms_label] = counter
+                logger.debug('counter sum: %s', counter)
         localization_dict[utils.mass_format(0.0)] = Counter()
         logger.debug('Localizations: %s', localization_dict)
         masses_to_calc = set(locmod_df.index).difference(localization_dict)
@@ -141,15 +141,16 @@ def main():
                     for ms1, ms2 in mass_pairs:
                         if ms in deferred:
                             deferred.clear()
+                            defer = False
                             logger.debug('Breaking the loop for %s', ms)
                             locations_ms = locmod_df.at[ms, 'all candidates']
                             locations_ms1 = locmod_df.at[ms1, 'all candidates']
                             locations_ms2 = locmod_df.at[ms2, 'all candidates']
-                            locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
+                            counter = locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
                                 [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
 
-                            localization_dict[ms] = df['loc_counter'].sum()
-                            logger.debug('counter sum: %s', df['loc_counter'].sum())
+                            localization_dict[ms].update(counter)
+                            logger.debug('counter sum: %s', counter)
                             masses_to_calc.discard(ms)
 
                         else:
@@ -163,11 +164,12 @@ def main():
                         logger.debug('Deferring the localization of %s', ms)
                         deferred.add(ms)
                     else:
-                        locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
-                                    [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
+                        counter = locTools.two_step_localization(df,
+                            [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
+                            [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
 
-                        localization_dict[ms] = df['loc_counter'].sum()
-                        logger.debug('counter sum: %s', df['loc_counter'].sum())
+                        localization_dict[ms].update(counter)
+                        logger.debug('counter sum: %s', counter)
                         masses_to_calc.discard(ms)
                 else:
                     logger.error('Unprocessed mass shift: %s. Report a bug to developers.', ms)

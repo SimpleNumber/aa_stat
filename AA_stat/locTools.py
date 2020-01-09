@@ -200,7 +200,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
         loc_cand, loc_cand_1, loc_cand_2  = loc_candidates
         if mass_shift[1] == mass_shift[2]:
-            logger.debug('Removing duplicate isoforms for %s', mass_shift)
+            # logger.debug('Removing duplicate isoforms for %s', mass_shift)
             sequences = {s.replace('k', 'n') for s in sequences}
         labels = [utils.mass_format(ms) for ms in mass_shift]
     else:
@@ -229,13 +229,13 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     i = np.argsort(scores)[::-1]
     scores = scores[i]
     sequences = sequences[i]
-    if logger.level <= logging.DEBUG:
-        fname = os.path.join(params_dict['out_dir'], utils.mass_format(mass_shift[0])+'.txt')
+    # if logger.level <= logging.DEBUG:
+        # fname = os.path.join(params_dict['out_dir'], utils.mass_format(mass_shift[0])+'.txt')
         # logger.debug('Writing isoform scores for %s to %s', row[peptide], fname)
-        with open(fname, 'a') as dump:
-            for seq, score in zip(sequences, scores):
-                dump.write('{}\t{}\n'.format(seq, score))
-            dump.write('\n')
+        # with open(fname, 'a') as dump:
+        #     for seq, score in zip(sequences, scores):
+        #         dump.write('{}\t{}\n'.format(seq, score))
+        #     dump.write('\n')
     if len(scores) > 1:
         if scores[0] == scores[1]:
             loc_stat_dict['non-localized'] += 1
@@ -285,7 +285,7 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     logger.debug('Localizing %s (sum_mod = %s)', ms, sum_mod)
     tmp = df.apply(lambda x: localization_of_modification(
                     ms, x, locations_ms, params_dict, spectra_dict, sum_mod=sum_mod), axis=1)
-    new_localizations = set(tmp.sum().keys()).difference({'non-localized'})
+    new_localizations = set(tmp.sum()).difference({'non-localized'})
 
     if sum_mod:
         locations_ms0 = []
@@ -300,12 +300,13 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
                 locations_ms0.append(i)
         if ms[1] == ms[-1]:
             locations_ms2 = locations_ms1[:]
-        logger.debug('new locs: %s, %s, %s', locations_ms0, locations_ms1, locations_ms2)
         new_localizations = [locations_ms0, locations_ms1, locations_ms2]
 
-    if new_localizations != locations_ms:
-        logger.debug('new localizations: %s', new_localizations)
-        df['loc_counter'] = df.apply(lambda x: localization_of_modification(
-            ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1)
+    logger.debug('new localizations: %s', new_localizations)
+    changed = new_localizations != locations_ms
+    logger.debug('Localization did%schange.', [' not ', ' '][changed])
+    if changed:
+        return df.apply(lambda x: localization_of_modification(
+            ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1).sum()
     else:
-        df['loc_counter'] = tmp
+        return tmp.sum()
