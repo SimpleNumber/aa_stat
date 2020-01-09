@@ -269,6 +269,11 @@ def set_additional_params(params_dict):
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
 
 
+_Mkstyle = matplotlib.markers.MarkerStyle
+_marker_styles = [_Mkstyle('o', fillstyle='full'), (_Mkstyle('o', fillstyle='left'), _Mkstyle('o', fillstyle='left')),
+    (_Mkstyle('o', fillstyle='top'), _Mkstyle('o', fillstyle='bottom')), (_Mkstyle(8), _Mkstyle(9)),
+    (_Mkstyle('v'), _Mkstyle('^')), (_Mkstyle('|'), _Mkstyle('_'))]
+
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, localizations=None, sumof=None):
     """
     'ms_label' mass shift in string format.
@@ -316,32 +321,29 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     ax_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.3)
 
     if localizations:
-        Mkstyle = matplotlib.markers.MarkerStyle
-        styles = [Mkstyle('o', fillstyle=fs) for fs in ['full', 'left', 'right']]
         ax3 = ax_left.twinx()
-        ax3.spines["right"].set_position(("axes", 1.1))
+        ax3.spines['right'].set_position(('axes', 1.1))
         ax3.set_frame_on(True)
         ax3.patch.set_visible(False)
         ax3.set_ylabel('Modification localized at AA', color=colors[3])
         for sp in ax3.spines.values():
             sp.set_visible(False)
-        ax3.spines["right"].set_visible(True)
+        ax3.spines['right'].set_visible(True)
         ax3.spines['right'].set_color(colors[3])
         ax3.tick_params('y', colors=colors[3])
         # plot simple modifications (not sum) with the first style,
         # then parts of sum as second and third style
         values = [localizations.get(key) for key in labels]
         label_prefix = 'Location of '
-        ax3.scatter(x, values, marker=styles[0], color=colors[3], label=label_prefix+ms_label)
-        if sumof:
-            values_1 = [localizations.get(key + '_mod1') for key in labels]
-            ax3.scatter(x, values_1, marker=styles[1], color=colors[3], label=label_prefix+mass_format(sumof[0]))
+        ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
+        if isinstance(sumof, list):
+            for pair, styles in zip(sumof, _marker_styles[1:]):
+                values_1 = [localizations.get(key + '_' + pair[0]) for key in labels]
+                ax3.scatter(x, values_1, marker=styles[0], color=colors[3], label=label_prefix+pair[0])
 
-            if len(sumof) > 1:
-                values_2 = [localizations.get(key + '_mod2') for key in labels]
-                ax3.scatter(x, values_2, marker=styles[2], color=colors[3], label=label_prefix+mass_format(sumof[1]))
-            else:
-                values_2 = []
+                values_2 = [localizations.get(key + '_' + pair[1]) for key in labels]
+                if values_2:
+                    ax3.scatter(x, values_2, marker=styles[1], color=colors[3], label=label_prefix+pair[1])
             ax3.legend(loc='upper left')
         else:
             values_1 = values_2 = []

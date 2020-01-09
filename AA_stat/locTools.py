@@ -166,18 +166,17 @@ def find_isotopes(ms, tolerance=0.01):
     return out
 
 
-def find_mod_sum(x, df, sum_matrix, tolerance):
-    out = df.loc[np.where(np.abs(sum_matrix - x['mass_shift']) < tolerance)[0],'mass_shift'].to_list()
-    if len(out):
-        return out
-    else:
-        return False
+def find_mod_sum(x, index, sum_matrix, tolerance):
+    rows, cols = np.where(np.abs(sum_matrix - x) < tolerance)
+    i = rows <= cols
+    if rows.size:
+        return list(zip(index[rows[i]], index[cols[i]]))
+    return np.nan
 
 
 def find_modifications(ms, tolerance=0.005):
     """
-    Finds the sums of mass shifts, if it exists.
-    Returns Series, where index is the mass in str format, values is list of mass shifts that form the mass shift.
+    Finds the sums of mass shifts in Series, if it exists.
     """
     zero = utils.mass_format(0.0)
     if zero in ms.index:
@@ -185,11 +184,10 @@ def find_modifications(ms, tolerance=0.005):
     else:
         col = ms
         logger.info('Zero mass shift not found in candidates.')
-    df = pd.DataFrame({'mass_shift': col.values, 'index': col.index}, index=range(len(col)))
-    sum_matrix = df['mass_shift'].to_numpy().reshape(-1, 1) + df['mass_shift'].to_numpy().reshape(1, -1)
-    df['out'] = df.apply(lambda x: find_mod_sum(x, df, sum_matrix, tolerance), axis=1)
-    df.index = df['index']
-    return df.out
+    values = col.values
+    sum_matrix = values.reshape(-1, 1) + values.reshape(1, -1)
+    out = col.apply(find_mod_sum, args=(col.index, sum_matrix, tolerance))
+    return out
 
 
 def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
@@ -204,6 +202,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         if mass_shift[1] == mass_shift[2]:
             logger.debug('Removing duplicate isoforms for %s', mass_shift)
             sequences = {s.replace('k', 'n') for s in sequences}
+        labels = [utils.mass_format(ms) for ms in mass_shift]
     else:
         mass_dict.update({'m': mass_shift[0]})
         loc_cand = loc_candidates
@@ -255,25 +254,26 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         loc_stat_dict['C-term'] += 1
     loc_index = top_isoform.find('n')
     loc_index_2 = top_isoform.find('k')
+
     if loc_index > -1:
         if loc_index_2 == -1:
             loc_index_1 = top_isoform.rfind('n')
             # this should happen for duplicates where k was changed to n
             logger.debug('%s: %s, %s', top_isoform, loc_index, loc_index_2)
         if top_isoform[loc_index + 1] in loc_cand_1:
-            loc_stat_dict[top_isoform[loc_index + 1] +'_mod1'] += 1
+            loc_stat_dict[top_isoform[loc_index + 1] +'_' + labels[1]] += 1
             if loc_index_2 == -1:
-                loc_stat_dict[top_isoform[loc_index_1 + 1] +'_mod1'] += 1
+                loc_stat_dict[top_isoform[loc_index_1 + 1] +'_' + labels[1]] += 1
             else:
-                loc_stat_dict[top_isoform[loc_index_2 + 1] +'_mod2'] += 1
+                loc_stat_dict[top_isoform[loc_index_2 + 1] +'_' + labels[2]] += 1
         if 'N-term' in loc_cand_1 and loc_index == 0:
-            loc_stat_dict['N-term_mod1'] += 1
+            loc_stat_dict['N-term_' + labels[1]] += 1
         if 'C-term' in loc_cand_1 and loc_index == len(top_isoform) - 2:
-            loc_stat_dict['C-term_mod1'] += 1
+            loc_stat_dict['C-term_' + labels[1]] += 1
         if 'N-term' in loc_cand_2 and loc_index_2 == 0:
-            loc_stat_dict['N-term_mod2'] += 1
+            loc_stat_dict['N-term_' + labels[2]] += 1
         if 'C-term' in loc_cand_2 and loc_index_2 == len(top_isoform) - 2:
-            loc_stat_dict['C-term_mod2'] += 1
+            loc_stat_dict['C-term_' + labels[2]] += 1
 
     if not loc_stat_dict:
         return Counter()
@@ -292,9 +292,9 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
         locations_ms1 = []
         locations_ms2 = []
         for i in new_localizations:
-            if i.endswith('mod1'):
+            if i.endswith('_' + sum_mod[0]):
                 locations_ms1.append(i.split('_')[0])
-            elif i.endswith('mod2'):
+            elif i.endswith('_' + sum_mod[1]):
                 locations_ms2.append(i.split('_')[0])
             else:
                 locations_ms0.append(i)

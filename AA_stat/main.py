@@ -92,10 +92,10 @@ def main():
         locmod_df['# peptides in bin'] = table['# peptides in bin']
         locmod_df[['is isotope', 'isotop_ind']] = locTools.find_isotopes(
             locmod_df['mass shift'], tolerance=AA_stat.ISOTOPE_TOLERANCE)
-        logger.debug('Isotopes: %s', locmod_df.loc[locmod_df['is isotope']])
+        logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
         locmod_df['sum of mass shifts'] = locTools.find_modifications(
             locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
-        locmod_df['sum of mass shifts'].fillna(False, inplace=True)
+        # locmod_df['sum of mass shifts'].fillna(False, inplace=True)
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table,
                  labels=params_dict['labels'], threshold=AA_stat.AA_STAT_CAND_THRESH)
         u = mass.Unimod().mods
@@ -110,60 +110,67 @@ def main():
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
 
         localization_dict = {}
-
+        logger.debug('Locmod:\n%s', locmod_df)
         for ms_label, (ms, df) in mass_shift_data_dict.items():
-            if locmod_df.at[utils.mass_format(ms), 'sum of mass shifts'] == False and ms != 0.0:
+            if not isinstance(locmod_df.at[utils.mass_format(ms), 'sum of mass shifts'], list) and ms != 0.0:
                 locations_ms = locmod_df.at[utils.mass_format(ms), 'all candidates']
                 logger.info('For %s mass shift candidates %s', utils.mass_format(ms), str(locations_ms))
                 locTools.two_step_localization(df, [ms], locations_ms, params_dict, spectra_dict)
-                localization_dict[utils.mass_format(ms)] = df['loc_counter'].sum()
+                localization_dict[ms_label] = df['loc_counter'].sum()
                 logger.debug('counter sum: %s', df['loc_counter'].sum())
         localization_dict[utils.mass_format(0.0)] = Counter()
+        logger.debug('Localizations: %s', localization_dict)
         masses_to_calc = set(locmod_df.index).difference(localization_dict)
 
         logger.info('Localizing potential sums of mass shifts...')
-        if (locmod_df['sum of mass shifts'] != False).any():
+        if (~locmod_df['sum of mass shifts'].isnull()).any():
             cond = True
         else:
             cond = False
-        logger.debug('Sums of mass shifts: %s', locmod_df.loc[locmod_df['sum of mass shifts'] != False].index)
+        logger.debug('Sums of mass shifts: %s', locmod_df.loc[locmod_df['sum of mass shifts'].notna()].index)
         deferred = set()
         while cond:
             logger.debug('Masses left to locate: %s', masses_to_calc)
-            for ms in masses_to_calc:
-                masses = locmod_df.at[ms, 'sum of mass shifts']
-                logger.debug('%s is a sum of %s', ms, masses)
-                if masses != False:
-                    if len(masses) == 1:
-                        mass_1 = masses[0]
-                        mass_2 = masses[0]
-                    else:
-                        mass_1, mass_2 = masses
-                    if utils.mass_format(mass_1) in localization_dict and utils.mass_format(mass_2) in localization_dict:
-                        df = mass_shift_data_dict[ms][1]
-                        locations_ms = locmod_df.at[ms, 'all candidates']
-                        locations_ms1 = set(x for x in localization_dict[utils.mass_format(mass_1)] if len(x) == 1)
-                        locations_ms2 = set(x for x in localization_dict[utils.mass_format(mass_2)] if len(x) == 1)
-                        locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_1, mass_2],
-                            [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=True)
+            for ms in masses_to_calc.copy():
+                defer = False
+                mass_pairs = locmod_df.at[ms, 'sum of mass shifts']
+                df = mass_shift_data_dict[ms][1]
+                logger.debug('%s is a sum of %s', ms, mass_pairs)
+                locations_ms, locations_ms1, locations_ms2 = set(), set(), set()
+                if isinstance(mass_pairs, list):
+                    for ms1, ms2 in mass_pairs:
+                        if ms in deferred:
+                            deferred.clear()
+                            logger.debug('Breaking the loop for %s', ms)
+                            locations_ms = locmod_df.at[ms, 'all candidates']
+                            locations_ms1 = locmod_df.at[ms1, 'all candidates']
+                            locations_ms2 = locmod_df.at[ms2, 'all candidates']
+                            locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
+                                [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
 
-                        localization_dict[ms] = df['loc_counter'].sum()
-                        logger.debug('counter sum: %s', df['loc_counter'].sum())
-                        masses_to_calc = masses_to_calc.difference(set([ms]))
-                    elif ms in deferred:
-                        logger.debug('Breaking the loop for %s', ms)
-                        locations_ms = locmod_df.at[ms, 'all candidates']
-                        locations_ms1 = locmod_df.at[utils.mass_format(mass_1), 'all candidates']
-                        locations_ms2 = locmod_df.at[utils.mass_format(mass_2), 'all candidates']
-                        locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_1, mass_2],
-                            [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=True)
+                            localization_dict[ms] = df['loc_counter'].sum()
+                            logger.debug('counter sum: %s', df['loc_counter'].sum())
+                            masses_to_calc.discard(ms)
 
-                        localization_dict[ms] = df['loc_counter'].sum()
-                        logger.debug('counter sum: %s', df['loc_counter'].sum())
-                        masses_to_calc = masses_to_calc.difference(set([ms]))
-                    else:
+                        else:
+                            if not defer and ms1 in localization_dict and ms2 in localization_dict:
+                                locations_ms.update(locmod_df.at[ms, 'all candidates'])
+                                locations_ms1.update(x for x in localization_dict[ms1] if len(x) == 1)
+                                locations_ms2.update(x for x in localization_dict[ms2] if len(x) == 1)
+                            else:
+                                defer = True
+                    if defer:
                         logger.debug('Deferring the localization of %s', ms)
                         deferred.add(ms)
+                    else:
+                        locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
+                                    [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
+
+                        localization_dict[ms] = df['loc_counter'].sum()
+                        logger.debug('counter sum: %s', df['loc_counter'].sum())
+                        masses_to_calc.discard(ms)
+                else:
+                    logger.error('Unprocessed mass shift: %s. Report a bug to developers.', ms)
             if not masses_to_calc:
                 cond = False
         locmod_df['localization'] = pd.Series(localization_dict)
