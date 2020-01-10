@@ -12,7 +12,6 @@ import pandas as pd
 import numpy as  np
 from collections import defaultdict, Counter
 import logging
-import os
 from math import factorial
 from pyteomics import mass, electrochem as ec
 try:
@@ -96,6 +95,42 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
         return matched_approx, factorial(matched_approx_b) * factorial(matched_approx_y) * isum
     else:
         return 0, 0
+
+
+_preprocessing_cache = {}
+def preprocess_spectrum(reader, spec_id, kwargs):
+    spectrum = _preprocessing_cache.setdefault((reader, spec_id), {})
+    if spectrum:
+        # logger.debug('Returning cached spectrum %s', spec_id)
+        return spectrum
+    # logger.debug('Preprocessing new spectrum %s', spec_id)
+    original = reader[spec_id]
+    maxpeaks = kwargs.get('maxpeaks', 100)
+    dynrange = kwargs.get('dynrange', 1000)
+    acc = kwargs.get('acc', FRAG_ACC)
+
+    mz_array = original['m/z array']
+    int_array = original['intensity array']
+    int_array = int_array.astype(np.float32)
+
+    if dynrange:
+        i = int_array > int_array.max() / dynrange
+        int_array = int_array[i]
+        mz_array = mz_array[i]
+
+    if maxpeaks and int_array.size > maxpeaks:
+        i = np.argsort(int_array)[-maxpeaks:]
+        j = np.argsort(mz_array[i])
+        int_array = int_array[i][j]
+        mz_array = mz_array[i][j]
+
+    tmp = (mz_array / acc).astype(int)
+    for idx, mt in enumerate(tmp):
+        i = int_array[idx]
+        spectrum[mt] = max(spectrum.get(mt, 0), i)
+        spectrum[mt-1] = max(spectrum.get(mt-1, 0), i)
+        spectrum[mt+1] = max(spectrum.get(mt+1, 0), i)
+    return spectrum
 
 
 def peptide_isoforms(sequence, localizations, sum_mod=False):
@@ -212,11 +247,8 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
     else:
         spectrum_id = row[params_dict['spectrum_column']]
-    exp_spec = spectra_dict[row['file']].get_by_id(spectrum_id)
-    tmp = exp_spec['m/z array'] / tolerance
-    tmp = tmp.astype(int)
+    exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {})
     loc_stat_dict = Counter()
-    exp_dict = dict(zip(tmp, exp_spec['intensity array']))
     scores = [] # write for same scores return non-loc
     charge = row[params_dict['charge_column']]
 
