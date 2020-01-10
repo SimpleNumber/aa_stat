@@ -282,24 +282,24 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
 
 
 def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_mod=False):
-    logger.debug('Localizing %s (sum_mod = %s)', ms, sum_mod)
+    logger.debug('Localizing %s (sum_mod = %s) at %s', ms, sum_mod, locations_ms)
     tmp = df.apply(lambda x: localization_of_modification(
                     ms, x, locations_ms, params_dict, spectra_dict, sum_mod=sum_mod), axis=1)
     new_localizations = set(tmp.sum()).difference({'non-localized'})
 
     if sum_mod:
-        locations_ms0 = []
-        locations_ms1 = []
-        locations_ms2 = []
+        locations_ms0 = set()
+        locations_ms1 = set()
+        locations_ms2 = set()
         for i in new_localizations:
             if i.endswith('_' + sum_mod[0]):
-                locations_ms1.append(i.split('_')[0])
+                locations_ms1.add(i.split('_')[0])
             elif i.endswith('_' + sum_mod[1]):
-                locations_ms2.append(i.split('_')[0])
+                locations_ms2.add(i.split('_')[0])
             else:
-                locations_ms0.append(i)
+                locations_ms0.add(i)
         if ms[1] == ms[-1]:
-            locations_ms2 = locations_ms1[:]
+            locations_ms2 = locations_ms1.copy()
         new_localizations = [locations_ms0, locations_ms1, locations_ms2]
 
     logger.debug('new localizations: %s', new_localizations)

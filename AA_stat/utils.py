@@ -312,12 +312,13 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     ax_left.tick_params('y', colors=colors[2])
     ax_right.tick_params('y', colors=colors[0])
 
-    p = matplotlib.lines.Line2D([], [], marker=None, label=labeltext, alpha=0)
-    ax_right.legend(handles=[p], loc='upper right', edgecolor='dimgrey', fancybox=True, handlelength=0)
+    pright = matplotlib.lines.Line2D([], [], marker=None, label=labeltext, alpha=0)
+
 
     ax_left.set_xlim(-1, x[-1] + 1)
-    ax_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.3)
+    ax_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.4)
 
+    logger.debug('Localizations for %s figure: %s', ms_label, localizations)
     if localizations:
         ax3 = ax_left.twinx()
         ax3.spines['right'].set_position(('axes', 1.1))
@@ -338,15 +339,26 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
             for pair, styles in zip(sumof, _marker_styles[1:]):
                 values_1 = [localizations.get(key + '_' + pair[0]) for key in labels]
                 ax3.scatter(x, values_1, marker=styles[0], color=colors[3], label=label_prefix+pair[0])
-
                 values_2 = [localizations.get(key + '_' + pair[1]) for key in labels]
                 if values_2:
                     ax3.scatter(x, values_2, marker=styles[1], color=colors[3], label=label_prefix+pair[1])
-            ax3.legend(loc='upper left')
         else:
             values_1 = values_2 = []
+        terms = {key for key in localizations if key[1:6] == '-term'}
+        logger.debug('Found terminal localizations: %s', terms)
+        for t in terms:
+            if '_' in t:
+                label = '{} at {}: {}'.format(*t.split('_'), localizations[t])
+            else:
+                label = '{} at {}: {}'.format(ms_label, t, localizations[t])
+            p = ax3.plot([], [], label=label)[0]
+            p.set_visible(False)
+        pright.set_label(pright.get_label() + '\nNot localized: {}'.format(localizations.get('non-localized', 0)))
         ax3.set_ylim(0, 1.2 * max(x for x in values + values_1 + values_2 if x is not None))
+        ax3.legend(loc='upper left', ncol=2)
 
+
+    ax_right.legend(handles=[pright], loc='upper right', edgecolor='dimgrey', fancybox=True, handlelength=0)
     fig.tight_layout()
     fig.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
     fig.savefig(os.path.join(save_directory, ms_label + '.svg'))
@@ -356,8 +368,8 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 def summarizing_hist(table, save_directory):
     ax = table.sort_values('mass shift').plot(
         y='# peptides in bin', kind='bar', color=colors[2], figsize=(len(table), 5))
-    ax.set_title("Peptides in mass shifts", fontsize=12) #PSMs
-    ax.set_xlabel("Mass shift", fontsize=10)
+    ax.set_title('Peptides in mass shifts', fontsize=12) #PSMs
+    ax.set_xlabel('Mass shift', fontsize=10)
     ax.set_ylabel('Number of peptides')
     ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply(lambda x: round(x, 2)))
 
