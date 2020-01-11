@@ -339,9 +339,12 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
             for pair, styles in zip(sumof, _marker_styles[1:]):
                 values_1 = [localizations.get(key + '_' + pair[0]) for key in labels]
                 ax3.scatter(x, values_1, marker=styles[0], color=colors[3], label=label_prefix+pair[0])
-                values_2 = [localizations.get(key + '_' + pair[1]) for key in labels]
-                if values_2:
-                    ax3.scatter(x, values_2, marker=styles[1], color=colors[3], label=label_prefix+pair[1])
+                if pair[0] != pair[1]:
+                    values_2 = [localizations.get(key + '_' + pair[1]) for key in labels]
+                    if values_2:
+                        ax3.scatter(x, values_2, marker=styles[1], color=colors[3], label=label_prefix+pair[1])
+                else:
+                    values_2 = []
         else:
             values_1 = values_2 = []
         terms = {key for key in localizations if key[1:6] == '-term'}

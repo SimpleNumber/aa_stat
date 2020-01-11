@@ -95,7 +95,7 @@ def main():
         logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
         locmod_df['sum of mass shifts'] = locTools.find_modifications(
             locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
-        # locmod_df['sum of mass shifts'].fillna(False, inplace=True)
+
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table,
                  labels=params_dict['labels'], threshold=AA_stat.AA_STAT_CAND_THRESH)
         u = mass.Unimod().mods
@@ -104,7 +104,7 @@ def main():
             lambda x: locTools.get_candidates_from_unimod(x, AA_stat.UNIIMOD_TOLERANCE, unimod_df))
         locmod_df['all candidates'] = locmod_df.apply(
             lambda x: set(x['unimod candidates']) | (set(x['aa_stat candidates'])), axis=1)
-        # locmod_df.to_csv(os.path.join(save_directory, 'test1.csv'))
+
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
@@ -146,7 +146,8 @@ def main():
                             locations_ms = locmod_df.at[ms, 'all candidates']
                             locations_ms1 = locmod_df.at[ms1, 'all candidates']
                             locations_ms2 = locmod_df.at[ms2, 'all candidates']
-                            counter = locTools.two_step_localization(df, [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
+                            counter = locTools.two_step_localization(df,
+                                [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
                                 [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
 
                             localization_dict[ms].update(counter)
