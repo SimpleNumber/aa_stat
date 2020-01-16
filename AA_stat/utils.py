@@ -382,8 +382,8 @@ def summarizing_hist(table, save_directory):
         current_height = i.get_height()
         if current_height > max_height:
             max_height = current_height
-        ax.text(i.get_x()-.03, current_height + 200,
-            '{:.2%}'.format(i.get_height() / total), fontsize=10, color='dimgrey')
+        ax.text(i.get_x()-.03, current_height + 40,
+            '{:>6.2%}'.format(i.get_height() / total), fontsize=10, color='dimgrey')
 
     plt.ylim(0, max_height * 1.2)
     plt.tight_layout()
