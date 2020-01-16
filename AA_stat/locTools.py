@@ -254,7 +254,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
 
     sequences = np.array(list(sequences))
     for seq in sequences:
-        theor_spec = get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_data=mass_dict)
+        theor_spec = get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_mass=mass_dict)
         scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
 
     scores = np.array(scores)
