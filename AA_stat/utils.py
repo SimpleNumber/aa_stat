@@ -101,11 +101,28 @@ def get_unimod_url(mass_shift):
 
 
 def smooth(y, window_size=15, power=5):
+    """
+    Smoothes function.
+    Paramenters
+    -----------
+    y : array-like
+        function to smooth.
+    window_size : int 
+        Smothing window.
+    power : int
+        Power of smothing function.
+
+    Returns
+    -------
+    Smoothed function
+        
+    """
     y_smooth = savgol_filter(y, window_size, power)
     return y_smooth
 
 
-def gauss(x,a,  x0, sigma):
+def gauss(x, a,  x0, sigma):
+    
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return a/sigma/np.sqrt(2*np.pi) * np.exp(-(x - x0) * (x - x0) / (2 * sigma ** 2))
@@ -131,6 +148,17 @@ def gauss_fitting(center_y, x, y):
 
 
 def fit_peaks(data, args, params_dict):
+    """
+    Finds Gauss-like peaks in mass shift histogram.
+    
+    Parameters
+    ----------
+    data : DataFRame
+        A DF with all (non-filtered) results of open search.
+    args: argsparse
+    params_dict : dict
+        Parameters dict.
+    """
     logger.info('Performing Gaussian fit...')
 
     half_window = int(params_dict['window']/2) + 1
@@ -189,11 +217,7 @@ def read_mzml(file_path): # write this
 
 
 def read_spectra(args):
-    """
-    Reads spectra
-    -----------
-    Returns
-    """
+
     readers = {
         'mgf': read_mgf,
         'mzML': read_mzml,
@@ -276,8 +300,27 @@ _marker_styles = [_Mkstyle('o', fillstyle='full'), (_Mkstyle('o', fillstyle='lef
 
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, localizations=None, sumof=None):
     """
-    'ms_label' mass shift in string format.
-    'ms_counts' entries in a mass shift.
+    Plots amino acid spatistics.
+    
+    Parameters
+    ----------
+    ms_label : str
+        Mass shift in string format.
+    ms_counts : int
+        Number of peptides in a mass shift.
+    left : list
+        Amino acid statistics data [[values], [errors]]
+    right : list
+        Amino acid requences in peptides
+     params_dict : dict
+        Parameters dict.
+    save_directory: str
+        Saving directory.
+    localizations : Counter
+         Localization counter using  ms/ms level.
+    sumof : List
+        List of str tuples for constituent mass shifts. 
+        
     """
     b = 0.1 # shift in bar plots
     width = 0.2 # for bar plots
