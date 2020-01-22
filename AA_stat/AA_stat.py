@@ -45,15 +45,15 @@ def get_peptide_statistics(peptide_list):
 
 def get_aa_distribution(peptide_list, rule):
     '''
-    Calculates amino acid statistics for peptide list. 
+    Calculates amino acid statistics for peptide list.
     In silico cleaves peptides to get fully cleaved set of peptides.
 
     Parameters
     ----------
     peptide_list : Iterable
         An iterable of peptides.
-    rule : str or compiled regex. 
-        Cleavage rule in pyteomics format. 
+    rule : str or compiled regex.
+        Cleavage rule in pyteomics format.
 
     Returns
     -------
@@ -74,7 +74,7 @@ def get_aa_distribution(peptide_list, rule):
 def save_table(distributions, number_of_PSMs, mass_shifts):
     '''
     Prepares amino acid statistis result table.
-    
+
     Parameters
     ----------
     distributions : DataFrame
@@ -97,16 +97,15 @@ def save_table(distributions, number_of_PSMs, mass_shifts):
     df['# peptides in bin'] = df['# peptides in bin'].astype(np.int64)
     out = pd.concat([df, distributions.T], axis=1)
     out['Unimod'] = unimod
-    out.index = range(len(out))
-    i = ((out.drop(columns=['mass shift', 'Unimod', '# peptides in bin']).max(axis=1) - 1) * out['# peptides in bin']).argsort()
-    return out.loc[i.values[::-1], :]
+    out.reset_index(inplace=True, drop=True)
+    return out
 
 
 def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
     '''
-    Calculates p-values and error standard deviation of amino acids statistics 
+    Calculates p-values and error standard deviation of amino acids statistics
     using bootstraping method.
-    
+
     Parameters
     ----------
     pep_list : Iterable
@@ -115,7 +114,7 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
         Indexes are amino acids and values are stds of a `reference` mass shift.
     reference : Series
         Indexes are amino acids and values are amino acids statistics of a reference mass shift.
-    rule : str or compiled regex. 
+    rule : str or compiled regex.
         Cleavage rule in pyteomics format.
     l: Iterable
         An Iterable of amino acids to be considered.
@@ -139,12 +138,12 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
 def get_zero_mass_shift(mass_shifts):
     """
     Shift of non-modified peak. Finds zero mass shift.
-    
+
     Parameters
     ----------
     mass_shifts : Series
         Series of mass shifts.
-    
+
     Returns
     -------
     Mass shift in float format.
@@ -156,20 +155,20 @@ def get_zero_mass_shift(mass_shifts):
 
 def check_difference(shift1, shift2):
     """
-    Checks two mass shifts means to be closer than the sum of their std. 
-    
+    Checks two mass shifts means to be closer than the sum of their std.
+
     Parameters
     ----------
     shift1 : List
         list that describes mass shift. On the first position have to be mean of mass shift,
-        on  second position have to be std. 
+        on  second position have to be std.
     shift2 : List
         list that describes mass shift. On the first position have to be mean of mass shift,
-        on  second position have to be std. 
-    
+        on  second position have to be std.
+
     Returns
     -------
-    Boolean. 
+    Boolean.
     True if distance between mass shifts more thn sum of stds.
     """
     mean_diff = (shift1[1] - shift2[1]) ** 2
@@ -179,9 +178,9 @@ def check_difference(shift1, shift2):
 
 def filter_mass_shifts(results):
     """
-    Merges close mass shifts. If difference between means of two mass shifts less 
-    than sum of sigmas, they are merged. 
-    
+    Merges close mass shifts. If difference between means of two mass shifts less
+    than sum of sigmas, they are merged.
+
     Parameters
     ----------
     results : numpy array
@@ -207,20 +206,20 @@ def filter_mass_shifts(results):
 
 def group_specific_filtering(data, mass_shifts, params_dict):
     """
-    Selects window around found mass shift and filters using TDA. 
+    Selects window around found mass shift and filters using TDA.
     Window is defined as mean +- 3*sigma.
-    
+
     Parameters
     ----------
-    data : DataFrame 
+    data : DataFrame
         DF with all open search data.
     mass_shifts: numpy array
         Output of utils.fit_peaks function (poptperr matrix). An array of Gauss fitted mass shift
         parameters and their tolerances. [[A, mean, sigma, A_error, mean_error, sigma_error],...]
     params_dict : dict
-        Dict with paramenters for parsing csv file. 
+        Dict with paramenters for parsing csv file.
         `mass_shifts_column`, `FDR`, `FDR_correction`, `peptides_column`
-    
+
     Returns
     -------
     Dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
@@ -244,9 +243,9 @@ def group_specific_filtering(data, mass_shifts, params_dict):
 
 def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     """
-    Calculates amino acid statistics, relative amino acids presence in peptides 
-    for all mass shifts. 
-    
+    Calculates amino acid statistics, relative amino acids presence in peptides
+    for all mass shifts.
+
     Paramenters
     -----------
     mass_shifts_dict : dict
@@ -254,16 +253,16 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     zero_mass_shift : float
         Reference mass shift.
     params_dict : dict
-        Dict with paramenters for parsing csv file. 
+        Dict with paramenters for parsing csv file.
         `labels`, `rule`, `peptides_column` and other params
-        
+
     Returns
     -------
-    
-    DF with amino acid statistics, Series with number of PSMs and dict of data 
+
+    DF with amino acid statistics, Series with number of PSMs and dict of data
     for mass shift figures.
-    
-        
+
+
     """
     logger.info('Calculating distributions...')
     labels = params_dict['labels']
@@ -319,20 +318,20 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
 
 def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
     """
-    
+
     Parameters
     ----------
     mass_shifts_dict : Dict
         A dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
     mass_correction: float
         Mass of reference (zero) mass shift, that should be moved to 0.0
-    
+
     Returns
     -------
     Updated `mass_shifts_dict`
     """
-   out = {}
-   for k, v in mass_shifts_dict.items():
+    out = {}
+    for k, v in mass_shifts_dict.items():
         corr_mass = v[0] - mass_correction
         out[utils.mass_format(corr_mass)] = (corr_mass, v[1])
-   return out
+    return out
