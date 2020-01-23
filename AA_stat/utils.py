@@ -33,9 +33,24 @@ def mass_format(mass):
 
 
 def make_0mc_peptides(pep_list, rule):
+    """
+    In silico cleaves all peptides with a given rule.
+    
+    Parameters
+    ----------
+    pep_list : Iterable
+        An iterable of peptides
+    rule : str or compiled regex. 
+        Cleavage rule in pyteomics format.
+    
+    Returns
+    -------
+    Set of fully cleaved peptides.
+
+    """
     out_set = set()
     for i in pep_list:
-        out_set.update(parser.cleave(i, rule))
+        out_set.update(parser.cleave( i, rule))
     return out_set
 
 
@@ -44,6 +59,21 @@ def read_pepxml(fname, params_dict):
 
 
 def read_csv(fname, params_dict):
+    """
+    Reads csv file.
+    
+    Paramenters
+    -----------
+    fname : str
+        Path to file name.
+    params_dict : dict
+        Dict with paramenters for parsing csv file. 
+            `csv_delimiter`, `proteins_column`, `proteins_delimiter`
+    Returns
+    -------
+    A DataFrame of csv file.
+    
+    """
     df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
     protein = params_dict['proteins_column']
     if (df[protein].str[0] == '[').all() and (df[protein].str[-1] == ']').all():
@@ -56,6 +86,12 @@ def read_csv(fname, params_dict):
 def read_input(args, params_dict):
     """
     Reads open search output, assembles all data in one DataFrame.
+    
+    Parameters
+    ----------
+    args : 
+        
+    
     """
     dfs = []
     data = pd.DataFrame()
