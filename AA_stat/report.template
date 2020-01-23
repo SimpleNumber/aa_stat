@@ -10,27 +10,60 @@
             margin-left: auto;
             margin-right: auto;
         }
+        #legend {
+          display: none;
+        }
         table {
           border: 1px solid black;
           text-align: center;
           margin-left: auto;
           margin-right: auto;
         }
+        .legend.peptides {
+          color: #FF6600;
+        }
+        .legend.freq {
+          color: #88AA00;
+        }
+        .legend.localized {
+          color: #006688;
+        }
     </style>
 </head>
 <body>
 %%%
+<div id="legend">
+  <h2>Figure Legend</h2>
+  <p>
+    <span class="legend freq">Relative AA abundance</span>: this value represents the difference in occurrence frequency
+    between peptides with the given mass shift relative to the peptides with unshifted masses.
+    The AA occurrence frequency is calculated for all mass shifts as follows: the AA is counted in all peptides without miscleavages,
+    then the AA count is divided by the total of all AA counts.
+    Each AA occurrence frequency for each shift is then divided by the occurrence frequency of the same AA at zero mass shift.
+    Thus, values below 1 mean that the AA is "depleted" and values above 1 mean that it is "enriched" at a certain mass shift.
+  </p>
+  <p>
+    <span class="legend peptides">Peptides with AA, %</span>: This is the percentage of peptides at the given mass shift that contain
+    at least one AA residue of a certain kind. This is useful to assess the meaning of the observed frequencies.
+  </p>
+  <p>
+    <span class="legend localized">Localization count</span>: if spectrum files are provided to AA_stat, each MS/MS spectrum of shifted peptides
+    is tested for localization of mass shifts. This axis counts successful localizations of mass shifts at each AA. The counts are not normalized.
+  </p>
+</div>
 <img id="pic" src="summary.png">
 <script type="text/javascript">
   var anchors = document.getElementsByClassName('data col0');
   for(i = 0; i < anchors.length; i++) {
     anchors[i].children[0].onclick = function (e) {
       document.getElementById('pic').src = e.target.text + '.png';
+      document.getElementById('legend').style.display = 'block';
     }
   }
   var binh = document.getElementById('binh');
   binh.onclick = function (e) {
     document.getElementById('pic').src = 'summary.png';
+    document.getElementById('legend').style.display = 'none';
   }
 </script>
 </body>

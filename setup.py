@@ -8,7 +8,7 @@ from setuptools import setup, find_packages
 
 setup(
     name                 = 'AA_stat',
-    version              = '1.0.12',
+    version              = '1.0.13',
     description          = '''A utility for validation of peptide identification results in proteomics using amino acid counting.''',
     long_description     = (''.join(open('README.MD').readlines())),
     author               = 'Julia Bubis & Lev Levitsky',
