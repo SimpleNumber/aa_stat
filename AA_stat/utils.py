@@ -107,7 +107,7 @@ def smooth(y, window_size=15, power=5):
     -----------
     y : array-like
         function to smooth.
-    window_size : int 
+    window_size : int
         Smothing window.
     power : int
         Power of smothing function.
@@ -115,14 +115,14 @@ def smooth(y, window_size=15, power=5):
     Returns
     -------
     Smoothed function
-        
+
     """
     y_smooth = savgol_filter(y, window_size, power)
     return y_smooth
 
 
 def gauss(x, a,  x0, sigma):
-    
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return a/sigma/np.sqrt(2*np.pi) * np.exp(-(x - x0) * (x - x0) / (2 * sigma ** 2))
@@ -150,7 +150,7 @@ def gauss_fitting(center_y, x, y):
 def fit_peaks(data, args, params_dict):
     """
     Finds Gauss-like peaks in mass shift histogram.
-    
+
     Parameters
     ----------
     data : DataFRame
@@ -301,7 +301,7 @@ _marker_styles = [_Mkstyle('o', fillstyle='full'), (_Mkstyle('o', fillstyle='lef
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, localizations=None, sumof=None):
     """
     Plots amino acid spatistics.
-    
+
     Parameters
     ----------
     ms_label : str
@@ -319,8 +319,8 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     localizations : Counter
          Localization counter using  ms/ms level.
     sumof : List
-        List of str tuples for constituent mass shifts. 
-        
+        List of str tuples for constituent mass shifts.
+
     """
     b = 0.1 # shift in bar plots
     width = 0.2 # for bar plots
@@ -367,7 +367,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         ax3.spines['right'].set_position(('axes', 1.1))
         ax3.set_frame_on(True)
         ax3.patch.set_visible(False)
-        ax3.set_ylabel('Modification localized at AA', color=colors[3])
+        ax3.set_ylabel('Localization count', color=colors[3])
         for sp in ax3.spines.values():
             sp.set_visible(False)
         ax3.spines['right'].set_visible(True)
@@ -400,7 +400,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
             p = ax3.plot([], [], label=label)[0]
             p.set_visible(False)
         pright.set_label(pright.get_label() + '\nNot localized: {}'.format(localizations.get('non-localized', 0)))
-        ax3.set_ylim(0, 1.2 * max(x for x in values + values_1 + values_2 if x is not None))
+        ax3.set_ylim(0, 1.4 * max(x for x in values + values_1 + values_2 if x is not None))
         ax3.legend(loc='upper left', ncol=2)
 
 
