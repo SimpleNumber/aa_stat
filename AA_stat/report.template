@@ -5,7 +5,7 @@
     <style type="text/css">
         #pic {
             max-height: 80vh;
-            max-width: 90vw;
+            max-width: 70vw;
             display: block;
             margin-left: auto;
             margin-right: auto;
@@ -27,6 +27,15 @@
         }
         .legend.localized {
           color: #006688;
+        }
+        #legend p {
+          max-width: 30vw;
+          margin: 1vw;
+          float: left;
+          text-align: justify;
+        }
+        #legend h2 {
+          text-align: center;
         }
     </style>
 </head>
