@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as  np
 import warnings
 from collections import defaultdict
+import re
 import seaborn as sb
 
 from pyteomics import parser, pepxml, mgf, mzml
@@ -457,3 +458,7 @@ def render_html_report(table_, params_dict, save_directory):
     report = report.replace(r'%%%', table_html)
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
+
+
+def format_isoform(seq, ms):
+    return re.sub(r'([mnk])([A-Z])', lambda m: '{}[{:.0f}]'.format(m.group(2), ms['mnk'.index(m.group(1))]), seq)

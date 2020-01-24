@@ -29,8 +29,9 @@
           color: #006688;
         }
         #legend p {
-          max-width: 30vw;
-          margin: 1vw;
+          max-width: 25vw;
+          margin-left: 1vw;
+          margin-right: 1vw;
           float: left;
           text-align: justify;
         }

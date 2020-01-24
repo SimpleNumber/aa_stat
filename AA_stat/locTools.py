@@ -6,18 +6,19 @@ Created on Thu Oct 24 11:44:50 2019
 """
 
 from __future__ import print_function, division
-import matplotlib
-matplotlib.use('Agg')
 import pandas as pd
 import numpy as  np
 from collections import defaultdict, Counter
 import logging
 from math import factorial
+import os
+
 from pyteomics import mass, electrochem as ec
 try:
     from pyteomics import cmass
 except ImportError:
     cmass = mass
+
 from . import utils
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
 FRAG_ACC = 0.02
@@ -28,17 +29,17 @@ logger = logging.getLogger(__name__)
 def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, **kwargs):
     """
     Calculates theoretical spectra in two ways: usual one and in integer format (mz / frag_acc).
-    
+
     Parameters
     ----------
-    
+
     peptide : str
         Peptide sequence.
     acc_frag : float
         Fragment mass accuracy in Da.
     types : tuple
         Fragment ion types. ('b', 'y')
-        
+
     maxcharge: int
         Maximum charge of fragment ion.
 
@@ -81,13 +82,13 @@ def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, **kw
 def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
     """
     Matches experimental and theoretical spectra in int formats.
-    
+
     Parameters
     ----------
-    
+
     spectrum_idict : list
-        Experimental spectrum in integer format.  Output of preprocess_spectrum. 
-    theoretical_set: dict 
+        Experimental spectrum in integer format.  Output of preprocess_spectrum.
+    theoretical_set: dict
         A dict where key is ion type and value is a set of integers (m/z / fragment accuracy).
         Output of get_theor_spec function.
     min_matched : int
@@ -95,7 +96,7 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
 
     Returns
     -------
-    
+
     Number of matched peaks, score.
     """
     isum = 0
@@ -120,17 +121,17 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
 _preprocessing_cache = {}
 def preprocess_spectrum(reader, spec_id, kwargs):
     """
-    Prepares experimental spectrum for matching, converts experimental spectrum to int format. Default settings for preprocessing : maximum peaks is 100, 
+    Prepares experimental spectrum for matching, converts experimental spectrum to int format. Default settings for preprocessing : maximum peaks is 100,
     dynamic range is 1000.
-    
+
     Paramenters
     -----------
-    
+
     reader : function
-        Spectrum file reader.     
+        Spectrum file reader.
     spec_id : str
         Spectrum id.
-    
+
     Returns
     -------
     List of experimental mass spectrum in integer format.
@@ -172,10 +173,10 @@ def preprocess_spectrum(reader, spec_id, kwargs):
 def peptide_isoforms(sequence, localizations, sum_mod=False):
     """
     Generates isoforms for modification localization.
-    
+
     Paramenters
     -----------
-    
+
     sequence : str
         Sequence of peptide with no modifications.
     localizations: List
@@ -183,10 +184,10 @@ def peptide_isoforms(sequence, localizations, sum_mod=False):
         `localizations[1]` and `localizations[2]`  is candidates lists for sum of modifications.
     sum_mod : Boolean
         True if sum of modifications have to be considered.
-        
+
     Returns
     -------
-    
+
     Set of peptide isoforms. Where 'm' for mono modification, 'n', 'k' for sum of modifications.
     """
     if sum_mod:
@@ -221,8 +222,8 @@ def peptide_isoforms(sequence, localizations, sum_mod=False):
 def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
     """
     Find modifications for `mass_shift` in Unimod.org database with a given `tolerance`.
-    
-    
+
+
     Paramenters
     -----------
     mass_shift : float
@@ -231,9 +232,9 @@ def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
         Tolerance for the search in Unimod db.
     unimod_df : DataFrame
         DF with all unimod mo9difications.
-        
+
     Returns
-    -------    
+    -------
     List  of amino acids.
 
     """
@@ -247,7 +248,7 @@ def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
 def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5):
     """
     Get localization candidates from amono acid statistics.
-    
+
     Paramenters
     -----------
     mass_shifts_table : DataFrame
@@ -256,13 +257,13 @@ def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5):
         List of amino acids that should be considered.
     threshold : float
         Threshold to be considered as significantly changed.
-    
+
     Results
     -------
-    
+
     Series with mass shift as index and list of candidates as value.
     """
-    
+
     df = mass_shifts_table.loc[:, labels]
     ms, aa = np.where(df > threshold)
     out = {ms: [] for ms in mass_shifts_table.index}
@@ -274,15 +275,15 @@ def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5):
 def find_isotopes(ms, tolerance=0.01):
     """
     Find the isotopes between mass shifts using mass difference of C13 and C12, information of amino acids statistics as well.
-    
+
     Paramenters
     -----------
-    
+
     ms : Series
         Series with mass in str format as index and values float mass shift.
     tolerance : float
         Tolerance for isotop matching.
-    
+
     Returns
     -------
     DataFrame with 'isotop'(boolean) and 'monoisotop_index' columns.
@@ -299,7 +300,7 @@ def find_isotopes(ms, tolerance=0.01):
 def find_mod_sum(x, index, sum_matrix, tolerance):
     """
     Finds mass shift that are sum of given mass shift and other mass shift results in already existing mass shift.
-    
+
     Parameters
     ----------
     x : float
@@ -310,7 +311,7 @@ def find_mod_sum(x, index, sum_matrix, tolerance):
         Matrix of sums for all mass shifts.
     tolerance: float
         Matching tolerance in Da.
-        
+
     Returns
     -------
     List of tuples.
@@ -325,18 +326,18 @@ def find_mod_sum(x, index, sum_matrix, tolerance):
 def find_modifications(ms, tolerance=0.005):
     """
     Finds the sums of mass shifts in Series, if it exists.
-    
+
     Parameters
     ----------
     ms : Series
         Series with mass in str format as index and values float mass shift.
     tolerance : float
         Matching tolerance in Da.
-    
+
     Returns
     -------
     Series with pairs of mass shift for all mass shifts.
-        
+
     """
     zero = utils.mass_format(0.0)
     if zero in ms.index:
@@ -352,8 +353,8 @@ def find_modifications(ms, tolerance=0.005):
 
 def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
     """
-    Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-modified'.
-    
+    Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
+
     Paramenters
     -----------
     mass_shift : float
@@ -363,23 +364,23 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     loc_candidates : list
         List or list of lists (in case of sum of modifications, `sum_mod`=True) with candidates for localization.
     params_dict : dict
-        Dict with all paramenters.
+        Dict with all parameters.
     spectra_dict : dict
-        Keys are filenames and values file with mass spectra.
+        Keys are filenames and values are Pyteomics readers.
     tolerance : float
-        Tolerance for matching theoretical and experimental spectra.
-    sum_mod : boolean
+        m/z tolerance for matching theoretical and experimental spectra.
+    sum_mod : bool
         True if sum of codifications should be considered.
-    
+
     Returns
     -------
-    Counter of localizations.    
+    Counter of localizations.
     """
     mass_dict = mass.std_aa_mass
     peptide = params_dict['peptides_column']
     sequences = peptide_isoforms(row[peptide], loc_candidates, sum_mod=sum_mod)
     if not sequences:
-        return Counter()
+        return Counter(), None
     if sum_mod:
         mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
         loc_cand, loc_cand_1, loc_cand_2  = loc_candidates
@@ -420,7 +421,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     if len(scores) > 1:
         if scores[0] == scores[1]:
             loc_stat_dict['non-localized'] += 1
-            return loc_stat_dict
+            return loc_stat_dict, None
         else:
             top_isoform = sequences[0]
     else:
@@ -457,38 +458,39 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
             loc_stat_dict['C-term_' + labels[2]] += 1
 
     if not loc_stat_dict:
-        return Counter()
+        return Counter(), None
     else:
-        return loc_stat_dict
+        return loc_stat_dict, top_isoform
 
 
 def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_mod=False):
     """
     Localizes modification or sum of modifications for mass shift and repeat localization if there are redundant candidates. If two peptides isoforms have the same max score, modification counts as 'non-modified'.
-    
+
     Paramenters
     -----------
     df : DataFrame
         DF with filtered peptides for considering mass shift.
-    ms : float
-        Considering mass shift.
-    locations_ms : 
-        List or list of lists (in case of sum of modifications, `sum_mod`=True) with candidates for localization.
+    ms : list of float
+        Considered mass shift(s).
+    locations_ms :
+        List or list of lists (in case of sum of modifications, `sum_mod=True`) with candidates for localization.
     params_dict : dict
         Dict with all paramenters.
     spectra_dict : dict
         Keys are filenames and values file with mass spectra.
-    sum_mod : boolean
+    sum_mod : bool
         True if sum of codifications should be considered.
-    
+
     Returns
     -------
-    Counter of localizations.    
+    Counter of localizations.
     """
     logger.debug('Localizing %s (sum_mod = %s) at %s', ms, sum_mod, locations_ms)
-    tmp = df.apply(lambda x: localization_of_modification(
-                    ms, x, locations_ms, params_dict, spectra_dict, sum_mod=sum_mod), axis=1)
-    new_localizations = set(tmp.sum()).difference({'non-localized'})
+    results = pd.DataFrame(index=df.index)
+    results['localization'], results['top_isoform'] = zip(*df.apply(lambda x: localization_of_modification(
+                    ms, x, locations_ms, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
+    new_localizations = set(results['localization'].sum()).difference({'non-localized'})
 
     if sum_mod:
         locations_ms0 = set()
@@ -509,7 +511,11 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     changed = new_localizations != locations_ms
     logger.debug('Localization did%schange.', [' not ', ' '][changed])
     if changed:
-        return df.apply(lambda x: localization_of_modification(
-            ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1).sum()
-    else:
-        return tmp.sum()
+        results['localization'], results['top_isoform'] = zip(*df.apply(lambda x: localization_of_modification(
+            ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
+
+    fname = os.path.join(params_dict['out_dir'], utils.mass_format(ms[0]) + '.txt')
+    peptide = params_dict['peptides_column']
+    results['top_isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(ms,)).to_csv(fname, index=False, header=False)
+
+    return results['localization'].sum()
