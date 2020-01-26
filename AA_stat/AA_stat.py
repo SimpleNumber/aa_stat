@@ -491,3 +491,4 @@ def AA_stat(params_dict, args):
             sumof = None
         utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
     logger.info('Done.')
+    return figure_data
