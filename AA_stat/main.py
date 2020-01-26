@@ -75,18 +75,16 @@ def main():
             if args.MSFragger_path:
                 if args.os_params:
                     if args.mgf:
+                        args.mgf = [os.path.abspath(f) for f in args.mgf]
                         results_path = osPipe.run_os(args.mgf, args.MSFragger_path, save_dir,
-                                      parameters=args.os_params )
+                                      parameters=args.os_params)
                     else:
+                        args.mzML = [os.path.abspath(f) for f in args.mzML]
                         results_path = osPipe.run_os(args.mzML, args.MSFragger_path, save_dir,
                                       parameters=args.os_params)
                     args.pepxml = [os.path.join(results_path, f) for f in os.listdir(results_path)\
                                    if f.endswith('.pepXML')]
                     args.dir = os.path.join(save_dir, 'AA_results_custom_os')
-#                    args = pars.parse_args()
-                    #start aastat
-                    print(args)
-#                    if os.path.isdir(os.path.join(os.path.join(args.dir,'aa_stat_res'))):
                     os.makedirs(os.path.join(args.dir, 'aa_stat_res'), exist_ok=True)
                     AA_stat.AA_stat(params_dict, args)
                 else:
@@ -107,6 +105,7 @@ def main():
             else:
                 logging.error('--MSFragger_path have to be provided.')
     else:
+        
         os.makedirs(os.path.join(save_dir,'aa_stat_res'), exist_ok=True)
         args.dir = os.path.join(save_dir,'aa_stat_res')
         AA_stat.AA_stat(params_dict, args)
