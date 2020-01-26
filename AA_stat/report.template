@@ -5,7 +5,7 @@
     <style type="text/css">
         #pic {
             max-height: 80vh;
-            max-width: 90vw;
+            max-width: 70vw;
             display: block;
             margin-left: auto;
             margin-right: auto;
@@ -28,6 +28,15 @@
         .legend.localized {
           color: #006688;
         }
+        #legend p {
+          max-width: 30vw;
+          margin: 1vw;
+          float: left;
+          text-align: justify;
+        }
+        #legend h2 {
+          text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -36,7 +45,7 @@
   <h2>Figure Legend</h2>
   <p>
     <span class="legend freq">Relative AA abundance</span>: this value represents the difference in occurrence frequency
-    between peptides with the given mass shift relative to the peptides with unshifted masses.
+    between peptides with the given mass shift and the peptides with unshifted masses.
     The AA occurrence frequency is calculated for all mass shifts as follows: the AA is counted in all peptides without miscleavages,
     then the AA count is divided by the total of all AA counts.
     Each AA occurrence frequency for each shift is then divided by the occurrence frequency of the same AA at zero mass shift.
