@@ -480,3 +480,15 @@ def render_html_report(table_, params_dict, save_directory):
 
 def format_isoform(seq, ms):
     return re.sub(r'([mnk])([A-Z])', lambda m: '{}[{:.0f}]'.format(m.group(2), ms['mnk'.index(m.group(1))]), seq)
+
+
+def table_path(dir, ms):
+    return os.path.join(dir, ms + '.csv')
+
+
+def save_peptides(data, save_directory, params_dict):
+    peptide = params_dict['peptides_column']
+    spectrum = params_dict['spectrum_column']
+    for ms_label, (ms, df) in data.items():
+        with open(table_path(save_directory, ms_label), 'w') as out:
+            df[[peptide, spectrum]].to_csv(out, index=False, sep='\t')

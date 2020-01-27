@@ -514,7 +514,7 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
         df['localization_count'], df['top isoform'] = zip(*df.apply(lambda x: localization_of_modification(
             ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
 
-    fname = os.path.join(params_dict['out_dir'], utils.mass_format(ms[0]) + '.csv')
+    fname = utils.table_path(params_dict['out_dir'], ms[0])
     peptide = params_dict['peptides_column']
     df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(ms,))
     columns = ['top isoform', params_dict['spectrum_column']]

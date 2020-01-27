@@ -179,6 +179,7 @@ def main():
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
     else:
         locmod_df = None
+        utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
         logger.info('No spectrum files. MS/MS localization is not performed.')
 
     logger.info('Plotting mass shift figures...')
