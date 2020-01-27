@@ -68,47 +68,38 @@ def main():
 #    params_dict['out_dir'] = args.dir
 #    print(params_dict)
     save_dir = args.dir
-    if args.pipe:
-        if (not args.mgf) and (not args.mzML):
-            logging.error('For open searches spectra have to be provided.')
+    if args.pipe and (not args.mgf) and (not args.mzML):
+        logging.error('For open searches spectra have to be provided.')
+    elif args.pipe and (not args.MSFragger_path):
+        logging.error('--MSFragger_path have to be provided.')
+    elif args.pipe:
+        if args.os_params:
+            logging.info('Perform OS with custom parameters.')
+            path_spec = args.mgf or args.mzML
+            path_spec = [os.path.abspath(f) for f in path_spec]
+            results_path = osPipe.run_os(path_spec, args.MSFragger_path, save_dir,
+                                         parameters=args.os_params)
+            args.pepxml = [os.path.join(results_path, f) for f in os.listdir(results_path)\
+                           if f.endswith('.pepXML')]
+            args.dir = os.path.join(save_dir, 'AA_results_custom_os')
+            os.makedirs(os.path.join(args.dir, 'aa_stat_res'), exist_ok=True)
+            AA_stat.AA_stat(params_dict, args)
         else:
-            if args.MSFragger_path:
-                if args.os_params:
-                    if args.mgf:
-                        args.mgf = [os.path.abspath(f) for f in args.mgf]
-                        results_path = osPipe.run_os(args.mgf, args.MSFragger_path, save_dir,
-                                      parameters=args.os_params)
-                    else:
-                        args.mzML = [os.path.abspath(f) for f in args.mzML]
-                        results_path = osPipe.run_os(args.mzML, args.MSFragger_path, save_dir,
-                                      parameters=args.os_params)
-                    args.pepxml = [os.path.join(results_path, f) for f in os.listdir(results_path)\
-                                   if f.endswith('.pepXML')]
-                    args.dir = os.path.join(save_dir, 'AA_results_custom_os')
-                    os.makedirs(os.path.join(args.dir, 'aa_stat_res'), exist_ok=True)
-                    AA_stat.AA_stat(params_dict, args)
-                else:
-                    logging.info('Optimize os paramenters first')
-                    if mgf:
-                        results_path = osPipe.run_os(args.mgf, args.MSFragger_path, save_dir)
-                    else:
-                        results_path = osPipe.run_os(args.mzML, args.MSFragger_path, save_dir)
-                    #start aastat
-                    args.pepxml = os.path.join(results_path, '*.pepXML')
-                    args.dir = os.path.join(save_dir, 'AA_results_auto_os')
-                    figure_data = AA_stat.AA_stat(params_dict, args)
-                    osPipe.run_os(args.mzML, args.MSFragger_path, save_dir)
-                    # start AAstat
-                    #analyse results
-                    #start os
-                    #start final aastat
-            else:
-                logging.error('--MSFragger_path have to be provided.')
+            logging.info('Optimize os paramenters first')
+            path_spec = args.mgf or args.mzML
+            path_spec = [os.path.abspath(f) for f in path_spec]
+            results_path = osPipe.run_os(path_spec, args.MSFragger_path, save_dir,
+                                         parameters=args.os_params)
+            args.pepxml = [os.path.join(results_path, f) for f in os.listdir(results_path)\
+                           if f.endswith('.pepXML')]
+            args.dir = os.path.join(save_dir, 'AA_results_custom_os')
+    #         figure_data = AA_stat.AA_stat(params_dict, args)
+    #         osPipe.run_os(args.mzML, args.MSFragger_path, save_dir)
+            # start AAstat
+            #analyse results
+            #start os
+            #start final aastat
     else:
-        
         os.makedirs(os.path.join(save_dir,'aa_stat_res'), exist_ok=True)
         args.dir = os.path.join(save_dir,'aa_stat_res')
         AA_stat.AA_stat(params_dict, args)
-    
-#    AA_Stat
-    
