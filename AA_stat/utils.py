@@ -483,12 +483,12 @@ def format_isoform(seq, ms):
 
 
 def table_path(dir, ms):
-    return os.path.join(dir, ms + '.csv')
+    return os.path.join(dir, mass_format(ms) + '.csv')
 
 
 def save_peptides(data, save_directory, params_dict):
     peptide = params_dict['peptides_column']
     spectrum = params_dict['spectrum_column']
     for ms_label, (ms, df) in data.items():
-        with open(table_path(save_directory, ms_label), 'w') as out:
+        with open(table_path(save_directory, ms), 'w') as out:
             df[[peptide, spectrum]].to_csv(out, index=False, sep='\t')
