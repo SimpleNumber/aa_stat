@@ -267,7 +267,7 @@ def get_parameters(params):
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     #localization
-    parameters_dict['spectrum_column'] =  params.get('localization', 'spectrum column')
+    parameters_dict['spectrum_column'] = params.get('localization', 'spectrum column')
     parameters_dict['charge_column'] = params.get('localization', 'charge column')
     return parameters_dict
 

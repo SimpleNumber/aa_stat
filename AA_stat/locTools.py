@@ -487,10 +487,10 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     Counter of localizations.
     """
     logger.debug('Localizing %s (sum_mod = %s) at %s', ms, sum_mod, locations_ms)
-    results = pd.DataFrame(index=df.index)
-    results['localization'], results['top_isoform'] = zip(*df.apply(lambda x: localization_of_modification(
+    # results = pd.DataFrame(index=df.index)
+    df['localization_count'], df['top isoform'] = zip(*df.apply(lambda x: localization_of_modification(
                     ms, x, locations_ms, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
-    new_localizations = set(results['localization'].sum()).difference({'non-localized'})
+    new_localizations = set(df['localization_count'].sum()).difference({'non-localized'})
 
     if sum_mod:
         locations_ms0 = set()
@@ -511,11 +511,13 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     changed = new_localizations != locations_ms
     logger.debug('Localization did%schange.', [' not ', ' '][changed])
     if changed:
-        results['localization'], results['top_isoform'] = zip(*df.apply(lambda x: localization_of_modification(
+        df['localization_count'], df['top isoform'] = zip(*df.apply(lambda x: localization_of_modification(
             ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
 
-    fname = os.path.join(params_dict['out_dir'], utils.mass_format(ms[0]) + '.txt')
+    fname = os.path.join(params_dict['out_dir'], utils.mass_format(ms[0]) + '.csv')
     peptide = params_dict['peptides_column']
-    results['top_isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(ms,)).to_csv(fname, index=False, header=False)
+    df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(ms,))
+    columns = ['top isoform', peptide, params_dict['spectrum_column']]
+    df[columns].to_csv(fname, index=False, sep='\t')
 
-    return results['localization'].sum()
+    return df['localization_count'].sum()
