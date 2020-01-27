@@ -517,7 +517,7 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     fname = os.path.join(params_dict['out_dir'], utils.mass_format(ms[0]) + '.csv')
     peptide = params_dict['peptides_column']
     df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(ms,))
-    columns = ['top isoform', peptide, params_dict['spectrum_column']]
+    columns = ['top isoform', params_dict['spectrum_column']]
     df[columns].to_csv(fname, index=False, sep='\t')
 
     return df['localization_count'].sum()

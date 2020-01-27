@@ -453,9 +453,27 @@ def render_html_report(table_, params_dict, save_directory):
             {'selector': 'td, th', 'props': [('text-align', 'center')]},
             {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
             ).format({'Unimod': '<a href="{}">search</a>'.format,
-                mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format}
+                mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format,
+                '# peptides in bin': '<a href="#">{}</a>'.format}
             ).bar(subset='# peptides in bin', color=cc[2]).render() #PSMs
-    report = report.replace(r'%%%', table_html)
+
+    peptide_tables = []
+    for ms in table.index:
+        fname = os.path.join(save_directory, ms+'.csv')
+        if os.path.isfile(fname):
+            df = pd.read_csv(fname, sep='\t')
+            if 'top isoform' in df:
+                df['loc'] = df['top isoform'].str.contains(r'\[')
+                out = df.sort_values(['loc'], ascending=False).drop('loc', axis=1)
+            else:
+                out = df
+            peptide_tables.append(out.to_html(table_id='peptides_'+ms, classes=('peptide_table',), index=False, escape=False,
+                formatters={'top isoform': lambda form: re.sub(r'([A-Z])\[[+-]?[0-9]+\]', r'<span class="loc">\1</span>', form)}))
+        else:
+            logger.debug('File not found: %s', fname)
+
+
+    report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables))
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
 

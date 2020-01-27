@@ -75,8 +75,6 @@ def main():
 
     utils.summarizing_hist(table, save_directory)
     logger.info('Summarizing hist prepared')
-    utils.render_html_report(table, params_dict, save_directory)
-    logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
 
     table.index = table['mass shift'].apply(utils.mass_format)
     spectra_dict = utils.read_spectra(args)
@@ -192,4 +190,7 @@ def main():
             localizations = None
             sumof = None
         utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
+
+    utils.render_html_report(table, params_dict, save_directory)
+    logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
     logger.info('Done.')
