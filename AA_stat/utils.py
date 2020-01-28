@@ -468,7 +468,7 @@ def render_html_report(table_, params_dict, save_directory):
             else:
                 out = df
             peptide_tables.append(out.to_html(table_id='peptides_'+ms, classes=('peptide_table',), index=False, escape=False,
-                formatters={'top isoform': lambda form: re.sub(r'([A-Z])\[[+-]?[0-9]+\]', r'<span class="loc">\1</span>', form)}))
+                formatters={'top isoform': lambda form: re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', form)}))
         else:
             logger.debug('File not found: %s', fname)
 
@@ -479,7 +479,7 @@ def render_html_report(table_, params_dict, save_directory):
 
 
 def format_isoform(seq, ms):
-    return re.sub(r'([mnk])([A-Z])', lambda m: '{}[{:.0f}]'.format(m.group(2), ms['mnk'.index(m.group(1))]), seq)
+    return re.sub(r'([mnk])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), ms['mnk'.index(m.group(1))]), seq)
 
 
 def table_path(dir, ms):
