@@ -374,13 +374,13 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
 
     Returns
     -------
-    Counter of localizations.
+    Counter of localizations, top isoform, score difference
     """
     mass_dict = mass.std_aa_mass
     peptide = params_dict['peptides_column']
     sequences = peptide_isoforms(row[peptide], loc_candidates, sum_mod=sum_mod)
     if not sequences:
-        return Counter(), None
+        return Counter(), None, None
     if sum_mod:
         mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
         loc_cand, loc_cand_1, loc_cand_2  = loc_candidates
@@ -399,7 +399,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         spectrum_id = row[params_dict['spectrum_column']]
     exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {})
     loc_stat_dict = Counter()
-    scores = [] # write for same scores return non-loc
+    scores = []
     charge = row[params_dict['charge_column']]
 
     sequences = np.array(list(sequences))
@@ -421,7 +421,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     if len(scores) > 1:
         if scores[0] == scores[1]:
             loc_stat_dict['non-localized'] += 1
-            return loc_stat_dict, None
+            return loc_stat_dict, None, None
         else:
             top_isoform = sequences[0]
     else:
@@ -458,9 +458,13 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
             loc_stat_dict['C-term_' + labels[2]] += 1
 
     if not loc_stat_dict:
-        return Counter(), None
+        return Counter(), None, None
     else:
-        return loc_stat_dict, top_isoform
+        if len(scores) > 1:
+            scorediff = (scores[0] - scores[1]) / scores[0]
+        else:
+            scorediff = 0
+        return loc_stat_dict, top_isoform, scorediff
 
 
 def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_mod=False):
@@ -488,7 +492,7 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     """
     logger.debug('Localizing %s (sum_mod = %s) at %s', ms, sum_mod, locations_ms)
     # results = pd.DataFrame(index=df.index)
-    df['localization_count'], df['top isoform'] = zip(*df.apply(lambda x: localization_of_modification(
+    df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
                     ms, x, locations_ms, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
     new_localizations = set(df['localization_count'].sum()).difference({'non-localized'})
 
@@ -511,13 +515,13 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     changed = new_localizations != locations_ms
     logger.debug('Localization did%schange.', [' not ', ' '][changed])
     if changed:
-        df['localization_count'], df['top isoform'] = zip(*df.apply(lambda x: localization_of_modification(
+        df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
             ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
 
     fname = utils.table_path(params_dict['out_dir'], ms[0])
     peptide = params_dict['peptides_column']
     df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(ms,))
-    columns = ['top isoform', params_dict['spectrum_column']]
+    columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df[columns].to_csv(fname, index=False, sep='\t')
 
     return df['localization_count'].sum()
