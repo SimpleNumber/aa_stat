@@ -24,6 +24,6 @@ setup(
                             'Topic :: Software Development :: Libraries'],
     license              = 'License :: OSI Approved :: Apache Software License',
     packages             = find_packages(),
-    package_data         = {'AA_stat': ['report.template']},
-    entry_points         = {'console_scripts': ['AA_stat=AA_stat.main:main']}
+    package_data         = {'AA_stat': ['report.template', 'open_search.params', 'example.csv']},
+    entry_points         = {'console_scripts': ['AA_stat=AA_stat.main:main', 'MSFragger_AAstat=AA_stat.osPipe:main']}
     )

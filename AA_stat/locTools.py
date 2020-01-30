@@ -27,25 +27,6 @@ logger = logging.getLogger(__name__)
 
 def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, **kwargs):
     """
-<<<<<<< HEAD
-    Generates theoretical spectrum. In int format. Calculates theoretical 
-    spectrum in two ways: usual one and in integer format (mz / frag_acc)
-    
-    Paramenters
-    -----------
-    peptide : str
-        A peptide sequence.
-    acc_frag : float
-        Mass accuracy for fragments in Da.
-    types : ion types
-    maxcharge : max charge for fragments
-    
-    Returns
-    -------
-    Returns spectra in two ways (usual, integer). 
-    Usual is a dict with key [ion type and charge] and m/z as value.
-    Integer is a dict with ion type as a key and list of m/z (in int format) as a value.
-=======
     Calculates theoretical spectra in two ways: usual one and in integer format (mz / frag_acc).
     
     Parameters
@@ -65,8 +46,8 @@ def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, **kw
     -------
     Returns spectra in two ways (usual, integer). Usual is a dict with key [ ion type, charge] and m/z as a value.
     Integer is a dict, where key is ion type and value is a set of integers (m/z / fragment accuracy).
->>>>>>> 2059c50b522db6e27f178f99deec2ce0fdae7d62
     """
+#    print(peptide)
     peaks = {}
     theoretical_set = defaultdict(set)
     pl = len(peptide) - 1
@@ -100,21 +81,6 @@ def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, **kw
 
 def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
     """
-<<<<<<< HEAD
-    Matches experimental and theoretical spectra.
-=======
-    Matches experimental and theoretical spectra in int formats.
->>>>>>> 2059c50b522db6e27f178f99deec2ce0fdae7d62
-    
-    Parameters
-    ----------
-    
-<<<<<<< HEAD
-    `spectrum_idict` - mass in int format (real mz / fragment accuracy)
-    `theoretical_set` -output of get_theor_spec, dict where keys is ion type, values
-    masses in int format.
-    `min_matched` - minumum peaks matched.
-
     ---------
     Return score
 =======
@@ -130,7 +96,7 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
     -------
     
     Number of matched peaks, score.
->>>>>>> 2059c50b522db6e27f178f99deec2ce0fdae7d62
+
     """
     isum = 0
     matched_approx_b, matched_approx_y = 0, 0

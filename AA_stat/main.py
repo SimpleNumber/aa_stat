@@ -9,19 +9,11 @@ except ImportError:
 import pandas as pd
 from pyteomics import mass
 
-from . import AA_stat, locTools, utils, osPipe
+from . import AA_stat, locTools, utils
 
 
 def main():
     pars = argparse.ArgumentParser()
-#    subparsers = pars.add_subparsers()
-#    def_pars = subparsers.add_parser('def')
-#    pipe_pars = subparsers.add_parser('pipe')
-
-#    pipe_pars.add_argument('MSFragger', help='Path to .jar file of MSFragger search engine.')
-    pars.add_argument('--pipe', help='Run MSFragger before AA_stat.', type=int)
-    pars.add_argument('--MSFragger_path', help='Path to MSFragger .jar file',required=False)
-    pars.add_argument('--os_params', help='Custom os paramenters', required=False, default=None)
     pars.add_argument('--params', help='CFG file with parameters. If there is no file, AA_stat uses default one.'
         'An example can be found at https://github.com/SimpleNumber/aa_stat',
         required=False)
@@ -36,14 +28,8 @@ def main():
     input_file = pars.add_mutually_exclusive_group()
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
-    mgf = True
 
-    
-                
-#    print(pipe_pars)
-    args = pars.parse_args()
-    
-
+    args = pars.parse_args() 
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
@@ -55,51 +41,15 @@ def main():
                           comment_prefixes=('#'),
                           inline_comment_prefixes=('#'))
 
-    params.read(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'example.cfg'))
+    params.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg'))
     if args.params:
         if not os.path.isfile(args.params):
             logger.error('PARAMETERS FILE NOT FOUND: %s', args.params)
         params.read(args.params)
     else:
-        logger.info('Using default parameters')
-#        params.read(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'example.cfg'))
+        logger.info('Using default parameters for AA_stat.')
     params_dict = utils.get_parameters(params)
     utils.set_additional_params(params_dict)
-#    params_dict['out_dir'] = args.dir
-#    print(params_dict)
-    save_dir = args.dir
-    if args.pipe and (not args.mgf) and (not args.mzML):
-        logging.error('For open searches spectra have to be provided.')
-    elif args.pipe and (not args.MSFragger_path):
-        logging.error('--MSFragger_path have to be provided.')
-    elif args.pipe:
-        if args.os_params:
-            logging.info('Perform OS with custom parameters.')
-            path_spec = args.mgf or args.mzML
-            path_spec = [os.path.abspath(f) for f in path_spec]
-            results_path = osPipe.run_os(path_spec, args.MSFragger_path, save_dir,
-                                         parameters=args.os_params)
-            args.pepxml = [os.path.join(results_path, f) for f in os.listdir(results_path)\
-                           if f.endswith('.pepXML')]
-            args.dir = os.path.join(save_dir, 'AA_results_custom_os')
-            os.makedirs(os.path.join(args.dir, 'aa_stat_res'), exist_ok=True)
-            AA_stat.AA_stat(params_dict, args)
-        else:
-            logging.info('Optimize os paramenters first')
-            path_spec = args.mgf or args.mzML
-            path_spec = [os.path.abspath(f) for f in path_spec]
-            results_path = osPipe.run_os(path_spec, args.MSFragger_path, save_dir,
-                                         parameters=args.os_params)
-            args.pepxml = [os.path.join(results_path, f) for f in os.listdir(results_path)\
-                           if f.endswith('.pepXML')]
-            args.dir = os.path.join(save_dir, 'AA_results_custom_os')
-    #         figure_data = AA_stat.AA_stat(params_dict, args)
-    #         osPipe.run_os(args.mzML, args.MSFragger_path, save_dir)
-            # start AAstat
-            #analyse results
-            #start os
-            #start final aastat
-    else:
-        os.makedirs(os.path.join(save_dir,'aa_stat_res'), exist_ok=True)
-        args.dir = os.path.join(save_dir,'aa_stat_res')
-        AA_stat.AA_stat(params_dict, args)
+    os.makedirs(os.path.join(args.dir,'AAstat_results'), exist_ok=True)
+    args.dir = os.path.join(args.dir,'AAstat_results')
+    AA_stat.AA_stat(params_dict, args)
