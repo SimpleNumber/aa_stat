@@ -17,7 +17,7 @@ Created on Sun Jan 26 15:41:40 2020
 """
 OS_PARAMS_DEF = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'open_search.params')
 FIX_MOD_ZERO_THRESH = 2 #in %
-FIX_MOD_THRESH = 80 # in %
+FIX_MOD_THRESH = 90 # in %
 
 
 dict_aa = {
@@ -81,14 +81,12 @@ def main():
         params.read(pars.params)
     else:
         logger.info('Using default parameters for AA_stat.')
-#    print(params)
     params_dict = utils.get_parameters(params)
     utils.set_additional_params(params_dict)
     working_dir = args.dir
     if args.os_params:
         logger.info('Custom paramenters for open search')
         folder_name = 'custom_os'
-#        print(args)
         os.makedirs(os.path.abspath(os.path.join(args.dir, folder_name)), exist_ok=True)
         run_os(spectra, args.MSFragger_path, os.path.join(args.dir, folder_name), parameters=args.os_params)
         args.pepxml = [os.path.join(os.path.abspath(os.path.join(args.dir, folder_name)), x) \
@@ -109,12 +107,10 @@ def main():
                         final_cand[i].append((ms, data[0]))
                     else:
                         print(ms, data[2][i])
-#        print(final_cand)
         fix_mod_dict = {}
         for k, v in final_cand.items():
             sorted_v = sorted(v, key=lambda x: x[1], reverse=True)
-            fix_mod_dict[k] = sorted_v[0][0]
-#        print(fix_mod_dict)        
+            fix_mod_dict[k] = sorted_v[0][0]       
         logger.info('Start second open search with fixed modifications %s', fix_mod_dict)
         run_step_os(spectra, 'second_os', working_dir, args, params_dict, change_dict=fix_mod_dict )
 
@@ -134,7 +130,7 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
     with open(os_params_path, 'w') as new_params:
         with open(OS_PARAMS_DEF, 'r') as default:
             for l in default.readlines():
-                print(l)
+#                print(l)
                 if 'database_name' in l:
                         new_params.write(' '.join(['database_name = ', (args.fasta),'\n']))
                 elif change_dict:
@@ -145,8 +141,7 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
                             new_params.write(l)  
                 else:
                     new_params.write(l)
-#    print(folder_name, working_dir)
-#    print(os.path.abspath(os.path.join(working_dir, folder_name)))
+
     subprocess.call(['java', '-jar', args.MSFragger_path, os_params_path, *spectra])
     directory = os.path.dirname(spectra[0])
     for f in os.listdir(directory):
@@ -158,7 +153,5 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
                        if x.endswith('.pepXML')]
     os.makedirs(os.path.join(os.path.abspath(working_dir), folder_name, 'aa_stat_res'), exist_ok=True)
     args.dir = os.path.join(os.path.abspath(working_dir), folder_name, 'aa_stat_res')
-#    
-#    print(args)
     return AA_stat.AA_stat(params_dict, args)
 
