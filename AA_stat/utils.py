@@ -11,12 +11,16 @@ import numpy as  np
 import warnings
 from collections import defaultdict
 import seaborn as sb
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
 
 from pyteomics import parser, pepxml, mgf, mzml
 
 logger = logging.getLogger(__name__)
 MASS_FORMAT = '{:+.4f}'
-
+AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 
 cc = ["#FF6600",
       "#FFCC00",
@@ -35,14 +39,14 @@ def mass_format(mass):
 def make_0mc_peptides(pep_list, rule):
     """
     In silico cleaves all peptides with a given rule.
-    
+
     Parameters
     ----------
     pep_list : Iterable
         An iterable of peptides
-    rule : str or compiled regex. 
+    rule : str or compiled regex.
         Cleavage rule in pyteomics format.
-    
+
     Returns
     -------
     Set of fully cleaved peptides.
@@ -61,18 +65,18 @@ def read_pepxml(fname, params_dict):
 def read_csv(fname, params_dict):
     """
     Reads csv file.
-    
+
     Paramenters
     -----------
     fname : str
         Path to file name.
     params_dict : dict
-        Dict with paramenters for parsing csv file. 
+        Dict with paramenters for parsing csv file.
             `csv_delimiter`, `proteins_column`, `proteins_delimiter`
     Returns
     -------
     A DataFrame of csv file.
-    
+
     """
     df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
     protein = params_dict['proteins_column']
@@ -86,12 +90,12 @@ def read_csv(fname, params_dict):
 def read_input(args, params_dict):
     """
     Reads open search output, assembles all data in one DataFrame.
-    
+
     Parameters
     ----------
-    args : 
-        
-    
+    args :
+
+
     """
     dfs = []
     data = pd.DataFrame()
@@ -266,6 +270,22 @@ def read_spectra(args):
                 name = os.path.split(filename)[-1].split('.')[0] #write it in a proper way
                 out_dict[name] = reader(filename)
     return out_dict
+
+
+def read_config_file(fname):
+    params = ConfigParser(delimiters=('=', ':'),
+                          comment_prefixes=('#'),
+                          inline_comment_prefixes=('#'))
+
+    params.read(AA_STAT_PARAMS_DEFAULT)
+    if fname:
+        if not os.path.isfile(fname):
+            logger.error('Configuration file not found: %s', fname)
+        else:
+            params.read(fname)
+    else:
+        logger.info('Using default parameters for AA_stat.')
+    return params
 
 
 def get_parameters(params):

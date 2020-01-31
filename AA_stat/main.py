@@ -1,15 +1,7 @@
 import argparse
 import logging
 import os
-from collections import Counter, defaultdict
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
-import pandas as pd
-from pyteomics import mass
-
-from . import AA_stat, locTools, utils
+from . import AA_stat, utils
 
 
 def main():
@@ -29,7 +21,7 @@ def main():
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
 
-    args = pars.parse_args() 
+    args = pars.parse_args()
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
@@ -37,17 +29,7 @@ def main():
     logger.info("Starting...")
 
 
-    params = ConfigParser(delimiters=('=', ':'),
-                          comment_prefixes=('#'),
-                          inline_comment_prefixes=('#'))
-
-    params.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg'))
-    if args.params:
-        if not os.path.isfile(args.params):
-            logger.error('PARAMETERS FILE NOT FOUND: %s', args.params)
-        params.read(args.params)
-    else:
-        logger.info('Using default parameters for AA_stat.')
+    params = utils.read_config_file(args.params)
     params_dict = utils.get_parameters(params)
     utils.set_additional_params(params_dict)
     os.makedirs(os.path.join(args.dir,'AAstat_results'), exist_ok=True)

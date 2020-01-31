@@ -1,4 +1,4 @@
-database_name = /home/julia/projects/AminoAcids/data/swiss-prot-human-07-2017_reversed.fasta
+database_name =
 num_threads = 0                        # 0=poll CPU to set num threads; else specify num threads directly (max 64)
 
 precursor_mass_tolerance = 500.00
@@ -17,7 +17,7 @@ search_enzyme_butnotafter = P
 num_enzyme_termini = 2                 # 2 for enzymatic, 1 for semi-enzymatic, 0 for nonspecific digestion
 allowed_missed_cleavage = 1            # maximum value is 5
 
-clip_nTerm_M = 1 
+clip_nTerm_M = 1
 
 #maximum of 7 mods - amino acid codes, * for any amino acid, [ and ] specifies protein termini, n and c specifies peptide termini
 #variable_mod_01 = 15.9949 M
@@ -25,7 +25,7 @@ clip_nTerm_M = 1
 #variable_mod_03 = 42.0106 [*
 #variable_mod_03 = 79.96633 STY
 #variable_mod_03 = -17.0265 nQnC
-#variable_mod_04 = -18.0106 nE 
+#variable_mod_04 = -18.0106 nE
 
 allow_multiple_variable_mods_on_residue = 1  	# static mods are not considered
 max_variable_mods_per_mod = 3 			        # maximum of 5
@@ -33,14 +33,14 @@ max_variable_mods_combinations = 1000  		    # maximum of 65534, limits number o
 
 output_file_extension = pepXML	       #pepXML
 output_format = pepXML				   #pepXML or tsv
-output_report_topN = 1 
+output_report_topN = 1
 output_max_expect = 50
 
 precursor_charge = 0 0                 # precursor charge range to analyze; does not override any existing charge; 0 as 1st entry ignores parameter
 override_charge = 0                    # 0=no, 1=yes to override existing precursor charge states with precursor_charge parameter
 
 digest_min_length = 7
-digest_max_length = 50 
+digest_max_length = 50
 digest_mass_range = 500.0 5000.0       # MH+ peptide mass range to analyze
 max_fragment_charge = 2                # set maximum fragment charge state to analyze (allowed max 5)
 
@@ -55,7 +55,7 @@ add_topN_complementary = 0
 minimum_peaks = 15                   # required minimum number of peaks in spectrum to search (default 10)
 use_topN_peaks = 100
 min_fragments_modelling = 3
-min_matched_fragments = 6 
+min_matched_fragments = 6
 minimum_ratio = 0.01		         # filter peaks below this fraction of strongest peak
 clear_mz_range = 0.0 0.0             # for iTRAQ/TMT type data; will clear out all peaks in the specified m/z range
 
