@@ -11,7 +11,6 @@ import numpy as  np
 from collections import defaultdict, Counter
 import logging
 from math import factorial
-import os
 
 from pyteomics import mass, electrochem as ec
 try:
@@ -98,6 +97,7 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched):
     -------
 
     Number of matched peaks, score.
+
     """
     isum = 0
     matched_approx_b, matched_approx_y = 0, 0

@@ -13,7 +13,7 @@ setup(
     long_description     = (''.join(open('README.MD').readlines())),
     author               = 'Julia Bubis & Lev Levitsky',
     author_email         = 'julia.bubis@gmail.com',
-    install_requires     = ['pyteomics', 'pandas', 'seaborn', 'scipy', 'numpy', 'lxml', 'jinja2'],
+    install_requires     = ['pyteomics', 'pandas', 'seaborn', 'scipy', 'numpy', 'lxml'],
     classifiers          = ['Intended Audience :: Science/Research',
                             'Programming Language :: Python :: 2.7',
                             'Programming Language :: Python :: 3',
@@ -24,6 +24,6 @@ setup(
                             'Topic :: Software Development :: Libraries'],
     license              = 'License :: OSI Approved :: Apache Software License',
     packages             = find_packages(),
-    package_data         = {'AA_stat': ['report.template']},
-    entry_points         = {'console_scripts': ['AA_stat=AA_stat.main:main']}
+    package_data         = {'AA_stat': ['report.template', 'open_search.params', 'example.cfg']},
+    entry_points         = {'console_scripts': ['AA_stat=AA_stat.main:main', 'MSFragger_AAstat=AA_stat.osPipe:main']}
     )

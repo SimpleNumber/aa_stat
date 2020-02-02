@@ -12,12 +12,16 @@ import warnings
 from collections import defaultdict
 import re
 import seaborn as sb
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
 
 from pyteomics import parser, pepxml, mgf, mzml
 
 logger = logging.getLogger(__name__)
 MASS_FORMAT = '{:+.4f}'
-
+AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 
 cc = ["#FF6600",
       "#FFCC00",
@@ -34,6 +38,21 @@ def mass_format(mass):
 
 
 def make_0mc_peptides(pep_list, rule):
+    """
+    In silico cleaves all peptides with a given rule.
+
+    Parameters
+    ----------
+    pep_list : Iterable
+        An iterable of peptides
+    rule : str or compiled regex.
+        Cleavage rule in pyteomics format.
+
+    Returns
+    -------
+    Set of fully cleaved peptides.
+
+    """
     out_set = set()
     for i in pep_list:
         out_set.update(parser.cleave(i, rule))
@@ -45,6 +64,21 @@ def read_pepxml(fname, params_dict):
 
 
 def read_csv(fname, params_dict):
+    """
+    Reads csv file.
+
+    Paramenters
+    -----------
+    fname : str
+        Path to file name.
+    params_dict : dict
+        Dict with paramenters for parsing csv file.
+            `csv_delimiter`, `proteins_column`, `proteins_delimiter`
+    Returns
+    -------
+    A DataFrame of csv file.
+
+    """
     df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
     protein = params_dict['proteins_column']
     if (df[protein].str[0] == '[').all() and (df[protein].str[-1] == ']').all():
@@ -57,6 +91,7 @@ def read_csv(fname, params_dict):
 def read_input(args, params_dict):
     """
     Reads open search output, assembles all data in one DataFrame.
+
     """
     dfs = []
     data = pd.DataFrame()
@@ -70,6 +105,7 @@ def read_input(args, params_dict):
     shifts = params_dict['mass_shifts_column']
     for ftype, reader in readers.items():
         filenames = getattr(args, ftype)
+        logger.debug('Filenames: %s', filenames)
         if filenames:
             for filename in filenames:
                 logger.info('Reading %s', filename)
@@ -233,6 +269,22 @@ def read_spectra(args):
     return out_dict
 
 
+def read_config_file(fname):
+    params = ConfigParser(delimiters=('=', ':'),
+                          comment_prefixes=('#'),
+                          inline_comment_prefixes=('#'))
+
+    params.read(AA_STAT_PARAMS_DEFAULT)
+    if fname:
+        if not os.path.isfile(fname):
+            logger.error('Configuration file not found: %s', fname)
+        else:
+            params.read(fname)
+    else:
+        logger.info('Using default parameters for AA_stat.')
+    return params
+
+
 def get_parameters(params):
     """
     Reads paramenters from cfg file to one dict.
@@ -312,7 +364,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     left : list
         Amino acid statistics data [[values], [errors]]
     right : list
-        Amino acid requences in peptides
+        Amino acid frequences in peptides
      params_dict : dict
         Parameters dict.
     save_directory: str
@@ -333,7 +385,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     fig, ax_left = plt.subplots()
     fig.set_size_inches(params_dict['figsize'])
 
-    ax_left.bar(x-b, distributions.loc[labels, ms_label],
+    ax_left.bar(x-b, distributions.loc[labels],
             yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0)
 
     ax_left.set_ylabel('Relative AA abundance', color=colors[2])
@@ -360,7 +412,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 
 
     ax_left.set_xlim(-1, x[-1] + 1)
-    ax_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.4)
+    ax_left.set_ylim(0, distributions.loc[labels].max() * 1.4)
 
     logger.debug('Localizations for %s figure: %s', ms_label, localizations)
     if localizations:
@@ -487,9 +539,13 @@ def table_path(dir, ms):
     return os.path.join(dir, mass_format(ms) + '.csv')
 
 
+def save_df(ms, df, save_directory, peptide, spectrum):
+    with open(table_path(save_directory, ms), 'w') as out:
+            df[[peptide, spectrum]].to_csv(out, index=False, sep='\t')
+
+
 def save_peptides(data, save_directory, params_dict):
     peptide = params_dict['peptides_column']
     spectrum = params_dict['spectrum_column']
     for ms_label, (ms, df) in data.items():
-        with open(table_path(save_directory, ms), 'w') as out:
-            df[[peptide, spectrum]].to_csv(out, index=False, sep='\t')
+        save_df(ms, df, save_directory, peptide, spectrum)
