@@ -44,16 +44,17 @@ dict_aa = {
 
 def main():
     pars = argparse.ArgumentParser()
-    pars.add_argument('--params', help='CFG file with parameters. If there is no file, AA_stat uses default one.'
+    pars.add_argument('--params', help='CFG file with parameters. If there is no file, AA_stat uses default one. '
         'An example can be found at https://github.com/SimpleNumber/aa_stat',
         required=False)
-    pars.add_argument('--MSFragger', help ='Path to MSFragger .jar file.', required=True)
+    pars.add_argument('--MSFragger', help ='Path to MSFragger .jar file. '
+        'If not specified, MSFRAGGER environment variable is used.')
     pars.add_argument('--dir', help='Directory to store the results. Default value is current directory.', default='.')
     pars.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity.')
 
     input_spectra = pars.add_mutually_exclusive_group(required=True)
-    input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications.', default=None)
-    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to localize modifications.', default=None)
+    input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to search.', default=None)
+    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to search.', default=None)
 
     pars.add_argument('--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
                               'If it differs, do not forget to specify it in AA_stat params file.')
@@ -69,6 +70,12 @@ def main():
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
+
+    if not args.MSFragger:
+        args.MSFragger = os.environ.get('MSFRAGGER')
+    if not args.MSFragger:
+        logger.critical('Please specify --MSFragger or set MSFRAGGER environment variable.')
+        sys.exit(1)
 
     logger.info("Starting MSFragger and AA_stat pipeline.")
     spectra = args.mgf or args.mzML
@@ -101,8 +108,11 @@ def main():
         for k, v in final_cand.items():
             sorted_v = sorted(v, key=lambda x: x[1], reverse=True)
             fix_mod_dict[k] = sorted_v[0][0]
-        logger.info('Starting second open search with fixed modifications %s', fix_mod_dict)
-        run_step_os(spectra, 'second_os', working_dir, args, params_dict, change_dict=fix_mod_dict)
+        if fix_mod_dict:
+            logger.info('Starting second open search with fixed modifications %s', fix_mod_dict)
+            run_step_os(spectra, 'second_os', working_dir, args, params_dict, change_dict=fix_mod_dict)
+        else:
+            logger.info('No fixed modifications found.')
 
     else:
         logger.info('Running one-shot search.')
@@ -125,7 +135,7 @@ def run_os(java, jargs, spectra, msfragger, save_dir, parameters):
     logger.debug('Subprocess returned %s', retval)
     if retval:
         logger.critical('MSFragger returned non-zero code %s. Exiting.', retval)
-        sys.exit()
+        sys.exit(retval)
     os.makedirs(save_dir, exist_ok=True)
     for s in spectra:
         pepxml = get_pepxml(s)
