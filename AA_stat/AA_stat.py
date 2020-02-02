@@ -10,10 +10,7 @@ import logging
 import warnings
 from pyteomics import parser, pepxml, mass
 from . import utils, locTools
-try:
-    from configparser import ConfigParser
-except ImportError:
-    from ConfigParser import ConfigParser
+
 logger = logging.getLogger(__name__)
 
 
@@ -296,7 +293,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
 
     for ms_label, (ms, ms_df) in mass_shifts_dict.items():
         aa_statistics = pd.Series(get_aa_distribution(ms_df[peptides], expasy_rule))
-        peptide_stat = pd.Series(get_peptide_statistics(ms_df[peptides]))
+        peptide_stat = pd.Series(get_peptide_statistics(ms_df[peptides]), index=labels)
         number_of_PSMs[ms_label] = len(ms_df)
         aa_statistics.fillna(0, inplace=True)
         distributions[ms_label] = aa_statistics / reference
@@ -308,11 +305,7 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
         p_values[ms_label] = p_vals
         distributions.fillna(0, inplace=True)
 
-        labels_df = pd.DataFrame(index=labels)
-        labels_df['pep_stat'] = pd.Series(peptide_stat)
-        labels_df.fillna(0, inplace=True)
-        figure_args[ms_label] = (len(ms_df), [distributions, errors], labels_df['pep_stat'])
-        # plot_figure(ms_label, len(ms_df), [distributions, errors], labels_df['pep_stat'], params_dict, save_directory)
+        figure_args[ms_label] = (len(ms_df), [distributions[ms_label], errors], peptide_stat.fillna(0))
         logger.info('%s Da', ms_label)
 
     pout = p_values.T
@@ -339,6 +332,7 @@ def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
         corr_mass = v[0] - mass_correction
         out[utils.mass_format(corr_mass)] = (corr_mass, v[1])
     return out
+
 
 def AA_stat(params_dict, args):
     """

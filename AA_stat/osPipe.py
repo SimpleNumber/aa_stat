@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import subprocess
 import os
 import shutil
@@ -51,11 +49,11 @@ def main():
         required=False)
     pars.add_argument('--MSFragger', help ='Path to MSFragger .jar file.', required=True)
     pars.add_argument('--dir', help='Directory to store the results. Default value is current directory.', default='.')
-    pars.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity')
+    pars.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity.')
 
     input_spectra = pars.add_mutually_exclusive_group(required=True)
-    input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications', default=None)
-    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to localize modifications', default=None)
+    input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications.', default=None)
+    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to localize modifications.', default=None)
 
     pars.add_argument('--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
                               'If it differs, do not forget to specify it in AA_stat params file.')
@@ -85,14 +83,18 @@ def main():
         logger.info('Starting two-step procedure.')
         logger.info('Starting preliminary open search.')
         preliminary_aastat = run_step_os(spectra, 'preliminary_os', working_dir, args, params_dict, change_dict=None)
+        logger.debug('Preliminary AA_stat results:\n%s', preliminary_aastat)
         aa_rel = preliminary_aastat[utils.mass_format(0)][2]
+        logger.debug('aa_rel:\n%s', aa_rel)
         final_cand = defaultdict(list)
         candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
+        logger.debug('Fixed mod candidates: %s', candidates)
         for ms, data in preliminary_aastat.items():
             if ms != utils.mass_format(0):
                 for i in candidates:
                     if data[2][i] > FIX_MOD_THRESH:
                         final_cand[i].append((ms, data[0]))
+                        logger.debug('Potential fixed mass shift for %s: %s (%s peptides)', i, ms, data[0])
                     else:
                         logger.debug('Shift: %s, AA: %s, abundance: %s', ms, i, data[2][i])
         fix_mod_dict = {}

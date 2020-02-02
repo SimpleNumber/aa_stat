@@ -367,7 +367,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     left : list
         Amino acid statistics data [[values], [errors]]
     right : list
-        Amino acid requences in peptides
+        Amino acid frequences in peptides
      params_dict : dict
         Parameters dict.
     save_directory: str
@@ -388,7 +388,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     fig, ax_left = plt.subplots()
     fig.set_size_inches(params_dict['figsize'])
 
-    ax_left.bar(x-b, distributions.loc[labels, ms_label],
+    ax_left.bar(x-b, distributions.loc[labels],
             yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0)
 
     ax_left.set_ylabel('Relative AA abundance', color=colors[2])
@@ -415,7 +415,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 
 
     ax_left.set_xlim(-1, x[-1] + 1)
-    ax_left.set_ylim(0, distributions.loc[labels, ms_label].max() * 1.4)
+    ax_left.set_ylim(0, distributions.loc[labels].max() * 1.4)
 
     logger.debug('Localizations for %s figure: %s', ms_label, localizations)
     if localizations:
