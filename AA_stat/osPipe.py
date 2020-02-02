@@ -6,7 +6,7 @@ import shutil
 from . import AA_stat, utils
 import argparse
 import logging
-
+import sys
 from collections import defaultdict
 """
 Created on Sun Jan 26 15:41:40 2020
@@ -18,6 +18,7 @@ OS_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'op
 FIX_MOD_ZERO_THRESH = 2 #in %
 FIX_MOD_THRESH = 90 # in %
 
+logger = logging.getLogger(__name__)
 
 dict_aa = {
     'add_G_glycine'       : 'G',
@@ -59,15 +60,18 @@ def main():
     pars.add_argument('--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
                               'If it differs, do not forget to specify it in AA_stat params file.')
     pars.add_argument('--os-params', help='Custom open search parameters.')
-    pars.add_argument('-x', '--optimize-fixed-mods', help='Run two searches, use the first one to determine which fixed modifications to apply.',
+    pars.add_argument('-x', '--optimize-fixed-mods',
+        help='Run two searches, use the first one to determine which fixed modifications to apply.',
         action='store_true', default=False)
+    pars.add_argument('-je', '--java-executable', default='java')
+    pars.add_argument('-ja', '--java-args', default='')
 
     args = pars.parse_args()
 
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
-    logger = logging.getLogger(__name__)
+
     logger.info("Starting MSFragger and AA_stat pipeline.")
     spectra = args.mgf or args.mzML
     spectra = [os.path.abspath(i) for i in spectra]
@@ -78,7 +82,7 @@ def main():
     working_dir = args.dir
 
     if args.optimize_fixed_mods:
-        logger.info('Starting two-step optimization.')
+        logger.info('Starting two-step procedure.')
         logger.info('Starting preliminary open search.')
         preliminary_aastat = run_step_os(spectra, 'preliminary_os', working_dir, args, params_dict, change_dict=None)
         aa_rel = preliminary_aastat[utils.mass_format(0)][2]
@@ -90,35 +94,44 @@ def main():
                     if data[2][i] > FIX_MOD_THRESH:
                         final_cand[i].append((ms, data[0]))
                     else:
-                        print(ms, data[2][i])
+                        logger.debug('Shift: %s, AA: %s, abundance: %s', ms, i, data[2][i])
         fix_mod_dict = {}
         for k, v in final_cand.items():
             sorted_v = sorted(v, key=lambda x: x[1], reverse=True)
             fix_mod_dict[k] = sorted_v[0][0]
-        logger.info('Start second open search with fixed modifications %s', fix_mod_dict)
+        logger.info('Starting second open search with fixed modifications %s', fix_mod_dict)
         run_step_os(spectra, 'second_os', working_dir, args, params_dict, change_dict=fix_mod_dict)
 
     else:
         logger.info('Running one-shot search.')
-        folder_name = 'custom_os'
+        folder_name = ''
         run_step_os(spectra, folder_name, args.dir, args, params_dict, None)
-        # os.makedirs(os.path.abspath(os.path.join(args.dir, folder_name)), exist_ok=True)
-        # run_os(spectra, args.MSFragger, os.path.join(args.dir, folder_name), parameters=args.os_params)
-        # args.pepxml = [os.path.join(os.path.abspath(os.path.join(args.dir, folder_name)), x) \
-        #                for x in os.listdir(os.path.join(args.dir, folder_name)) if x.endswith('.pepXML')]
-        # args.dir = os.path.join(os.path.abspath(args.dir), folder_name, 'aa_stat_res')
-        # AA_stat.AA_stat(params_dict, args)
 
 
-def get_pepxml(input_file):
-    return os.path.splitext(input_file)[0] + '.pepXML'
+def get_pepxml(input_file, d=None):
+    initial = os.path.splitext(input_file)[0] + '.pepXML'
+    if d is None:
+        return initial
+    sdir, f = os.path.split(initial)
+    return os.path.join(d, f)
 
 
-def run_os(spectra, msfragger, save_dir, parameters):
-    subprocess.call(['java', '-jar', msfragger, parameters, *spectra])
+def run_os(java, jargs, spectra, msfragger, save_dir, parameters):
+    command = [java] + jargs + ['-jar', msfragger, parameters, *spectra]
+    logger.debug('Running command: %s', ' '.join(command))
+    retval = subprocess.call(command)
+    logger.debug('Subprocess returned %s', retval)
+    if retval:
+        logger.critical('MSFragger returned non-zero code %s. Exiting.', retval)
+        sys.exit()
     os.makedirs(save_dir, exist_ok=True)
     for s in spectra:
-        shutil.move(get_pepxml(s), save_dir)
+        pepxml = get_pepxml(s)
+        if os.path.normpath(os.path.dirname(pepxml)) != os.path.normpath(save_dir):
+            logger.debug('Moving %s to %s', pepxml, save_dir)
+            shutil.move(pepxml, get_pepxml(s, save_dir))
+        else:
+            logger.debug('No need to move pepXML file.')
 
 
 def create_os_params(output, original=None, mass_shifts=None, fastafile=None):
@@ -140,9 +153,9 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
     os.makedirs(dir, exist_ok=True)
     os_params_path = os.path.abspath(os.path.join(working_dir, folder_name, 'os.params'))
     create_os_params(os_params_path, args.os_params, change_dict, args.fasta)
-    run_os(spectra, args.MSFragger, dir, args.os_params or OS_PARAMS_DEFAULT)
-    args.pepxml = [get_pepxml(s) for s in spectra]
-    aa_dir = os.path.join(dir, 'aa_stat_res')
-    os.makedirs(aa_dir, exist_ok=True)
-    args.dir = aa_dir
+    run_os(args.java_executable, args.java_args.split(), spectra, args.MSFragger, dir, os_params_path)
+    args.pepxml = [get_pepxml(s, dir) for s in spectra]
+    # aa_dir = os.path.join(dir, 'aa_stat_res')
+    # os.makedirs(aa_dir, exist_ok=True)
+    args.dir = dir
     return AA_stat.AA_stat(params_dict, args)
