@@ -494,7 +494,6 @@ def render_html_report(table_, params_dict, save_directory):
     with open(report_template) as f:
         report = f.read()
     with pd.option_context('display.max_colwidth', 250):
-        print(pd.option_context('display.max_colwidth'))
         columns = list(table.columns)
         mslabel = '<a id="binh" href="#">mass shift</a>'
         columns[0] = mslabel
