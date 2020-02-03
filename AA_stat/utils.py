@@ -483,7 +483,7 @@ def summarizing_hist(table, save_directory):
 
     plt.ylim(0, max_height * 1.2)
     plt.tight_layout()
-    plt.savefig(os.path.join(save_directory, 'summary.png'), dpi=500)
+    plt.savefig(os.path.join(save_directory, 'summary.png')) #dpi=500
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
 
 
@@ -493,7 +493,8 @@ def render_html_report(table_, params_dict, save_directory):
     report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
     with open(report_template) as f:
         report = f.read()
-    with pd.option_context('display.max_colwidth', -1):
+    with pd.option_context('display.max_colwidth', 250):
+        print(pd.option_context('display.max_colwidth'))
         columns = list(table.columns)
         mslabel = '<a id="binh" href="#">mass shift</a>'
         columns[0] = mslabel
