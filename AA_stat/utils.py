@@ -415,6 +415,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     ax_left.set_ylim(0, distributions.loc[labels].max() * 1.4)
 
     logger.debug('Localizations for %s figure: %s', ms_label, localizations)
+    print(localizations)
     if localizations:
         ax3 = ax_left.twinx()
         ax3.spines['right'].set_position(('axes', 1.1))
@@ -428,8 +429,10 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         ax3.tick_params('y', colors=colors[3])
         # plot simple modifications (not sum) with the first style,
         # then parts of sum as second and third style
-        values = [localizations.get(key) for key in labels]
+#        print(values)
+        values = [localizations.get(key+ '_' + ms_label) for key in labels]
         label_prefix = 'Location of '
+        print(values)
         ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
         if isinstance(sumof, list):
             for pair, styles in zip(sumof, _marker_styles[1:]):
@@ -532,7 +535,8 @@ def render_html_report(table_, params_dict, save_directory):
 
 
 def format_isoform(seq, ms):
-    return re.sub(r'([mnk])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), ms['mnk'.index(m.group(1))]), seq)
+#    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    return re.sub(r'([a-z])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), float(ms[m.group(1)])), seq)
 
 
 def table_path(dir, ms):
