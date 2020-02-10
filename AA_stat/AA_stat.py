@@ -339,6 +339,8 @@ def AA_stat(params_dict, args):
     """
     save_directory = args.dir
     params_dict['out_dir'] = args.dir
+    params_dict['fix_mod'] = utils.get_fix_modifications(args.pepxml[0])
+    logging.info('Using fix modifications: %s', params_dict['fix_mod'])
     data = utils.read_input(args, params_dict)
 
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
@@ -408,63 +410,7 @@ def AA_stat(params_dict, args):
             localization_dict[ms_label] = counter
             logger.debug('counter sum: %s', counter)
             localization_dict[utils.mass_format(0.0)] = Counter()
-            logger.debug('Localizations: %s', localization_dict)
-#            masses_to_calc = set(locmod_df.index).difference(localization_dict)
-#
-#        logger.info('Localizing potential sums of mass shifts...')
-#        if (~locmod_df['sum of mass shifts'].isnull()).any():
-#            cond = True
-#        else:
-#            cond = False
-#        logger.debug('Sums of mass shifts: %s', locmod_df.loc[locmod_df['sum of mass shifts'].notna()].index)
-#        deferred = set()
-#        while cond:
-#            logger.debug('Masses left to locate: %s', masses_to_calc)
-#            for ms in masses_to_calc.copy():
-#                defer = False
-#                mass_pairs = locmod_df.at[ms, 'sum of mass shifts']
-#                df = mass_shift_data_dict[ms][1]
-#                logger.debug('%s is a sum of %s', ms, mass_pairs)
-#                locations_ms, locations_ms1, locations_ms2 = set(), set(), set()
-#                if isinstance(mass_pairs, list):
-#                    for ms1, ms2 in mass_pairs:
-#                        if ms in deferred:
-#                            deferred.clear()
-#                            defer = False
-#                            logger.debug('Breaking the loop for %s', ms)
-#                            locations_ms = locmod_df.at[ms, 'all candidates']
-#                            locations_ms1 = locmod_df.at[ms1, 'all candidates']
-#                            locations_ms2 = locmod_df.at[ms2, 'all candidates']
-#                            counter = locTools.two_step_localization(df,
-#                                [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
-#                                [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
-#
-#                            localization_dict[ms].update(counter)
-#                            logger.debug('counter sum: %s', counter)
-#                            masses_to_calc.discard(ms)
-#
-#                        else:
-#                            if not defer and ms1 in localization_dict and ms2 in localization_dict:
-#                                locations_ms.update(locmod_df.at[ms, 'all candidates'])
-#                                locations_ms1.update(x for x in localization_dict[ms1] if len(x) == 1)
-#                                locations_ms2.update(x for x in localization_dict[ms2] if len(x) == 1)
-#                            else:
-#                                defer = True
-#                    if defer:
-#                        logger.debug('Deferring the localization of %s', ms)
-#                        deferred.add(ms)
-#                    else:
-#                        counter = locTools.two_step_localization(df,
-#                            [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
-#                            [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
-#
-#                        localization_dict[ms].update(counter)
-#                        logger.debug('counter sum: %s', counter)
-#                        masses_to_calc.discard(ms)
-#                else:
-#                    logger.error('Unprocessed mass shift: %s. Report a bug to developers.', ms)
-#            if not masses_to_calc:
-#                cond = False
+            logger.debug('Localizations: %s', localization_dict)           
         locmod_df['localization'] = pd.Series(localization_dict)
         logger.debug(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
@@ -475,9 +421,7 @@ def AA_stat(params_dict, args):
         locmod_df = None
         utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
         logger.info('No spectrum files. MS/MS localization is not performed.')
-
     logger.info('Plotting mass shift figures...')
-#    print(figure_data)
     for ms_label, data in figure_data.items():
         if locmod_df is not None:
             localizations = locmod_df.at[ms_label, 'localization']
@@ -487,96 +431,5 @@ def AA_stat(params_dict, args):
             sumof = None
         utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
     utils.render_html_report(table, params_dict, save_directory)
-    logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
-        
-        
-        
-        
-#        for ms_label, (ms, df) in mass_shift_data_dict.items():
-#            if not isinstance(locmod_df.at[utils.mass_format(ms), 'sum of mass shifts'], list) and ms != 0.0:
-#                locations_ms = locmod_df.at[utils.mass_format(ms), 'all candidates']
-#                logger.info('For %s mass shift candidates %s', utils.mass_format(ms), str(locations_ms))
-#                counter = locTools.two_step_localization(df, [ms], locations_ms, params_dict, spectra_dict)
-#                localization_dict[ms_label] = counter
-#                logger.debug('counter sum: %s', counter)
-#        localization_dict[utils.mass_format(0.0)] = Counter()
-#        logger.debug('Localizations: %s', localization_dict)
-#        masses_to_calc = set(locmod_df.index).difference(localization_dict)
-#
-#        logger.info('Localizing potential sums of mass shifts...')
-#        if (~locmod_df['sum of mass shifts'].isnull()).any():
-#            cond = True
-#        else:
-#            cond = False
-#        logger.debug('Sums of mass shifts: %s', locmod_df.loc[locmod_df['sum of mass shifts'].notna()].index)
-#        deferred = set()
-#        while cond:
-#            logger.debug('Masses left to locate: %s', masses_to_calc)
-#            for ms in masses_to_calc.copy():
-#                defer = False
-#                mass_pairs = locmod_df.at[ms, 'sum of mass shifts']
-#                df = mass_shift_data_dict[ms][1]
-#                logger.debug('%s is a sum of %s', ms, mass_pairs)
-#                locations_ms, locations_ms1, locations_ms2 = set(), set(), set()
-#                if isinstance(mass_pairs, list):
-#                    for ms1, ms2 in mass_pairs:
-#                        if ms in deferred:
-#                            deferred.clear()
-#                            defer = False
-#                            logger.debug('Breaking the loop for %s', ms)
-#                            locations_ms = locmod_df.at[ms, 'all candidates']
-#                            locations_ms1 = locmod_df.at[ms1, 'all candidates']
-#                            locations_ms2 = locmod_df.at[ms2, 'all candidates']
-#                            counter = locTools.two_step_localization(df,
-#                                [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
-#                                [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
-#
-#                            localization_dict[ms].update(counter)
-#                            logger.debug('counter sum: %s', counter)
-#                            masses_to_calc.discard(ms)
-#
-#                        else:
-#                            if not defer and ms1 in localization_dict and ms2 in localization_dict:
-#                                locations_ms.update(locmod_df.at[ms, 'all candidates'])
-#                                locations_ms1.update(x for x in localization_dict[ms1] if len(x) == 1)
-#                                locations_ms2.update(x for x in localization_dict[ms2] if len(x) == 1)
-#                            else:
-#                                defer = True
-#                    if defer:
-#                        logger.debug('Deferring the localization of %s', ms)
-#                        deferred.add(ms)
-#                    else:
-#                        counter = locTools.two_step_localization(df,
-#                            [locmod_df.at[ms, 'mass shift'], mass_shift_data_dict[ms1][0], mass_shift_data_dict[ms2][0]],
-#                            [locations_ms, locations_ms1, locations_ms2], params_dict, spectra_dict, sum_mod=(ms1, ms2))
-#
-#                        localization_dict[ms].update(counter)
-#                        logger.debug('counter sum: %s', counter)
-#                        masses_to_calc.discard(ms)
-#                else:
-#                    logger.error('Unprocessed mass shift: %s. Report a bug to developers.', ms)
-#            if not masses_to_calc:
-#                cond = False
-#        locmod_df['localization'] = pd.Series(localization_dict)
-#        logger.debug(locmod_df)
-#        locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
-#        z = utils.mass_format(0.0)
-#        df = mass_shift_data_dict[z][1]
-#        utils.save_df(0.0, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
-#    else:
-#        locmod_df = None
-#        utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
-#        logger.info('No spectrum files. MS/MS localization is not performed.')
-#
-#    logger.info('Plotting mass shift figures...')
-#    for ms_label, data in figure_data.items():
-#        if locmod_df is not None:
-#            localizations = locmod_df.at[ms_label, 'localization']
-#            sumof = locmod_df.at[ms_label, 'sum of mass shifts']
-#        else:
-#            localizations = None
-#            sumof = None
-#        utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
-#    utils.render_html_report(table, params_dict, save_directory)
-#    logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
+    logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))    
     return figure_data

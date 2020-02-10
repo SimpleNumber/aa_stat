@@ -344,6 +344,7 @@ def set_additional_params(params_dict):
         params_dict['window'] = int(window)  #should be odd
     params_dict['bins'] = np.arange(params_dict['so_range'][0],
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
+    
 
 
 _Mkstyle = matplotlib.markers.MarkerStyle
@@ -415,7 +416,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     ax_left.set_ylim(0, distributions.loc[labels].max() * 1.4)
 
     logger.debug('Localizations for %s figure: %s', ms_label, localizations)
-    print(localizations)
     if localizations:
         ax3 = ax_left.twinx()
         ax3.spines['right'].set_position(('axes', 1.1))
@@ -432,7 +432,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 #        print(values)
         values = [localizations.get(key+ '_' + ms_label) for key in labels]
         label_prefix = 'Location of '
-        print(values)
         ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
         if isinstance(sumof, list):
             for pair, styles in zip(sumof, _marker_styles[1:]):
@@ -458,8 +457,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         pright.set_label(pright.get_label() + '\nNot localized: {}'.format(localizations.get('non-localized', 0)))
         ax3.set_ylim(0, 1.4 * max(x for x in values + values_1 + values_2 if x is not None))
         ax3.legend(loc='upper left', ncol=2)
-
-
     ax_right.legend(handles=[pright], loc='upper right', edgecolor='dimgrey', fancybox=True, handlelength=0)
     fig.tight_layout()
     fig.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
@@ -535,7 +532,6 @@ def render_html_report(table_, params_dict, save_directory):
 
 
 def format_isoform(seq, ms):
-#    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
     return re.sub(r'([a-z])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), float(ms[m.group(1)])), seq)
 
 
@@ -553,3 +549,11 @@ def save_peptides(data, save_directory, params_dict):
     spectrum = params_dict['spectrum_column']
     for ms_label, (ms, df) in data.items():
         save_df(ms, df, save_directory, peptide, spectrum)
+
+def get_fix_modifications(pepxml_file):
+    out = {}
+    p = pepxml.PepXML(pepxml_file)
+    mod_list = list(p.iterfind('aminoacid_modification'))
+    for m in mod_list:
+        out[m['aminoacid']] = m['mass']
+    return out

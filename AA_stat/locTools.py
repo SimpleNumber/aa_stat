@@ -47,7 +47,6 @@ def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, **kw
     Returns spectra in two ways (usual, integer). Usual is a dict with key [ ion type, charge] and m/z as a value.
     Integer is a dict, where key is ion type and value is a set of integers (m/z / fragment accuracy).
     """
-#    print(kwargs['aa_mass'])
     peaks = {}
     theoretical_set = defaultdict(set)
     pl = len(peptide) - 1
@@ -306,9 +305,7 @@ def get_full_set_of_candicates(locmod_df):
     out = defaultdict(list)
     for ind in locmod_df.index:
         out[ind].append({ind: locmod_df.at[ind, 'all candidates']})
-#        print(type(locmod_df.at[ind, 'sum of mass shifts']))
         if isinstance(locmod_df.at[ind, 'sum of mass shifts'], list):
-#            print(locmod_df.at[ind, 'sum of mass shifts'])
             for pair in locmod_df.at[ind, 'sum of mass shifts']:
                 tmp_dict = {}
                 tmp_dict[pair[0]] = locmod_df.at[pair[0], 'all candidates']
@@ -538,6 +535,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     Counter of localizations, top isoform, score difference
     """
     mass_dict = mass.std_aa_mass.copy()
+    mass_dict.update(params_dict['fix_mod'])
     peptide = params_dict['peptides_column']
     modif_labels = string.ascii_lowercase
     i = 0
@@ -547,13 +545,10 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         isoform_part = []
         new_isoform_part = []
         for ms in pairs:
-#            print(ms)
             if len(isoform_part) == 0:
                 mass_dict[modif_labels[i]] = float(ms)   # !!!!!
                 isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], 
                                                  {modif_labels[i]: pairs[ms]})
-#                print(mass_shift)
-#                print(type(mass_shift))
                 if ms == utils.mass_format(mass_shift[0]):
                     isoforms += isoform_part
             
@@ -585,9 +580,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     
     for seq in sequences:
         theor_spec = get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_mass=mass_dict)
-        scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
-#    print(sequences)
-#    print(scores)    
+        scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])  
     scores = np.array(scores)
     i = np.argsort(scores)[::-1]
     scores = scores[i]
@@ -652,30 +645,7 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     # results = pd.DataFrame(index=df.index)
     df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
                     ms, x, locations_ms, params_dict, spectra_dict), axis=1))
-#    new_localizations = set(df['localization_count'].sum()).difference({'non-localized'})
-
-#    if sum_mod:
-#        locations_ms0 = set()
-#        locations_ms1 = set()
-#        locations_ms2 = set()
-#        for i in new_localizations:
-#            if i.endswith('_' + sum_mod[0]):
-#                locations_ms1.add(i.split('_')[0])
-#            elif i.endswith('_' + sum_mod[1]):
-#                locations_ms2.add(i.split('_')[0])
-#            else:
-#                locations_ms0.add(i)
-#        if ms[1] == ms[-1]:
-#            locations_ms2 = locations_ms1.copy()
-#        new_localizations = [locations_ms0, locations_ms1, locations_ms2]
-
-#    logger.debug('new localizations: %s', new_localizations)
-#    changed = new_localizations != locations_ms
-#    logger.debug('Localization did%schange.', [' not ', ' '][changed])
-#    if changed:
-#        df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
-#            ms, x, new_localizations, params_dict, spectra_dict, sum_mod=sum_mod), axis=1))
-
+# 
     fname = utils.table_path(params_dict['out_dir'], ms[0])
     peptide = params_dict['peptides_column']
     labels_mod = {}
@@ -685,7 +655,7 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
         for m in pair:
             labels_mod[mod_aa[i]] = m    
             i += 1
-    print(labels_mod)  
+#    print(labels_mod)  
     df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(labels_mod,))
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df[columns].to_csv(fname, index=False, sep='\t')
