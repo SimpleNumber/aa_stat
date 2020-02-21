@@ -1,5 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
+
 import pylab as plt
 import ast
 import os
@@ -20,6 +21,7 @@ except ImportError:
 from pyteomics import parser, pepxml, mgf, mzml
 
 logger = logging.getLogger(__name__)
+logging.getLogger('matplotlib.font_manager').disabled = True
 MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 
@@ -210,6 +212,7 @@ def fit_peaks(data, args, params_dict):
 
     poptpvar = []
     shape = int(np.sqrt(len(loc_max_candidates_ind))) + 1
+
     plt.figure(figsize=(shape * 3, shape * 4))
     plt.tight_layout()
     for index, center in enumerate(loc_max_candidates_ind, 1):
@@ -344,7 +347,7 @@ def set_additional_params(params_dict):
         params_dict['window'] = int(window)  #should be odd
     params_dict['bins'] = np.arange(params_dict['so_range'][0],
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
-    
+
 
 
 _Mkstyle = matplotlib.markers.MarkerStyle
@@ -383,6 +386,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     x = np.arange(len(labels))
     distributions = left[0]
     errors = left[1]
+
     fig, ax_left = plt.subplots()
     fig.set_size_inches(params_dict['figsize'])
 
@@ -429,7 +433,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         ax3.tick_params('y', colors=colors[3])
         # plot simple modifications (not sum) with the first style,
         # then parts of sum as second and third style
-#        print(values)
         values = [localizations.get(key+ '_' + ms_label) for key in labels]
         label_prefix = 'Location of '
         ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
@@ -448,10 +451,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         terms = {key for key in localizations if key[1:6] == '-term'}
         logger.debug('Found terminal localizations: %s', terms)
         for t in terms:
-            if '_' in t:
-                label = '{} at {}: {}'.format(*t.split('_'), localizations[t])
-            else:
-                label = '{} at {}: {}'.format(ms_label, t, localizations[t])
+            label = '{} at {}: {}'.format(*reversed(t.split('_')), localizations[t])
             p = ax3.plot([], [], label=label)[0]
             p.set_visible(False)
         pright.set_label(pright.get_label() + '\nNot localized: {}'.format(localizations.get('non-localized', 0)))
@@ -536,7 +536,7 @@ def format_isoform(seq, ms):
 
 
 def table_path(dir, ms):
-    return os.path.join(dir, mass_format(ms) + '.csv')
+    return os.path.join(dir, ms + '.csv')
 
 
 def save_df(ms, df, save_directory, peptide, spectrum):
@@ -548,11 +548,12 @@ def save_peptides(data, save_directory, params_dict):
     peptide = params_dict['peptides_column']
     spectrum = params_dict['spectrum_column']
     for ms_label, (ms, df) in data.items():
-        save_df(ms, df, save_directory, peptide, spectrum)
+        save_df(ms_label, df, save_directory, peptide, spectrum)
+
 
 def get_fix_modifications(pepxml_file):
     out = {}
-    p = pepxml.PepXML(pepxml_file)
+    p = pepxml.PepXML(pepxml_file, use_index=False)
     mod_list = list(p.iterfind('aminoacid_modification'))
     for m in mod_list:
         out[m['aminoacid']] = m['mass']

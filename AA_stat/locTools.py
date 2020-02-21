@@ -50,25 +50,24 @@ def get_theor_spectrum(peptide, acc_frag, types=('b', 'y'), maxcharge=None, **kw
     peaks = {}
     theoretical_set = defaultdict(set)
     pl = len(peptide) - 1
-    if not maxcharge:
-        maxcharge = 1 + int(ec.charge(peptide, pH=2))
+
     for charge in range(1, maxcharge + 1):
         for ion_type in types:
             nterminal = ion_type[0] in 'abc'
             if nterminal:
-                maxpart = peptide[:-1]
+                maxpart = ['H-'] + peptide[:-1] + ['-OH']
                 maxmass = cmass.fast_mass2(maxpart, ion_type=ion_type, charge=charge, **kwargs)
                 marr = np.zeros((pl, ), dtype=float)
                 marr[0] = maxmass
                 for i in range(1, pl):
-                    marr[i] = marr[i-1] - mass.fast_mass2([maxpart[-i]], **kwargs)/charge ### recalculate
+                    marr[i] = marr[i-1] - mass.fast_mass2([maxpart[-i-1]], **kwargs) / charge
             else:
-                maxpart = peptide[1:]
+                maxpart = ['H-'] + peptide[1:] + ['-OH']
                 maxmass = cmass.fast_mass2(maxpart, ion_type=ion_type, charge=charge, **kwargs)
                 marr = np.zeros((pl, ), dtype=float)
-                marr[pl-1] = maxmass
-                for i in range(pl-2, -1, -1):
-                    marr[i] = marr[i+1] - mass.fast_mass2([maxpart[-(i+2)]], **kwargs)/charge ### recalculate
+                marr[0] = maxmass
+                for i in range(1, pl):
+                    marr[i] = marr[i-1] - mass.fast_mass2([maxpart[i]], **kwargs) / charge
 
             tmp = marr / acc_frag
             tmp = tmp.astype(int)
@@ -169,74 +168,31 @@ def preprocess_spectrum(reader, spec_id, kwargs):
         spectrum[mt+1] = max(spectrum.get(mt+1, 0), i)
     return spectrum
 
-def peptide_isoforms(peptide, m, loc_dict):
+
+def peptide_isoforms(peptide, m, sites):
     """
     Parameters
     ----------
     peptide : list
         Peptide sequence
-    mod_list: list of modifications
-    loc_dict :  dict
-        key: lowercase letter, value: AA
-    number_of_mod : int
-        number od modifications per peptide
+    m: modification label to apply
+    sites : set
+        Amino acids eligible for modification
+
     Returns
     -------
     set of lists
-    
+
     """
     isoforms = []
-    if 'N-term' in loc_dict[m] and len(peptide[0]) == 1:
-        isoforms.append([m+peptide[0]] + peptide[1:])
-    if 'C-term' in loc_dict[m] and len(peptide[-1]) == 1:
-#         print()
-        isoforms.append(peptide[:-1] + [m + peptide[-1]])
-    else:
-        for ind, a in enumerate(peptide):
-            if a in loc_dict[m]:
-                isoforms.append(peptide[:ind] + [m+peptide[ind]] +peptide[ind+1:])
-#                 print(a)
+    if 'N-term' in sites and len(peptide[0]) == 1 and peptide[0] not in sites:
+        isoforms.append((m + peptide[0],) + tuple(peptide[1:]))
+    if 'C-term' in sites and len(peptide[-1]) == 1 and peptide[-1] not in sites:
+        isoforms.append(tuple(peptide[:-1]) + (m + peptide[-1],))
+    for ind, a in enumerate(peptide):
+        if a in sites:
+            isoforms.append(tuple(peptide[:ind]) + (m + a,) + tuple(peptide[ind+1:]))
     return isoforms
-     
-#def peptide_isoforms(sequence, localizations):
-#    """
-#    Generates isoforms for modification localization.
-#
-#    Paramenters
-#    -----------
-#
-#    sequence : str
-#        Sequence of peptide with no modifications.
-##    localizations: List
-##        List of lists if `sum_mod` is True. `localizations[0]` one-modification amino acid candidate list.
-##        `localizations[1]` and `localizations[2]`  is candidates lists for sum of modifications.
-##    sum_mod : Boolean
-##        True if sum of modifications have to be considered.
-#
-#    Returns
-#    -------
-#
-#    Set of peptide isoforms. Where 'm' for mono modification, 'n', 'k' for sum of modifications.
-#    """
-#    aa_mass = mass.std_aa_mass.copy()
-#    mod_names = string.ascii_lowercase
-#    mod_masses_dict = {}
-#    for pair in localizations:
-#        for ms in pair:
-#            mod_masses_dict
-#    else:
-#        loc_ = set(localizations)
-#        isoforms = []
-#    if 'N-term' in loc_:
-#        isoforms.append('m' + sequence)
-#    if 'C-term' in loc_:
-#        isoforms.append(sequence[:-1] + 'm' + sequence[-1])
-#
-#    for i, j in enumerate(sequence):
-#        if j in loc_:
-#            isoforms.append(sequence[:i] + 'm' + sequence[i:])
-#
-#    return set(isoforms)
 
 
 def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
@@ -258,7 +214,7 @@ def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
     List  of amino acids.
 
     """
-    ind = abs(unimod_df['mono_mass']-mass_shift) < tolerance
+    ind = abs(unimod_df['mono_mass'] - mass_shift) < tolerance
     sites_set = set()
     for i, row in unimod_df.loc[ind].iterrows():
         sites_set.update(set(pd.DataFrame(row['specificity']).site))
@@ -280,7 +236,6 @@ def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5):
 
     Results
     -------
-
     Series with mass shift as index and list of candidates as value.
     """
 
@@ -291,16 +246,18 @@ def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5):
         out[df.index[i]].append(df.columns[j])
     return pd.Series(out)
 
+
 def get_full_set_of_candicates(locmod_df):
     """
     Build list of dicts from all_candidates column taking into account the sums of modification.
+
     Parameters
     ----------
     locmod_df : DataFrame
-        DF with candicates for mass shifts.
-    Return
-    ------
-    Series 
+        DF with candidates for mass shifts.
+    Returns
+    -------
+    Series
     """
     out = defaultdict(list)
     for ind in locmod_df.index:
@@ -310,10 +267,10 @@ def get_full_set_of_candicates(locmod_df):
                 tmp_dict = {}
                 tmp_dict[pair[0]] = locmod_df.at[pair[0], 'all candidates']
                 if len(pair) > 1:
-                    tmp_dict[pair[1]] =  locmod_df.at[pair[1], 'all candidates']
-                out[ind].append(tmp_dict)            
+                    tmp_dict[pair[1]] = locmod_df.at[pair[1], 'all candidates']
+                out[ind].append(tmp_dict)
     return pd.Series(out)
-            
+
 
 def find_isotopes(ms, tolerance=0.01):
     """
@@ -394,133 +351,18 @@ def find_modifications(ms, tolerance=0.005):
     return out
 
 
-#def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC, sum_mod=False):
-#    """
-#    Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
-#
-#    Paramenters
-#    -----------
-#    mass_shift : float
-#        Considering mass shift.
-#    row : dict
-#        Data Frame row for filtered PSMs data.
-#    loc_candidates : list
-#        List or list of lists (in case of sum of modifications, `sum_mod`=True) with candidates for localization.
-#    params_dict : dict
-#        Dict with all parameters.
-#    spectra_dict : dict
-#        Keys are filenames and values are Pyteomics readers.
-#    tolerance : float
-#        m/z tolerance for matching theoretical and experimental spectra.
-#    sum_mod : bool
-#        True if sum of codifications should be considered.
-#
-#    Returns
-#    -------
-#    Counter of localizations, top isoform, score difference
-#    """
-#    mass_dict = mass.std_aa_mass
-#    peptide = params_dict['peptides_column']
-#    sequences = peptide_isoforms(row[peptide], loc_candidates, sum_mod=sum_mod)
-#    if not sequences:
-#        return Counter(), None, None
-#    if sum_mod:
-#        mass_dict.update({'m': mass_shift[0], 'n': mass_shift[1], 'k': mass_shift[2]})
-#        loc_cand, loc_cand_1, loc_cand_2  = loc_candidates
-#        if mass_shift[1] == mass_shift[2]:
-#            # logger.debug('Removing duplicate isoforms for %s', mass_shift)
-#            sequences = {s.replace('k', 'n') for s in sequences}
-#        labels = [utils.mass_format(ms) for ms in mass_shift]
-#    else:
-#        mass_dict.update({'m': mass_shift[0]})
-#        loc_cand = loc_candidates
-#
-#    if params_dict['mzml_files']:
-#        scan = row[params_dict['spectrum_column']].split('.')[1]
-#        spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
-#    else:
-#        spectrum_id = row[params_dict['spectrum_column']]
-#    exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {})
-#    loc_stat_dict = Counter()
-#    scores = []
-#    charge = row[params_dict['charge_column']]
-#
-#    sequences = np.array(list(sequences))
-#    for seq in sequences:
-#        theor_spec = get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_mass=mass_dict)
-#        scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
-#
-#    scores = np.array(scores)
-#    i = np.argsort(scores)[::-1]
-#    scores = scores[i]
-#    sequences = sequences[i]
-#    # if logger.level <= logging.DEBUG:
-#        # fname = os.path.join(params_dict['out_dir'], utils.mass_format(mass_shift[0])+'.txt')
-#        # logger.debug('Writing isoform scores for %s to %s', row[peptide], fname)
-#        # with open(fname, 'a') as dump:
-#        #     for seq, score in zip(sequences, scores):
-#        #         dump.write('{}\t{}\n'.format(seq, score))
-#        #     dump.write('\n')
-#    if len(scores) > 1:
-#        if scores[0] == scores[1]:
-#            loc_stat_dict['non-localized'] += 1
-#            return loc_stat_dict, None, None
-#        else:
-#            top_isoform = sequences[0]
-#    else:
-#        top_isoform = sequences[0]
-#
-#    loc_index = top_isoform.find('m')
-#    if top_isoform[loc_index + 1] in loc_cand:
-#        loc_stat_dict[top_isoform[loc_index + 1]] += 1
-#    if 'N-term' in loc_cand and loc_index == 0:
-#        loc_stat_dict['N-term'] += 1
-#    if 'C-term' in loc_cand and loc_index == len(top_isoform) - 2:
-#        loc_stat_dict['C-term'] += 1
-#    loc_index = top_isoform.find('n')
-#    loc_index_2 = top_isoform.find('k')
-#
-#    if loc_index > -1:
-#        if loc_index_2 == -1:
-#            loc_index_1 = top_isoform.rfind('n')
-#            # this should happen for duplicates where k was changed to n
-#            logger.debug('%s: %s, %s', top_isoform, loc_index, loc_index_2)
-#        if top_isoform[loc_index + 1] in loc_cand_1:
-#            loc_stat_dict[top_isoform[loc_index + 1] +'_' + labels[1]] += 1
-#            if loc_index_2 == -1:
-#                loc_stat_dict[top_isoform[loc_index_1 + 1] +'_' + labels[1]] += 1
-#            else:
-#                loc_stat_dict[top_isoform[loc_index_2 + 1] +'_' + labels[2]] += 1
-#        if 'N-term' in loc_cand_1 and loc_index == 0:
-#            loc_stat_dict['N-term_' + labels[1]] += 1
-#        if 'C-term' in loc_cand_1 and loc_index == len(top_isoform) - 2:
-#            loc_stat_dict['C-term_' + labels[1]] += 1
-#        if 'N-term' in loc_cand_2 and loc_index_2 == 0:
-#            loc_stat_dict['N-term_' + labels[2]] += 1
-#        if 'C-term' in loc_cand_2 and loc_index_2 == len(top_isoform) - 2:
-#            loc_stat_dict['C-term_' + labels[2]] += 1
-#
-#    if not loc_stat_dict:
-#        return Counter(), None, None
-#    else:
-#        if len(scores) > 1:
-#            scorediff = (scores[0] - scores[1]) / scores[0]
-#        else:
-#            scorediff = 0
-#        return loc_stat_dict, top_isoform, scorediff
-
-def localization_of_modification(mass_shift, row, loc_candidates, params_dict, spectra_dict, tolerance=FRAG_ACC):
+def localization_of_modification(ms_label, row, loc_candidates, params_dict, spectra_dict, mass_shift_data_dict, tolerance=FRAG_ACC):
     """
     Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
 
     Paramenters
     -----------
-    mass_shift : float
-        Considering mass shift.
+    ms_label : str
+        Label for considered mass shift.
     row : dict
         Data Frame row for filtered PSMs data.
     loc_candidates : list
-        List od dicts with candidates for localization. locmod_df['loc candidates']
+        List of dicts with candidates for localization. locmod_df['loc candidates']
     params_dict : dict
         Dict with all parameters.
     spectra_dict : dict
@@ -541,30 +383,31 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
     i = 0
     loc_stat_dict = Counter()
     isoforms = []
-    for pairs in loc_candidates:
+    for terms in loc_candidates:
+        logger.debug('Generating isoforms for terms %s for shift %s', terms.keys(), ms_label)
         isoform_part = []
         new_isoform_part = []
-        for ms in pairs:
-            if len(isoform_part) == 0:
-                mass_dict[modif_labels[i]] = float(ms)   # !!!!!
-                isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], 
-                                                 {modif_labels[i]: pairs[ms]})
-                if ms == utils.mass_format(mass_shift[0]):
+        for ms in terms:
+            mass_dict[modif_labels[i]] = mass_shift_data_dict[ms][0]
+            if not isoform_part: # first modification within this shift (or whole shift)
+                logger.debug('Applying mod %s at shift %s...', ms, ms_label)
+                isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], terms[ms])
+                if ms == ms_label:
+                    # this is the whole-shift modification
                     isoforms += isoform_part
-            
-                else:
+                elif len(terms) == 1:
+                    # two equal mass shifts form this mass shift. Apply the second half
+                    logger.debug('Repeating mod %s at shift %s...', ms, ms_label)
                     for p in isoform_part:
-                        new_isoform_part += peptide_isoforms(p, modif_labels[i],
-                                                             {modif_labels[i]: pairs[ms]})
-                i += 1
+                        new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[ms])
             else:
-                mass_dict[modif_labels[i]] = float(ms) #!!!!!!
+                # second mass shift
+                logger.debug('Adding mod %s at shift %s...', ms, ms_label)
                 for p in isoform_part:
-                    new_isoform_part += peptide_isoforms(p, modif_labels[i],
-                                                         {modif_labels[i]: pairs[ms]})
-                i += 1
+                    new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[ms])
+            i += 1
         isoforms += new_isoform_part
-    sequences = isoforms
+    sequences = [list(x) for x in set(isoforms)]
     if len(sequences) < 1:
         return loc_stat_dict, None, None
     if params_dict['mzml_files']:
@@ -572,19 +415,21 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
         spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
     else:
         spectrum_id = row[params_dict['spectrum_column']]
-        
+
     exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {})
-    
+
     scores = []
     charge = row[params_dict['charge_column']]
-    
+
     for seq in sequences:
         theor_spec = get_theor_spectrum(seq, tolerance, maxcharge=charge, aa_mass=mass_dict)
-        scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])  
+        scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED)[1])
     scores = np.array(scores)
     i = np.argsort(scores)[::-1]
     scores = scores[i]
     sequences = np.array(sequences)[i]
+    logger.debug('Sorted scores: %s', scores)
+    logger.debug('Sorted isoforms: %s', sequences)
     # if logger.level <= logging.DEBUG:
         # fname = os.path.join(params_dict['out_dir'], utils.mass_format(mass_shift[0])+'.txt')
         # logger.debug('Writing isoform scores for %s to %s', row[peptide], fname)
@@ -607,7 +452,7 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
             elif ind == len(top_isoform) - 1:
                 loc_stat_dict["_".join(['C-term', utils.mass_format(mass_dict[a[0]])])] += 1
             loc_stat_dict["_".join([a[1], utils.mass_format(mass_dict[a[0]])])] += 1
-    
+
     if not loc_stat_dict:
         return Counter(), None, None
     else:
@@ -615,19 +460,21 @@ def localization_of_modification(mass_shift, row, loc_candidates, params_dict, s
             scorediff = (scores[0] - scores[1]) / scores[0]
         else:
             scorediff = 0
+    logger.debug('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
     return loc_stat_dict, ''.join(top_isoform), scorediff
 
 
-def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_mod=False):
+def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, mass_shift_data_dict):
     """
-    Localizes modification or sum of modifications for mass shift and repeat localization if there are redundant candidates. If two peptides isoforms have the same max score, modification counts as 'non-modified'.
+    Localizes modification or sum of modifications for mass shift and repeat localization if there are redundant candidates.
+    If two peptide isoforms have the same max score, modification counts as 'non-localized'.
 
     Paramenters
     -----------
     df : DataFrame
         DF with filtered peptides for considering mass shift.
-    ms : list of float
-        Considered mass shift(s).
+    ms : float
+        Considered mass shift.
     locations_ms :
        locmod_df['loc candidates']
     params_dict : dict
@@ -641,21 +488,21 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, sum_m
     -------
     Counter of localizations.
     """
-    logger.debug('Localizing %s (sum_mod = %s) at %s', ms, sum_mod, locations_ms)
-    # results = pd.DataFrame(index=df.index)
+    logger.debug('Localizing %s at %s', ms, locations_ms)
+
     df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
-                    ms, x, locations_ms, params_dict, spectra_dict), axis=1))
-# 
-    fname = utils.table_path(params_dict['out_dir'], ms[0])
+                    ms, x, locations_ms, params_dict, spectra_dict, mass_shift_data_dict), axis=1))
+
+    fname = utils.table_path(params_dict['out_dir'], ms)
     peptide = params_dict['peptides_column']
     labels_mod = {}
     mod_aa = string.ascii_lowercase
     i = 0
     for pair in locations_ms:
         for m in pair:
-            labels_mod[mod_aa[i]] = m    
+            labels_mod[mod_aa[i]] = m
             i += 1
-#    print(labels_mod)  
+
     df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(labels_mod,))
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df[columns].to_csv(fname, index=False, sep='\t')
