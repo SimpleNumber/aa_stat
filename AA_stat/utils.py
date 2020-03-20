@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').disabled = True
 MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
-FIT_BATCH = 625
+FIT_BATCH = 900
 
 
 cc = ["#FF6600",
@@ -200,7 +200,7 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
     logger.debug('Created a figure with size %s', figsize)
     poptpvar = []
     for i in range(batch_size):
-        center = i * (2 * half_window + 1) + half_window + 1
+        center = i * (2 * half_window + 1) + half_window
         x = xs[center - half_window : center + half_window + 1]
         y = ys[center - half_window : center + half_window + 1]
         popt, perr = gauss_fitting(ys[center], x, y)
