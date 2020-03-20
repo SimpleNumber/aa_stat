@@ -212,11 +212,12 @@ def fit_peaks(data, args, params_dict):
 
     poptpvar = []
     shape = int(np.sqrt(len(loc_max_candidates_ind))) + 1
-
-    plt.figure(figsize=(shape * 3, shape * 4))
+    logger.debug('Candidates for fit: %s', len(loc_max_candidates_ind))
+    figsize = (shape * 3, shape * 4)
+    plt.figure(figsize=figsize)
     plt.tight_layout()
+    logger.debug('Created a figure with size %s', figsize)
     for index, center in enumerate(loc_max_candidates_ind, 1):
-
         x = hist_x[center - half_window: center + half_window + 1]
         y = hist[0][center - half_window: center + half_window + 1] #take non-smoothed data
 #        y_= hist_y[center - half_window: center + half_window + 1]
@@ -230,7 +231,7 @@ def fit_peaks(data, args, params_dict):
                 and perr[2]/popt[2] < params_dict['max_deviation_sigma']):
                 label = 'PASSED'
                 poptpvar.append(np.concatenate([popt, perr]))
-                plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval' )
+                plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval')
                 plt.vlines(popt[1] + 3 * popt[2], 0, hist[0][center])
             else:
                 label='FAILED'
@@ -243,8 +244,10 @@ def fit_peaks(data, args, params_dict):
         plt.legend()
         plt.title("{0:.3f}".format(hist[1][center]))
         plt.grid(True)
+    logger.debug('Fit done. Saving figure...')
     plt.savefig(os.path.join(args.dir, 'gauss_fit.pdf'))
     plt.close()
+    logger.debug('Returning from fit_peaks.')
     return hist, np.array(poptpvar)
 
 
