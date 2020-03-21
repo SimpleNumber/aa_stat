@@ -117,7 +117,7 @@ def read_input(args, params_dict):
                 df = reader(filename, params_dict)
                 hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts],
                     bins=10000)
-                logger.debug('hist_0: %s', hist_0)
+                # logger.debug('hist_0: %s', hist_0)
                 hist_y = hist_0[0]
                 hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
                 popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
@@ -277,7 +277,7 @@ def fit_peaks(data, args, params_dict):
             arguments.append((out, len(xlist), xs, ys, half_window, height_error, sigma_error))
         res = pool.map_async(fit_worker, arguments)
         poptpvar_list = res.get()
-        logger.debug(poptpvar_list)
+        # logger.debug(poptpvar_list)
         pool.close()
         pool.join()
         logger.debug('Workers done.')

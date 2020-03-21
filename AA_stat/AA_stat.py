@@ -344,7 +344,7 @@ def AA_stat(params_dict, args):
     data = utils.read_input(args, params_dict)
 
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
-    logger.debug('popt_pvar: %s', popt_pvar)
+    # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar)
     logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
@@ -405,7 +405,7 @@ def AA_stat(params_dict, args):
         localization_dict = defaultdict(Counter)
         zero_label = utils.mass_format(0.0)
         localization_dict[zero_label] = Counter()
-        logger.debug('Locmod:\n%s', locmod_df)
+        # logger.debug('Locmod:\n%s', locmod_df)
         for ms_label, (ms, df) in mass_shift_data_dict.items():
             if sum(map(lambda x: sum(map(len, x.values())), locmod_df.at[ms_label, 'candidates for loc'])):
                 counter = locTools.two_step_localization(
@@ -417,7 +417,7 @@ def AA_stat(params_dict, args):
             localization_dict[utils.mass_format(0.0)] = Counter()
             logger.debug('Localizations: %s', localization_dict)
         locmod_df['localization'] = pd.Series(localization_dict)
-        logger.debug(locmod_df)
+        # logger.debug(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
         df = mass_shift_data_dict[zero_label][1]
