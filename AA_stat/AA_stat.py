@@ -346,9 +346,9 @@ def AA_stat(params_dict, args):
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar)
-    logger.debug('final_mass_shifts: %s', final_mass_shifts)
+    # logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
-    logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
+    # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     zero_mass_shift = get_zero_mass_shift(mass_shift_data_dict)
 
     logger.info("Systematic mass shift equals to %s", utils.mass_format(zero_mass_shift))
