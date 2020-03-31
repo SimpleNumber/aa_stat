@@ -348,6 +348,7 @@ def find_modifications(ms, tolerance=0.005):
 
 
 def localization_of_modification(ms_label, row, loc_candidates, params_dict, spectra_dict, mass_shift_data_dict):
+
     """
     Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
 
@@ -387,6 +388,7 @@ def localization_of_modification(ms_label, row, loc_candidates, params_dict, spe
 #            mass_dict('')
             mass_dict[modif_labels[i]] = mass_shift_data_dict[ms][0]
 #            print(mass_dict)
+
             if not isoform_part: # first modification within this shift (or whole shift)
                 logger.debug('Applying mod %s at shift %s...', ms, ms_label)
                 isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], terms[ms])
@@ -413,6 +415,7 @@ def localization_of_modification(ms_label, row, loc_candidates, params_dict, spe
         spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
     else:
         spectrum_id = row[params_dict['spectrum_column']]
+
 
     exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {}, acc=params_dict['frag_acc'],)
 

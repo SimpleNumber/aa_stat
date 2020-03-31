@@ -17,13 +17,16 @@ try:
     from configparser import ConfigParser
 except ImportError:
     from ConfigParser import ConfigParser
-
+import math
+import multiprocessing as mp
 from pyteomics import parser, pepxml, mgf, mzml
 
 logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').disabled = True
 MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
+FIT_BATCH = 900
+
 
 cc = ["#FF6600",
       "#FFCC00",
@@ -114,7 +117,7 @@ def read_input(args, params_dict):
                 df = reader(filename, params_dict)
                 hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts],
                     bins=10000)
-                logger.debug('hist_0: %s', hist_0)
+                # logger.debug('hist_0: %s', hist_0)
                 hist_y = hist_0[0]
                 hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
                 popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
@@ -161,7 +164,6 @@ def smooth(y, window_size=15, power=5):
 
 
 def gauss(x, a,  x0, sigma):
-
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return a/sigma/np.sqrt(2*np.pi) * np.exp(-(x - x0) * (x - x0) / (2 * sigma ** 2))
@@ -186,6 +188,49 @@ def gauss_fitting(center_y, x, y):
         return None, None
 
 
+def fit_worker(args):
+    return fit_batch_worker(*args)
+
+
+def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, sigma_error):
+    shape = int(math.ceil(np.sqrt(batch_size)))
+    figsize = (shape * 3, shape * 4)
+    plt.figure(figsize=figsize)
+    plt.tight_layout()
+    logger.debug('Created a figure with size %s', figsize)
+    poptpvar = []
+    for i in range(batch_size):
+        center = i * (2 * half_window + 1) + half_window
+        x = xs[center - half_window : center + half_window + 1]
+        y = ys[center - half_window : center + half_window + 1]
+        popt, perr = gauss_fitting(ys[center], x, y)
+        plt.subplot(shape, shape, i+1)
+        if popt is None:
+            label = 'NO FIT'
+        else:
+            if (x[0] <= popt[1] and popt[1] <= x[-1] and perr[0]/popt[0] < height_error
+                and perr[2]/popt[2] < sigma_error):
+                label = 'PASSED'
+                poptpvar.append(np.concatenate([popt, perr]))
+                plt.vlines(popt[1] - 3 * popt[2], 0, ys[center], label='3sigma interval')
+                plt.vlines(popt[1] + 3 * popt[2], 0, ys[center])
+            else:
+                label='FAILED'
+        plt.plot(x, y, 'b+:', label=label)
+        if label != 'NO FIT':
+            plt.scatter(x, gauss(x, *popt),
+                        label='Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]) )
+
+        plt.legend()
+        plt.title("{0:.3f}".format(xs[center]))
+        plt.grid(True)
+
+    logger.debug('Fit done. Saving %s...', out_path)
+    plt.savefig(out_path)
+    plt.close()
+    return poptpvar
+
+
 def fit_peaks(data, args, params_dict):
     """
     Finds Gauss-like peaks in mass shift histogram.
@@ -206,47 +251,43 @@ def fit_peaks(data, args, params_dict):
     hist_x = 0.5 * (hist[1][:-1] + hist[1][1:])
     loc_max_candidates_ind = argrelextrema(hist_y, np.greater_equal)[0]
     # smoothing and finding local maxima
-    min_height = 2 * np.median([x for x in hist[0] if x > 1])
+    min_height = 2 * np.median(hist[0][hist[0] > 1])
     # minimum bin height expected to be peak approximate noise level as median of all non-negative
     loc_max_candidates_ind = loc_max_candidates_ind[hist_y[loc_max_candidates_ind] >= min_height]
 
-    poptpvar = []
-    shape = int(np.sqrt(len(loc_max_candidates_ind))) + 1
+    height_error = params_dict['max_deviation_height']
+    sigma_error = params_dict['max_deviation_sigma']
     logger.debug('Candidates for fit: %s', len(loc_max_candidates_ind))
-    figsize = (shape * 3, shape * 4)
-    plt.figure(figsize=figsize)
-    plt.tight_layout()
-    logger.debug('Created a figure with size %s', figsize)
-    for index, center in enumerate(loc_max_candidates_ind, 1):
-        x = hist_x[center - half_window: center + half_window + 1]
-        y = hist[0][center - half_window: center + half_window + 1] #take non-smoothed data
-#        y_= hist_y[center - half_window: center + half_window + 1]
-        popt, perr = gauss_fitting(hist[0][center], x, y)
-        plt.subplot(shape, shape, index)
-        if popt is None:
-            label = 'NO FIT'
-        else:
-
-            if (x[0] <= popt[1] and popt[1] <= x[-1] and perr[0]/popt[0] < params_dict['max_deviation_height']
-                and perr[2]/popt[2] < params_dict['max_deviation_sigma']):
-                label = 'PASSED'
-                poptpvar.append(np.concatenate([popt, perr]))
-                plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval')
-                plt.vlines(popt[1] + 3 * popt[2], 0, hist[0][center])
-            else:
-                label='FAILED'
-        plt.plot(x, y, 'b+:', label=label)
-        if label != 'NO FIT':
-            plt.scatter(x, gauss(x, *popt),
-                        label='Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]) )
-
-
-        plt.legend()
-        plt.title("{0:.3f}".format(hist[1][center]))
-        plt.grid(True)
-    logger.debug('Fit done. Saving figure...')
-    plt.savefig(os.path.join(args.dir, 'gauss_fit.pdf'))
-    plt.close()
+    nproc = int(math.ceil(len(loc_max_candidates_ind) / FIT_BATCH))
+    if nproc > 1:
+        arguments = []
+        logger.debug('Splitting the fit into %s batches...', nproc)
+        n = min(nproc, mp.cpu_count())
+        logger.debug('Creating a pool of %s processes.', n)
+        pool = mp.Pool(n)
+        for proc in range(nproc):
+            xlist = [hist_x[center - half_window: center + half_window + 1]
+                for center in loc_max_candidates_ind[proc*FIT_BATCH:(proc+1)*FIT_BATCH]]
+            xs = np.concatenate(xlist)
+            ylist = [hist[0][center - half_window: center + half_window + 1]
+                for center in loc_max_candidates_ind[proc*FIT_BATCH:(proc+1)*FIT_BATCH]]
+            ys = np.concatenate(ylist)
+            out = os.path.join(args.dir, 'gauss_fit_{}.pdf'.format(proc+1))
+            arguments.append((out, len(xlist), xs, ys, half_window, height_error, sigma_error))
+        res = pool.map_async(fit_worker, arguments)
+        poptpvar_list = res.get()
+        # logger.debug(poptpvar_list)
+        pool.close()
+        pool.join()
+        logger.debug('Workers done.')
+        poptpvar = [p for r in poptpvar_list for p in r]
+    else:
+        xs = np.concatenate([hist_x[center - half_window: center + half_window + 1]
+                for center in loc_max_candidates_ind])
+        ys = np.concatenate([hist[0][center - half_window: center + half_window + 1]
+                for center in loc_max_candidates_ind])
+        poptpvar = fit_batch_worker(os.path.join(args.dir, 'gauss_fit.pdf'),
+            len(loc_max_candidates_ind), xs, ys, half_window, height_error, sigma_error)
     logger.debug('Returning from fit_peaks.')
     return hist, np.array(poptpvar)
 

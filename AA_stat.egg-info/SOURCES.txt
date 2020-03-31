@@ -1,0 +1,17 @@
+setup.py
+AA_stat/AA_stat.py
+AA_stat/__init__.py
+AA_stat/example.cfg
+AA_stat/locTools.py
+AA_stat/main.py
+AA_stat/open_search.params
+AA_stat/osPipe.py
+AA_stat/report.template
+AA_stat/tests.py
+AA_stat/utils.py
+AA_stat.egg-info/PKG-INFO
+AA_stat.egg-info/SOURCES.txt
+AA_stat.egg-info/dependency_links.txt
+AA_stat.egg-info/entry_points.txt
+AA_stat.egg-info/requires.txt
+AA_stat.egg-info/top_level.txt
