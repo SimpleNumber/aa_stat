@@ -403,20 +403,25 @@ def AA_stat(params_dict, args):
         locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
         localization_dict = defaultdict(Counter)
-        localization_dict[utils.mass_format(0.0)] = Counter()
+        zero_label = utils.mass_format(0.0)
+        localization_dict[zero_label] = Counter()
         logger.debug('Locmod:\n%s', locmod_df)
         for ms_label, (ms, df) in mass_shift_data_dict.items():
-            counter = locTools.two_step_localization(df, [ms], locmod_df.at[ms_label, 'candidates for loc'], params_dict, spectra_dict)
+            if sum(map(lambda x: sum(map(len, x.values())), locmod_df.at[ms_label, 'candidates for loc'])):
+                counter = locTools.two_step_localization(
+                    df, ms_label, locmod_df.at[ms_label, 'candidates for loc'], params_dict, spectra_dict, mass_shift_data_dict)
+            else:
+                counter = {}
             localization_dict[ms_label] = counter
             logger.debug('counter sum: %s', counter)
             localization_dict[utils.mass_format(0.0)] = Counter()
-            logger.debug('Localizations: %s', localization_dict)           
+            logger.debug('Localizations: %s', localization_dict)
         locmod_df['localization'] = pd.Series(localization_dict)
         logger.debug(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
-        z = utils.mass_format(0.0)
-        df = mass_shift_data_dict[z][1]
-        utils.save_df(0.0, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
+
+        df = mass_shift_data_dict[zero_label][1]
+        utils.save_df(zero_label, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
     else:
         locmod_df = None
         utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
@@ -431,5 +436,5 @@ def AA_stat(params_dict, args):
             sumof = None
         utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
     utils.render_html_report(table, params_dict, save_directory)
-    logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))    
+    logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
     return figure_data

@@ -1,5 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
+
 import pylab as plt
 import ast
 import os
@@ -20,6 +21,7 @@ except ImportError:
 from pyteomics import parser, pepxml, mgf, mzml
 
 logger = logging.getLogger(__name__)
+logging.getLogger('matplotlib.font_manager').disabled = True
 MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 
@@ -38,7 +40,7 @@ def mass_format(mass):
 
 
 def make_0mc_peptides(pep_list, rule):
-    """
+    """b, y
     In silico cleaves all peptides with a given rule.
 
     Parameters
@@ -210,10 +212,12 @@ def fit_peaks(data, args, params_dict):
 
     poptpvar = []
     shape = int(np.sqrt(len(loc_max_candidates_ind))) + 1
-    plt.figure(figsize=(shape * 3, shape * 4))
+    logger.debug('Candidates for fit: %s', len(loc_max_candidates_ind))
+    figsize = (shape * 3, shape * 4)
+    plt.figure(figsize=figsize)
     plt.tight_layout()
+    logger.debug('Created a figure with size %s', figsize)
     for index, center in enumerate(loc_max_candidates_ind, 1):
-
         x = hist_x[center - half_window: center + half_window + 1]
         y = hist[0][center - half_window: center + half_window + 1] #take non-smoothed data
 #        y_= hist_y[center - half_window: center + half_window + 1]
@@ -227,7 +231,7 @@ def fit_peaks(data, args, params_dict):
                 and perr[2]/popt[2] < params_dict['max_deviation_sigma']):
                 label = 'PASSED'
                 poptpvar.append(np.concatenate([popt, perr]))
-                plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval' )
+                plt.vlines(popt[1] - 3 * popt[2], 0, hist[0][center], label='3sigma interval')
                 plt.vlines(popt[1] + 3 * popt[2], 0, hist[0][center])
             else:
                 label='FAILED'
@@ -240,8 +244,10 @@ def fit_peaks(data, args, params_dict):
         plt.legend()
         plt.title("{0:.3f}".format(hist[1][center]))
         plt.grid(True)
+    logger.debug('Fit done. Saving figure...')
     plt.savefig(os.path.join(args.dir, 'gauss_fit.pdf'))
     plt.close()
+    logger.debug('Returning from fit_peaks.')
     return hist, np.array(poptpvar)
 
 
@@ -321,6 +327,8 @@ def get_parameters(params):
     #localization
     parameters_dict['spectrum_column'] = params.get('localization', 'spectrum column')
     parameters_dict['charge_column'] = params.get('localization', 'charge column')
+    parameters_dict['ion_types'] = tuple(params.get('localization', 'ion type').replace(' ', '').split(','))
+    parameters_dict['frag_acc'] = params.getfloat('localization','fragmentation mass tolerance')
     return parameters_dict
 
 
@@ -344,7 +352,7 @@ def set_additional_params(params_dict):
         params_dict['window'] = int(window)  #should be odd
     params_dict['bins'] = np.arange(params_dict['so_range'][0],
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
-    
+
 
 
 _Mkstyle = matplotlib.markers.MarkerStyle
@@ -383,6 +391,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     x = np.arange(len(labels))
     distributions = left[0]
     errors = left[1]
+
     fig, ax_left = plt.subplots()
     fig.set_size_inches(params_dict['figsize'])
 
@@ -429,7 +438,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         ax3.tick_params('y', colors=colors[3])
         # plot simple modifications (not sum) with the first style,
         # then parts of sum as second and third style
-#        print(values)
         values = [localizations.get(key+ '_' + ms_label) for key in labels]
         label_prefix = 'Location of '
         ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
@@ -448,10 +456,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         terms = {key for key in localizations if key[1:6] == '-term'}
         logger.debug('Found terminal localizations: %s', terms)
         for t in terms:
-            if '_' in t:
-                label = '{} at {}: {}'.format(*t.split('_'), localizations[t])
-            else:
-                label = '{} at {}: {}'.format(ms_label, t, localizations[t])
+            label = '{} at {}: {}'.format(*reversed(t.split('_')), localizations[t])
             p = ax3.plot([], [], label=label)[0]
             p.set_visible(False)
         pright.set_label(pright.get_label() + '\nNot localized: {}'.format(localizations.get('non-localized', 0)))
@@ -536,7 +541,7 @@ def format_isoform(seq, ms):
 
 
 def table_path(dir, ms):
-    return os.path.join(dir, mass_format(ms) + '.csv')
+    return os.path.join(dir, ms + '.csv')
 
 
 def save_df(ms, df, save_directory, peptide, spectrum):
@@ -548,11 +553,12 @@ def save_peptides(data, save_directory, params_dict):
     peptide = params_dict['peptides_column']
     spectrum = params_dict['spectrum_column']
     for ms_label, (ms, df) in data.items():
-        save_df(ms, df, save_directory, peptide, spectrum)
+        save_df(ms_label, df, save_directory, peptide, spectrum)
+
 
 def get_fix_modifications(pepxml_file):
     out = {}
-    p = pepxml.PepXML(pepxml_file)
+    p = pepxml.PepXML(pepxml_file, use_index=False)
     mod_list = list(p.iterfind('aminoacid_modification'))
     for m in mod_list:
         out[m['aminoacid']] = m['mass']

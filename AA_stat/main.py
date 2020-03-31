@@ -1,7 +1,8 @@
 import argparse
 import logging
 import os
-from . import AA_stat, utils
+import unittest
+from . import AA_stat, utils, tests
 
 
 def main():
@@ -9,7 +10,7 @@ def main():
     pars.add_argument('--params', help='CFG file with parameters. If there is no file, AA_stat uses default one.'
         'An example can be found at https://github.com/SimpleNumber/aa_stat',
         required=False)
-
+    
     pars.add_argument('--dir', help='Directory to store the results. Default value is current directory.', default='.')
     pars.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity')
 
@@ -26,12 +27,17 @@ def main():
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
     logger = logging.getLogger(__name__)
+    test_prog = unittest.main(module=tests, argv=['ignored', '-v'], exit=False)
+    if (test_prog.result.failures != []) or (test_prog.result.errors != []):
+        logger.error('Did not pass the tests.')
+        return
     logger.info("Starting...")
-
 
     params = utils.read_config_file(args.params)
     params_dict = utils.get_parameters(params)
-
+    logger.debug(params_dict)
+    
+     
     utils.set_additional_params(params_dict)
     os.makedirs(args.dir, exist_ok=True)
     AA_stat.AA_stat(params_dict, args)
