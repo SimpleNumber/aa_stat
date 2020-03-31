@@ -11,7 +11,7 @@ import numpy as  np
 from collections import defaultdict, Counter
 import logging
 
-from pyteomics import mass, electrochem as ec
+from pyteomics import mass
 try:
     from pyteomics import cmass
 except ImportError:
@@ -59,9 +59,9 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,\
             for charge in range(1, maxcharge+1):
                 if ind == 0:
                     if nterminal:
-                        mz = mass.fast_mass2(pep, ion_type=ion_type, charge=charge, aa_mass=aa_mass, **kwargs)
+                        mz = cmass.fast_mass2(pep, ion_type=ion_type, charge=charge, aa_mass=aa_mass, **kwargs)
                     else:
-                        mz = mass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,\
+                        mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,\
                                              aa_mass=aa_mass, **kwargs)
                 else:
                     if nterminal:

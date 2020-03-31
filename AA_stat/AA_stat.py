@@ -135,7 +135,7 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
     return p_val, d.std(axis=1)
 
 
-def get_zero_mass_shift(mass_shifts):
+def get_zero_mass_shift(mass_shifts, tolerance=0.05):
     """
     Shift of non-modified peak. Finds zero mass shift.
 
@@ -143,13 +143,18 @@ def get_zero_mass_shift(mass_shifts):
     ----------
     mass_shifts : Series
         Series of mass shifts.
-
+    tolerance: float
+        Tolerance for zero mass shift in Da.
     Returns
     -------
     Mass shift in float format.
     """
     values = [v[0] for v in mass_shifts.values()]
     l = np.argmin(np.abs(values))
+    if abs(values[l]) > tolerance:
+        logger.warning('No mass shift near zero. Mass shift with max identifications will be reference mass shift.')
+        identifications = [len(v[1]) for v in mass_shifts.values()]
+        l = np.argmax(np.abs(identifications))
     return values[l]
 
 
