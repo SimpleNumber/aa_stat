@@ -1,7 +1,0 @@
-pyteomics
-pandas
-seaborn
-scipy
-numpy
-lxml
-jinja2

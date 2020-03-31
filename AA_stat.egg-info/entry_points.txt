@@ -1,4 +1,0 @@
-[console_scripts]
-AA_stat = AA_stat.main:main
-MSFragger_AAstat = AA_stat.osPipe:main
-
