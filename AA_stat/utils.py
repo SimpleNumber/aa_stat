@@ -63,9 +63,52 @@ def make_0mc_peptides(pep_list, rule):
         out_set.update(parser.cleave(i, rule))
     return out_set
 
+def preprocess_df(df, filename, params_dict,):
+    '''
+    Preprocesses DataFrame.
+    Parameters
+    ----------
+    df: DataFrame
+        Open search result df.
+    filename: str
+        Path of initial (pepxml or csv) file
+    params_dict: dict
+        Dict with all input parameters
+    Returns
+    -------
+    DataFrame
+    '''
+    window = 0.3
+    zero_bin = 0
+    shifts = params_dict['mass_shifts_column']
+    hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts],
+                    bins=10000)
+                # logger.debug('hist_0: %s', hist_0)
+    hist_y = hist_0[0]
+    hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
+    popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
+    logger.info('Systematic shift for file is %.4f Da for file %s', popt[1], filename)
+    df[shifts] -= popt[1]
+    df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
+    df['check_composition'] = df[params_dict['peptides_column']].apply(lambda x: check_composition(x, params_dict['labels']))
+    return df.loc[df['check_composition']]
 
 def read_pepxml(fname, params_dict):
-    return pepxml.DataFrame(fname, read_schema=False)
+    '''
+    Reads pepxml file and preprocess it.
+    Parameters
+    ----------
+    fname: str
+        Path to pepxml file
+    params_dict: dict
+        Dict with all input parameters
+    Returns
+    -------
+    DataFrame
+    '''
+#    logger.info('Reading %s', fname)
+    df = pepxml.DataFrame(fname, read_schema=False)
+    return preprocess_df(df,fname, params_dict)
 
 
 def read_csv(fname, params_dict):
@@ -84,48 +127,59 @@ def read_csv(fname, params_dict):
     A DataFrame of csv file.
 
     """
+#    logger.info('Reading %s', fname)
     df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
     protein = params_dict['proteins_column']
     if (df[protein].str[0] == '[').all() and (df[protein].str[-1] == ']').all():
         df[protein] = df[protein].apply(ast.literal_eval)
     else:
         df[protein] = df[protein].str.split(params_dict['proteins_delimeter'])
-    return df
+    return preprocess_df(df,fname, params_dict)
 
-
+def check_composition(peptide, aa_labels):
+    '''
+    Checks composition of peptides.
+    Parameters
+    ----------
+    peptide: str
+        Peptide sequence
+    aa_labels: list
+        list of acceptable aa.
+    Returns
+    -------
+    True if accebtable, False overwise.
+    '''
+    out = set(peptide)- set(aa_labels)
+    if out == set():
+        return True
+    else:
+        return False
+    
 def read_input(args, params_dict):
     """
     Reads open search output, assembles all data in one DataFrame.
 
     """
     dfs = []
+    def update_dfs(result):
+        dfs.append(result)
     data = pd.DataFrame()
-    window = 0.3
-    zero_bin = 0
     logger.info('Reading input files...')
     readers = {
         'pepxml': read_pepxml,
         'csv': read_csv,
     }
     shifts = params_dict['mass_shifts_column']
+    pool=mp.Pool()
     for ftype, reader in readers.items():
         filenames = getattr(args, ftype)
         logger.debug('Filenames: %s', filenames)
         if filenames:
-            for filename in filenames:
-                logger.info('Reading %s', filename)
-                df = reader(filename, params_dict)
-                hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts],
-                    bins=10000)
-                # logger.debug('hist_0: %s', hist_0)
-                hist_y = hist_0[0]
-                hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
-                popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
-                logger.info('Systematic shift for file is %.4f Da', popt[1])
-                df[shifts] -= popt[1]
-                df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
-                dfs.append(df)
-            break
+            for filename in filenames:    
+                pool.apply_async(reader, args =(filename, params_dict), callback=update_dfs)
+#                print(df.loc[~df['check_composition']])
+    pool.close()
+    pool.join()
     logger.info('Starting analysis...')
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))

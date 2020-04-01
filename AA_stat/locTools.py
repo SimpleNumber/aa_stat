@@ -475,8 +475,8 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, mass_
     -----------
     df : DataFrame
         DF with filtered peptides for considering mass shift.
-    ms : float
-        Considered mass shift.
+    ms : str
+        Considered mass shift label
     locations_ms :
        locmod_df['loc candidates']
     params_dict : dict
@@ -490,7 +490,7 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, mass_
     -------
     Counter of localizations.
     """
-    logger.debug('Localizing %s at %s', ms, locations_ms)
+    logger.info('Localizing %s at %s', ms, locations_ms)
 
     df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
                     ms, x, locations_ms, params_dict, spectra_dict, mass_shift_data_dict), axis=1))
@@ -509,4 +509,4 @@ def two_step_localization(df, ms, locations_ms, params_dict, spectra_dict, mass_
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df[columns].to_csv(fname, index=False, sep='\t')
 
-    return df['localization_count'].sum()
+    return {ms: df['localization_count'].sum()}

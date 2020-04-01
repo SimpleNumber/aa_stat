@@ -10,6 +10,7 @@ import logging
 import warnings
 from pyteomics import parser, pepxml, mass
 from . import utils, locTools
+import multiprocessing as mp
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +241,7 @@ def group_specific_filtering(data, mass_shifts, params_dict):
             df = pepxml.filter_df(data_slice,
                 fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
         if len(df) > 0:
-            shift = np.mean(df[shifts]) ###!!!!!!!mean of from gauss fit!!!!
+            shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
             out_data[utils.mass_format(shift)] = (shift, df)
     logger.info('# of filtered mass shifts = %s', len(out_data))
     return out_data
@@ -407,21 +408,29 @@ def AA_stat(params_dict, args):
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
         locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
-        localization_dict = defaultdict(Counter)
+#        localization_dict = defaultdict(Counter)
         zero_label = utils.mass_format(0.0)
-        localization_dict[zero_label] = Counter()
+        localization_dict = {}
+        localization_dict.update({zero_label: Counter()})
         logger.debug('Locmod:\n%s', locmod_df)
+        
+        def update_result(result):
+            localization_dict.update(result)
+            logger.debug('counter sum: %s', result)
+        pool = mp.Pool()
         for ms_label, (ms, df) in mass_shift_data_dict.items():
             if sum(map(lambda x: sum(map(len, x.values())), locmod_df.at[ms_label, 'candidates for loc'])):
-                counter = locTools.two_step_localization(
-                    df, ms_label, locmod_df.at[ms_label, 'candidates for loc'], params_dict, spectra_dict, mass_shift_data_dict)
+                pool.apply_async(locTools.two_step_localization, 
+                                 args=(df, ms_label, locmod_df.at[ms_label, 'candidates for loc'], params_dict, spectra_dict, mass_shift_data_dict),
+                                 callback=update_result)
             else:
-                counter = {}
-            localization_dict[ms_label] = counter
-            logger.debug('counter sum: %s', counter)
-            localization_dict[utils.mass_format(0.0)] = Counter()
-            logger.debug('Localizations: %s', localization_dict)
+                update_result({ms_label: Counter()})
+        pool.close()
+        pool.join()
+        
+        logger.debug('Localizations: %s', localization_dict)
         locmod_df['localization'] = pd.Series(localization_dict)
+        
         # logger.debug(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
