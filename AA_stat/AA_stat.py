@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 AA_STAT_CAND_THRESH = 1.5
 ISOTOPE_TOLERANCE = 0.015
 UNIIMOD_TOLERANCE = 0.01
+ZERO_BIN_TOLERANCE = 0.00001
 
 
 def get_peptide_statistics(peptide_list):
@@ -247,7 +248,7 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     return out_data
 
 
-def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
+def calculate_statistics(mass_shifts_dict, reference_mass_shift, params_dict, args):
     """
     Calculates amino acid statistics, relative amino acids presence in peptides
     for all mass shifts.
@@ -276,18 +277,18 @@ def calculate_statistics(mass_shifts_dict, zero_mass_shift, params_dict, args):
     expasy_rule = parser.expasy_rules.get(rule, rule)
     save_directory = args.dir
     peptides = params_dict['peptides_column']
-    zero_mass_shift_label = utils.mass_format(zero_mass_shift)
-    zero_bin = mass_shifts_dict[zero_mass_shift_label][1]
+    reference_mass_shift_label = utils.mass_format(reference_mass_shift)
+    reference_bin = mass_shifts_dict[reference_mass_shift_label][1]
 
     number_of_PSMs = dict()#pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
-    reference = pd.Series(get_aa_distribution(zero_bin[peptides], expasy_rule))
+    reference = pd.Series(get_aa_distribution(reference_bin[peptides], expasy_rule))
     reference.fillna(0, inplace=True)
 
     #bootstraping for errors and p values calculation in reference (zero) mass shift
     err_reference_df = pd.DataFrame(index=labels)
     for i in range(50):
         err_reference_df[i] = pd.Series(get_aa_distribution(
-            np.random.choice(np.array(zero_bin[peptides]), size=(len(zero_bin) // 2), replace=False),
+            np.random.choice(np.array(reference_bin[peptides]), size=(len(reference_bin) // 2), replace=False),
         expasy_rule)) / reference
 
     logger.info('Mass shifts:')
@@ -355,10 +356,13 @@ def AA_stat(params_dict, args):
     # logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
-    zero_mass_shift = get_zero_mass_shift(mass_shift_data_dict)
-
-    logger.info("Systematic mass shift equals to %s", utils.mass_format(zero_mass_shift))
-    mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, zero_mass_shift)
+    reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
+    if abs(reference_mass_shift) < ZERO_BIN_TOLERANCE:   
+        logger.info("Systematic mass shift equals to %s", utils.mass_format(reference_mass_shift))
+        mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, reference_mass_shift)
+        reference_mass_shift = 0.0
+    else:
+        logger.info('No mass shift near 0.0, new reference bin is %s', utils.mass_format(reference_mass_shift))
     ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
     logger.debug('Final shift labels: %s', ms_labels.keys())
     if len(mass_shift_data_dict) < 2:
@@ -368,7 +372,7 @@ def AA_stat(params_dict, args):
             logger.info(i)
         return
 
-    distributions, number_of_PSMs, figure_data = calculate_statistics(mass_shift_data_dict, 0, params_dict, args)
+    distributions, number_of_PSMs, figure_data = calculate_statistics(mass_shift_data_dict, reference_mass_shift, params_dict, args)
 
     table = save_table(distributions, number_of_PSMs, ms_labels)
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
@@ -409,9 +413,9 @@ def AA_stat(params_dict, args):
         locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
 #        localization_dict = defaultdict(Counter)
-        zero_label = utils.mass_format(0.0)
+        reference_label = utils.mass_format(reference_mass_shift)
         localization_dict = {}
-        localization_dict.update({zero_label: Counter()})
+        localization_dict.update({reference_label: Counter()})
         logger.debug('Locmod:\n%s', locmod_df)
         
         def update_result(result):
@@ -434,8 +438,8 @@ def AA_stat(params_dict, args):
         # logger.debug(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
-        df = mass_shift_data_dict[zero_label][1]
-        utils.save_df(zero_label, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
+        df = mass_shift_data_dict[reference_label][1]
+        utils.save_df(reference_label, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
     else:
         locmod_df = None
         utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
