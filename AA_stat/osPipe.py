@@ -5,7 +5,7 @@ from . import AA_stat, utils
 import argparse
 import logging
 import sys
-from collections import defaultdict
+#from collections import defaultdict
 """
 Created on Sun Jan 26 15:41:40 2020
 
@@ -14,7 +14,7 @@ Created on Sun Jan 26 15:41:40 2020
 OS_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'open_search.params')
 
 FIX_MOD_ZERO_THRESH = 2 #in %
-FIX_MOD_THRESH = 90 # in %
+#FIX_MOD_THRESH = 90 # in %
 
 logger = logging.getLogger(__name__)
 
@@ -90,25 +90,49 @@ def main():
     if args.optimize_fixed_mods:
         logger.info('Starting two-step procedure.')
         logger.info('Starting preliminary open search.')
-        preliminary_aastat = run_step_os(spectra, 'preliminary_os', working_dir, args, params_dict, change_dict=None)
+        preliminary_aastat, data_dict = run_step_os(spectra, 'preliminary_os', working_dir, args, params_dict, change_dict=None)
         logger.debug('Preliminary AA_stat results:\n%s', preliminary_aastat)
+#        print(data_dict)
+#        print('=======================================================')
+
         aa_rel = preliminary_aastat[utils.mass_format(0)][2]
+#        print(aa_rel)
         logger.debug('aa_rel:\n%s', aa_rel)
-        final_cand = defaultdict(list)
+#        final_cand = defaultdict(list)
+        fix_mod_dict = {}
         candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
         logger.debug('Fixed mod candidates: %s', candidates)
-        for ms, data in preliminary_aastat.items():
-            if ms != utils.mass_format(0):
-                for i in candidates:
-                    if data[2][i] > FIX_MOD_THRESH:
-                        final_cand[i].append((ms, data[0]))
-                        logger.debug('Potential fixed mass shift for %s: %s (%s peptides)', i, ms, data[0])
-                    else:
-                        logger.debug('Shift: %s, AA: %s, abundance: %s', ms, i, data[2][i])
-        fix_mod_dict = {}
-        for k, v in final_cand.items():
-            sorted_v = sorted(v, key=lambda x: x[1], reverse=True)
-            fix_mod_dict[k] = sorted_v[0][0]
+#        print(candidates)
+#        cand_distribution = defaultdict(dict)
+        print('Here')
+        for i in candidates:
+            dist_aa = []
+            for ms, v in data_dict.items():    
+                v[1]['peptide'].apply(lambda x: x.count(i)).sum()
+#                print(v[1]['peptide'])
+                dist_aa.append([v[0], v[1]['peptide'].apply(lambda x: x.count(i)).sum()])
+            sorted_aa_dist = sorted(dist_aa, key=lambda tup: tup[1], reverse=True)
+            fix_mod_dict[i] = utils.mass_format(sorted_aa_dist[0][0])
+#            print('==============================================')
+        print(fix_mod_dict)
+#                print(ms)
+#                print('=======================================================')
+#                print(v[0])
+#                print('=======================================================')
+#                print(v[1])
+#        for ms, data in preliminary_aastat.items():
+#            if ms != utils.mass_format(0):
+#                for i in candidates:
+#                    if data[2][i] > FIX_MOD_THRESH:
+#                        final_cand[i].append((ms, data[0]))
+#                        logger.debug('Potential fixed mass shift for %s: %s (%s peptides)', i, ms, data[0])
+#                    else:
+#                        logger.debug('Shift: %s, AA: %s, abundance: %s', ms, i, data[2][i])
+#        fix_mod_dict = {}
+#        for k, v in final_cand.items():
+#            sorted_v = sorted(v, key=lambda x: x[1], reverse=True)
+#            fix_mod_dict[k] = sorted_v[0][0]
+        
         if fix_mod_dict:
             logger.info('Starting second open search with fixed modifications %s', fix_mod_dict)
             run_step_os(spectra, 'second_os', working_dir, args, params_dict, change_dict=fix_mod_dict)
@@ -168,6 +192,8 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
     create_os_params(os_params_path, args.os_params, change_dict, args.fasta)
     run_os(args.java_executable, args.java_args.split(), spectra, args.MSFragger, dir, os_params_path)
     args.pepxml = [get_pepxml(s, dir) for s in spectra]
+    args.csv = None
+#    print(args)
     # aa_dir = os.path.join(dir, 'aa_stat_res')
     # os.makedirs(aa_dir, exist_ok=True)
     args.dir = dir

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 AA_STAT_CAND_THRESH = 1.5
 ISOTOPE_TOLERANCE = 0.015
 UNIIMOD_TOLERANCE = 0.01
-ZERO_BIN_TOLERANCE = 0.00001
+ZERO_BIN_TOLERANCE = 0.05
 
 
 def get_peptide_statistics(peptide_list):
@@ -455,4 +455,7 @@ def AA_stat(params_dict, args):
         utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
     utils.render_html_report(table, params_dict, save_directory)
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
-    return figure_data
+    return figure_data, mass_shift_data_dict
+
+
+    
