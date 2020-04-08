@@ -362,6 +362,7 @@ def AA_stat(params_dict, args):
         logger.info("Systematic mass shift equals to %s", reference_label)
         mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, reference_mass_shift)
         reference_mass_shift = 0.0
+        reference_label = utils.mass_format(0.0)
     else:
         logger.info('No mass shift near 0.0, new reference bin is %s', reference_label)
     ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}

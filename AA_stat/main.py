@@ -27,11 +27,12 @@ def main():
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
     logger = logging.getLogger(__name__)
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
     test_prog = unittest.main(module=tests, argv=['ignored', '-v'], exit=False)
     if (test_prog.result.failures != []) or (test_prog.result.errors != []):
-        logger.error('Did not pass the tests.')
+        logger.critical('Tests did not pass, aborting. Please get a working version.')
         return
-    logger.info("Starting...")
+    logger.info('Starting...')
 
     params = utils.read_config_file(args.params)
     params_dict = utils.get_parameters(params)

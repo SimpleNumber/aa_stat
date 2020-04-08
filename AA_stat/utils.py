@@ -23,6 +23,7 @@ from pyteomics import parser, pepxml, mgf, mzml
 
 logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').disabled = True
+
 MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 FIT_BATCH = 900
@@ -88,7 +89,7 @@ def preprocess_df(df, filename, params_dict,):
     hist_y = hist_0[0]
     hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
     popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
-    logger.info('Systematic shift for file is %.4f Da for file %s', popt[1], filename)
+    logger.info('Systematic shift is %.4f Da for file %s', popt[1], filename)
     df[shifts] -= popt[1]
     df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
     df['check_composition'] = df[params_dict['peptides_column']].apply(lambda x: check_composition(x, params_dict['labels']))
@@ -170,10 +171,10 @@ def read_input(args, params_dict):
         'csv': read_csv,
     }
     shifts = params_dict['mass_shifts_column']
-    pool=mp.Pool()
+    pool = mp.Pool()
     for ftype, reader in readers.items():
         filenames = getattr(args, ftype)
-        logger.debug('Filenames: %s', filenames)
+        logger.debug('Filenames [%s]: %s', ftype, filenames)
         if filenames:
             for filename in filenames:
                 pool.apply_async(reader, args =(filename, params_dict), callback=update_dfs)
