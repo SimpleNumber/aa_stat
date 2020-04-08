@@ -3,12 +3,20 @@
 <head>
     <title>AA_stat report</title>
     <style type="text/css">
+        #pic_container {
+          max-height: 80vh;
+          max-width: 70vw;
+          min-height: 25vh;
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
+          overflow-x: auto;
+        }
         #pic {
-            max-height: 80vh;
-            max-width: 70vw;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
+          max-height: 80vh;
+        }
+        .figure {
+          max-width: 70vw;
         }
         #legend {
           display: none;
@@ -72,7 +80,10 @@
     is tested for localization of mass shifts. This axis counts successful localizations of mass shifts at each AA. The counts are not normalized.
   </p>
 </div>
-<img id="pic" src="summary.png">
+<div id="pic_container">
+  <img id="pic" src="summary.png">
+</div>
+
 <div id="peptides">
   <h2 id="table_header"></h2>
   &&&
@@ -96,6 +107,14 @@
     var pic = document.getElementById('pic');
     pic.src = src;
     pic.style.display = 'block';
+    if (src == 'summary.png') {
+      pic.classList.add('summary');
+      pic.classList.remove('figure');
+    }
+    else {
+      pic.classList.remove('summary');
+      pic.classList.add('figure');
+    };
 
   };
   function showTable(elem) {
