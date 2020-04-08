@@ -63,6 +63,7 @@ def make_0mc_peptides(pep_list, rule):
         out_set.update(parser.cleave(i, rule))
     return out_set
 
+
 def preprocess_df(df, filename, params_dict,):
     '''
     Preprocesses DataFrame.
@@ -93,6 +94,7 @@ def preprocess_df(df, filename, params_dict,):
     df['check_composition'] = df[params_dict['peptides_column']].apply(lambda x: check_composition(x, params_dict['labels']))
     return df.loc[df['check_composition']]
 
+
 def read_pepxml(fname, params_dict):
     '''
     Reads pepxml file and preprocess it.
@@ -106,7 +108,7 @@ def read_pepxml(fname, params_dict):
     -------
     DataFrame
     '''
-#    logger.info('Reading %s', fname)
+    # logger.info('Reading %s', fname)
     df = pepxml.DataFrame(fname, read_schema=False)
     return preprocess_df(df,fname, params_dict)
 
@@ -127,7 +129,7 @@ def read_csv(fname, params_dict):
     A DataFrame of csv file.
 
     """
-#    logger.info('Reading %s', fname)
+    # logger.info('Reading %s', fname)
     df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
     protein = params_dict['proteins_column']
     if (df[protein].str[0] == '[').all() and (df[protein].str[-1] == ']').all():
@@ -135,6 +137,7 @@ def read_csv(fname, params_dict):
     else:
         df[protein] = df[protein].str.split(params_dict['proteins_delimeter'])
     return preprocess_df(df,fname, params_dict)
+
 
 def check_composition(peptide, aa_labels):
     '''
@@ -149,12 +152,9 @@ def check_composition(peptide, aa_labels):
     -------
     True if accebtable, False overwise.
     '''
-    out = set(peptide)- set(aa_labels)
-    if out == set():
-        return True
-    else:
-        return False
-    
+    return set(peptide) < set(aa_labels)
+
+
 def read_input(args, params_dict):
     """
     Reads open search output, assembles all data in one DataFrame.
@@ -175,9 +175,8 @@ def read_input(args, params_dict):
         filenames = getattr(args, ftype)
         logger.debug('Filenames: %s', filenames)
         if filenames:
-            for filename in filenames:    
+            for filename in filenames:
                 pool.apply_async(reader, args =(filename, params_dict), callback=update_dfs)
-#                print(df.loc[~df['check_composition']])
     pool.close()
     pool.join()
     logger.info('Starting analysis...')
@@ -591,6 +590,7 @@ def render_html_report(table_, params_dict, save_directory):
     table = table_.copy()
     labels = params_dict['labels']
     report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
+
     with open(report_template) as f:
         report = f.read()
     with pd.option_context('display.max_colwidth', 250):
@@ -598,16 +598,17 @@ def render_html_report(table_, params_dict, save_directory):
         mslabel = '<a id="binh" href="#">mass shift</a>'
         columns[0] = mslabel
         table.columns = columns
-        table_html = table.style.hide_index().applymap(
+        table_html = table.style.hide_index().hide_columns(['is reference']).applymap(
             lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
-            ).set_precision(3).set_table_styles([
+            ).set_precision(3).apply(
+            lambda row: ['background-color: #cccccc' if row['is reference'] else '' for cell in row], axis=1).set_table_styles([
             {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
             {'selector': 'td, th', 'props': [('text-align', 'center')]},
             {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
             ).format({'Unimod': '<a href="{}">search</a>'.format,
                 mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format,
                 '# peptides in bin': '<a href="#">{}</a>'.format}
-            ).bar(subset='# peptides in bin', color=cc[2]).render() #PSMs
+            ).bar(subset='# peptides in bin', color=cc[2]).render()
 
     peptide_tables = []
     for ms in table.index:
