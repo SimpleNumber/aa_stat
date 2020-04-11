@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as  np
 import os
 
-from collections import defaultdict, Counter
+from collections import defaultdict
 from scipy.stats import ttest_ind
 
 import logging
@@ -150,7 +150,7 @@ def get_zero_mass_shift(mass_shifts, tolerance=0.05):
         Tolerance for zero mass shift in Da.
     Returns
     -------
-    Mass shift in float format.
+    Mass shift label, Mass shift in float format.
     """
     values = [v[0] for v in mass_shifts.values()]
     keys = list(mass_shifts.keys())
@@ -352,11 +352,11 @@ def AA_stat(params_dict, args):
     data = utils.read_input(args, params_dict)
 
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
-    # logger.debug('popt_pvar: %s', popt_pvar)
+    logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar)
-    # logger.debug('final_mass_shifts: %s', final_mass_shifts)
+    logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
-    # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
+    logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
     if abs(reference_mass_shift) < ZERO_BIN_TOLERANCE:
         logger.info("Systematic mass shift equals to %s", reference_label)
@@ -375,7 +375,7 @@ def AA_stat(params_dict, args):
         return
 
     distributions, number_of_PSMs, figure_data = calculate_statistics(mass_shift_data_dict, reference_label, params_dict, args)
-
+#
     table = save_table(distributions, number_of_PSMs, ms_labels, reference_label)
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
@@ -395,7 +395,9 @@ def AA_stat(params_dict, args):
         locmod_df = pd.DataFrame({'mass shift': ms_labels})
         locmod_df['# peptides in bin'] = table['# peptides in bin']
         locmod_df[['is isotope', 'isotop_ind']] = locTools.find_isotopes(
-            locmod_df['mass shift'], tolerance=ISOTOPE_TOLERANCE)
+            locmod_df['mass shift'], locmod_df['# peptides in bin'], tolerance=ISOTOPE_TOLERANCE)
+        locmod_df.at[reference_label, 'is isotope'] = False
+        locmod_df.at[reference_label, 'isotop_ind'] = False
         logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
         locmod_df['sum of mass shifts'] = locTools.find_modifications(
             locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
@@ -408,36 +410,38 @@ def AA_stat(params_dict, args):
             lambda x: locTools.get_candidates_from_unimod(x, UNIIMOD_TOLERANCE, unimod_df))
         locmod_df['all candidates'] = locmod_df.apply(
             lambda x: set(x['unimod candidates']) | (set(x['aa_stat candidates'])), axis=1)
-
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
         locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
-        #localization_dict = defaultdict(Counter)
         reference_label = utils.mass_format(reference_mass_shift)
-        localization_dict = {}
-        localization_dict.update({reference_label: Counter()})
+        logger.info('Reference mass shift %s', reference_label)
+        localization_dict = {} 
         logger.debug('Locmod:\n%s', locmod_df)
 
-        def update_result(result):
+        def collect_res(result):
             localization_dict.update(result)
-            logger.debug('counter sum: %s', result)
-        pool = mp.Pool()
-        for ms_label, (ms, df) in mass_shift_data_dict.items():
-            if sum(map(lambda x: sum(map(len, x.values())), locmod_df.at[ms_label, 'candidates for loc'])):
-                pool.apply_async(locTools.two_step_localization,
-                                 args=(df, ms_label, locmod_df.at[ms_label, 'candidates for loc'], params_dict, spectra_dict, mass_shift_data_dict),
-                                 callback=update_result)
-            else:
-                update_result({ms_label: Counter()})
-        pool.close()
-        pool.join()
+
+        def collect_err(err):
+            logger.info('error callback %s', err)
+        for ii in mass_shift_data_dict:
+            print(ii)
+#        pool = mp.Pool()
+        for ms_label, (ms, df) in mass_shift_data_dict.items():            
+            logger.debug('counter sum: %s',  ms_label)
+            logger.debug('loc parameters %s, %s, %s, %s', df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'])
+            localization_dict.update(locTools.two_step_localization(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'], 
+                                   params_dict, spectra_dict))
+#            pool.apply_async(locTools.two_step_localization,
+#                             args=(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'], 
+#                                   params_dict, spectra_dict),
+#                         callback=collect_res, error_callback=collect_err)
+#        pool.close()
+#        pool.join()
 
         logger.debug('Localizations: %s', localization_dict)
         locmod_df['localization'] = pd.Series(localization_dict)
-
-        # logger.debug(locmod_df)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
         df = mass_shift_data_dict[reference_label][1]
