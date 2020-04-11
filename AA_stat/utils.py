@@ -415,8 +415,8 @@ def get_parameters(params):
 
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     #fit
-#    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
-#    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
+    #    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
+    #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     #localization
@@ -555,8 +555,10 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
             p = ax3.plot([], [], label=label)[0]
             p.set_visible(False)
         pright.set_label(pright.get_label() + '\nNot localized: {}'.format(localizations.get('non-localized', 0)))
-        ax3.set_ylim(0, 1.4 * max(x for x in values + values_1 + values_2 if x is not None))
-        ax3.legend(loc='upper left', ncol=2)
+        all_v = [x for x in values + values_1 + values_2 if x is not None]
+        if all_v:
+            ax3.set_ylim(0, 1.4 * max(all_v))
+            ax3.legend(loc='upper left', ncol=2)
     ax_right.legend(handles=[pright], loc='upper right', edgecolor='dimgrey', fancybox=True, handlelength=0)
     fig.tight_layout()
     fig.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)

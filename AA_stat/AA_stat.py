@@ -1,4 +1,3 @@
-from __future__ import division
 import pandas as pd
 import numpy as  np
 import os
@@ -354,9 +353,9 @@ def AA_stat(params_dict, args):
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
     logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar)
-    logger.debug('final_mass_shifts: %s', final_mass_shifts)
+    #logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
-    logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
+    #logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
     if abs(reference_mass_shift) < ZERO_BIN_TOLERANCE:
         logger.info("Systematic mass shift equals to %s", reference_label)
@@ -417,7 +416,7 @@ def AA_stat(params_dict, args):
         locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
         reference_label = utils.mass_format(reference_mass_shift)
         logger.info('Reference mass shift %s', reference_label)
-        localization_dict = {} 
+        localization_dict = {}
         logger.debug('Locmod:\n%s', locmod_df)
 
         def collect_res(result):
@@ -425,16 +424,14 @@ def AA_stat(params_dict, args):
 
         def collect_err(err):
             logger.info('error callback %s', err)
-        for ii in mass_shift_data_dict:
-            print(ii)
 #        pool = mp.Pool()
-        for ms_label, (ms, df) in mass_shift_data_dict.items():            
+        for ms_label, (ms, df) in mass_shift_data_dict.items():
             logger.debug('counter sum: %s',  ms_label)
             logger.debug('loc parameters %s, %s, %s, %s', df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'])
-            localization_dict.update(locTools.two_step_localization(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'], 
+            localization_dict.update(locTools.two_step_localization(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
                                    params_dict, spectra_dict))
 #            pool.apply_async(locTools.two_step_localization,
-#                             args=(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'], 
+#                             args=(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
 #                                   params_dict, spectra_dict),
 #                         callback=collect_res, error_callback=collect_err)
 #        pool.close()
