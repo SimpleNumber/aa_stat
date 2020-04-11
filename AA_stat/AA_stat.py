@@ -351,7 +351,7 @@ def AA_stat(params_dict, args):
     data = utils.read_input(args, params_dict)
 
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
-    logger.debug('popt_pvar: %s', popt_pvar)
+    # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar)
     #logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
@@ -417,7 +417,7 @@ def AA_stat(params_dict, args):
         reference_label = utils.mass_format(reference_mass_shift)
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
-        logger.debug('Locmod:\n%s', locmod_df)
+        #logger.debug('Locmod:\n%s', locmod_df)
 
         def collect_res(result):
             localization_dict.update(result)
@@ -426,8 +426,8 @@ def AA_stat(params_dict, args):
             logger.info('error callback %s', err)
 #        pool = mp.Pool()
         for ms_label, (ms, df) in mass_shift_data_dict.items():
-            logger.debug('counter sum: %s',  ms_label)
-            logger.debug('loc parameters %s, %s, %s, %s', df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'])
+            # logger.debug('counter sum: %s',  ms_label)
+            # logger.debug('loc parameters %s, %s, %s, %s', df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'])
             localization_dict.update(locTools.two_step_localization(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
                                    params_dict, spectra_dict))
 #            pool.apply_async(locTools.two_step_localization,
@@ -437,7 +437,7 @@ def AA_stat(params_dict, args):
 #        pool.close()
 #        pool.join()
 
-        logger.debug('Localizations: %s', localization_dict)
+        # logger.debug('Localizations: %s', localization_dict)
         locmod_df['localization'] = pd.Series(localization_dict)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
