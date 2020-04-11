@@ -386,7 +386,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     loc_stat_dict = Counter()
     isoforms = []
     for terms in loc_candidates:
-        logger.debug('Generating isoforms for terms %s for shift %s', terms.keys(), ms_label)
+        # logger.debug('Generating isoforms for terms %s for shift %s', terms.keys(), ms_label)
         isoform_part = []
         new_isoform_part = []
         for _ms in terms:
