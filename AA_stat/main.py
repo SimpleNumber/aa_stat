@@ -12,7 +12,7 @@ def main():
         required=False)
 
     pars.add_argument('--dir', help='Directory to store the results. Default value is current directory.', default='.')
-    pars.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity')
+    pars.add_argument('-v', '--verbosity', type=int, choices=range(4), default=1, help='Output verbosity')
 
     input_spectra = pars.add_mutually_exclusive_group()
     input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications')
@@ -23,7 +23,7 @@ def main():
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
 
     args = pars.parse_args()
-    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
+    levels = [logging.WARNING, logging.INFO, logging.DEBUG, utils.INTERNAL]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
     logger = logging.getLogger(__name__)

@@ -352,7 +352,7 @@ def find_modifications(ms, tolerance=0.005):
     return out
 
 
-def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict, spectra_dict):
+def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict, spectra_dict, mass_shift_dict):
 
     """
     Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
@@ -390,9 +390,9 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
         isoform_part = []
         new_isoform_part = []
         for _ms in terms:
-            mod_aa = {modif_labels[i] + aa: ms + mass_dict[aa] for aa in params_dict['labels']}
+            mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}
             mass_dict.update(mod_aa)
-            mass_dict[modif_labels[i]] = ms
+            mass_dict[modif_labels[i]] = mass_shift_dict[_ms]
 
             if not isoform_part: # first modification within this shift (or whole shift)
                 # logger.debug('Applying mod %s at shift %s...', _ms, ms_label)
@@ -466,11 +466,11 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
             scorediff = (scores[0] - scores[1]) / scores[0]
         else:
             scorediff = 0
-    logger.debug('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
+    utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
     return loc_stat_dict, ''.join(top_isoform), scorediff
 
 
-def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict):
+def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass_shift_dict):
     """
     Localizes modification or sum of modifications for mass shift and repeat localization if there are redundant candidates.
     If two peptide isoforms have the same max score, modification counts as 'non-localized'.
@@ -478,7 +478,7 @@ def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_d
     Paramenters
     -----------
     df : DataFrame
-        DF with filtered peptides for considering mass shift.
+        DF with filtered peptides for considered mass shift.
     ms: float
         mass shift
     ms_label : str
@@ -489,8 +489,6 @@ def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_d
         Dict with all paramenters.
     spectra_dict : dict
         Keys are filenames and values file with mass spectra.
-    sum_mod : bool
-        True if sum of codifications should be considered.
 
     Returns
     -------
@@ -498,12 +496,11 @@ def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_d
     """
     logger.info('Localizing %s at %s', ms_label, locations_ms)
     if len(locations_ms) < 2 and list(locations_ms[0].values())[0] == set():
-        df['localization_count'], df['top isoform'], df['localization score']  = None, None, None
+        df['localization_count'], df['top isoform'], df['localization score'] = None, None, None
     else:
-
         df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
-                    ms, ms_label, x, locations_ms, params_dict, spectra_dict), axis=1))
-    logger.info('Localizing 2 %s at %s', ms_label, locations_ms)
+                    ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1))
+    logger.debug('Localizing 2 %s at %s', ms_label, locations_ms)
     fname = utils.table_path(params_dict['out_dir'], ms_label)
     peptide = params_dict['peptides_column']
     labels_mod = {}
@@ -515,7 +512,6 @@ def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_d
             i += 1
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(labels_mod,))
-    columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df[columns].to_csv(fname, index=False, sep='\t')
-
+    logger.debug('Localization result for %s: %s', ms_label, df['localization_count'].sum())
     return {ms_label: df['localization_count'].sum()}

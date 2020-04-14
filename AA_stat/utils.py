@@ -27,6 +27,7 @@ logging.getLogger('matplotlib.font_manager').disabled = True
 MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 FIT_BATCH = 900
+INTERNAL = 5
 
 
 cc = ["#FF6600",
@@ -38,6 +39,11 @@ cc = ["#FF6600",
       ]
 sb.set_style('white')
 colors = sb.color_palette(palette=cc)
+
+
+def internal(*args, **kwargs):
+    """Emit log message with level INTERNAL, which is lower than DEBUG."""
+    logger.log(INTERNAL, *args, **kwargs)
 
 def mass_format(mass):
     return MASS_FORMAT.format(mass)

@@ -9,7 +9,6 @@ import logging
 import warnings
 from pyteomics import parser, pepxml, mass
 from . import utils, locTools
-import multiprocessing as mp
 
 logger = logging.getLogger(__name__)
 
@@ -374,7 +373,7 @@ def AA_stat(params_dict, args):
         return
 
     distributions, number_of_PSMs, figure_data = calculate_statistics(mass_shift_data_dict, reference_label, params_dict, args)
-#
+
     table = save_table(distributions, number_of_PSMs, ms_labels, reference_label)
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
@@ -419,23 +418,11 @@ def AA_stat(params_dict, args):
         localization_dict = {}
         #logger.debug('Locmod:\n%s', locmod_df)
 
-        def collect_res(result):
-            localization_dict.update(result)
-
-        def collect_err(err):
-            logger.info('error callback %s', err)
-#        pool = mp.Pool()
         for ms_label, (ms, df) in mass_shift_data_dict.items():
             # logger.debug('counter sum: %s',  ms_label)
             # logger.debug('loc parameters %s, %s, %s, %s', df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'])
             localization_dict.update(locTools.two_step_localization(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
-                                   params_dict, spectra_dict))
-#            pool.apply_async(locTools.two_step_localization,
-#                             args=(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
-#                                   params_dict, spectra_dict),
-#                         callback=collect_res, error_callback=collect_err)
-#        pool.close()
-#        pool.join()
+                                   params_dict, spectra_dict, {k: v[0] for k, v in mass_shift_data_dict.items()}))
 
         # logger.debug('Localizations: %s', localization_dict)
         locmod_df['localization'] = pd.Series(localization_dict)
