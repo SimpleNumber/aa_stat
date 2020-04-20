@@ -443,14 +443,12 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
         #     for seq, score in zip(sequences, scores):
         #         dump.write('{}\t{}\n'.format(seq, score))
         #     dump.write('\n')
-    if len(scores) > 1:
-        if scores[0] == scores[1]:
-            loc_stat_dict['non-localized'] += 1
-            return loc_stat_dict, None, None
-        else:
-            top_isoform = sequences[0]
+    if (len(scores) > 1) and (scores[0] == scores[1]):
+         loc_stat_dict['non-localized'] += 1
+         return loc_stat_dict, None, None
     else:
         top_isoform = sequences[0]
+
     for ind, a in enumerate(top_isoform):
         if len(a) > 1:
             if ind == 0:
@@ -459,13 +457,15 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
                 loc_stat_dict["_".join(['C-term', utils.mass_format(mass_dict[a[0]])])] += 1
             loc_stat_dict["_".join([a[1], utils.mass_format(mass_dict[a[0]])])] += 1
 
-    if not loc_stat_dict:
-        return Counter(), None, None
+#    if not loc_stat_dict:
+#        return Counter(), None, None
+#    else:
+    if len(scores) > 1:
+#        logger.info('scores %s', scores)
+        scorediff = (scores[0] - scores[1]) / scores[0]
+        
     else:
-        if len(scores) > 1:
-            scorediff = (scores[0] - scores[1]) / scores[0]
-        else:
-            scorediff = 0
+        scorediff = 0
     utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
     return loc_stat_dict, ''.join(top_isoform), scorediff
 

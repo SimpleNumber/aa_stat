@@ -421,7 +421,7 @@ def get_parameters(params):
 
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     #fit
-    #    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
+    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
     #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')

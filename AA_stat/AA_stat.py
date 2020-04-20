@@ -160,7 +160,7 @@ def get_zero_mass_shift(mass_shifts, tolerance=0.05):
     return keys[l], values[l]
 
 
-def check_difference(shift1, shift2):
+def check_difference(shift1, shift2, tolerance=0.05):
     """
     Checks two mass shifts means to be closer than the sum of their std.
 
@@ -172,6 +172,8 @@ def check_difference(shift1, shift2):
     shift2 : List
         list that describes mass shift. On the first position have to be mean of mass shift,
         on  second position have to be std.
+    tolerance : float
+        Matching tolerance in Da.
 
     Returns
     -------
@@ -180,10 +182,13 @@ def check_difference(shift1, shift2):
     """
     mean_diff = (shift1[1] - shift2[1]) ** 2
     sigma_diff = (shift1[2] + shift2[2]) ** 2
-    return mean_diff > sigma_diff
+    res = mean_diff > sigma_diff
+    if abs(shift1[1] - shift2[1]) < tolerance:
+        res = False
+    return res
 
 
-def filter_mass_shifts(results):
+def filter_mass_shifts(results, tolerance=0.05):
     """
     Merges close mass shifts. If difference between means of two mass shifts less
     than sum of sigmas, they are merged.
@@ -193,20 +198,35 @@ def filter_mass_shifts(results):
     results : numpy array
         Output of utils.fit_peaks function (poptperr matrix). An array of Gauss fitted mass shift
         parameters and their tolerances. [[A, mean, sigma, A_error, mean_error, sigma_error],...]
-
+    tolerance : float
+        Matching tolerance in Da.
     Returns
     -------
      Updated poptperr matrix.
     """
     logger.info('Discarding bad peaks...')
+    temp = []
     out = []
-    for ind, mass_shift in enumerate(results[:-1]):
-        cond = check_difference(results[ind], results[ind+1])
-        if cond:
-            out.append(mass_shift)
+    if len(results) < 2:
+        return [results[0]]
+
+    temp = [results[0]]
+    for ind, mass_shift in enumerate(results[1:]):
+        if check_difference(temp[-1], mass_shift, tolerance=tolerance):
+            if len(temp) > 1:
+                logger.info('Joined mass shifts %s', ['{:0.4f}'.format(x[1]) for x in temp])
+            out.append(sorted(temp,key=lambda x:x[0], reverse=True)[0])
+            temp = [mass_shift]
         else:
-            logger.info('Joined mass shifts %.4f and %.4f', results[ind][1], results[ind+1][1])
-    out.append(results[-1])
+            temp.append(mass_shift)
+##        logger.info('tol %s', tolerance )
+#        cond = check_difference(results[ind], out[-1], tolerance=tolerance)
+#        if cond:
+#            out.append(mass_shift)
+#        else:
+#            logger.info('Joined mass shifts %.4f and %.4f', out[-1][1], results[ind][1])
+##            logger.info('tol %s', tolerance )
+##    out.append(results[-1])
     logger.info('Peaks for subsequent analysis: %s', len(out))
     return out
 
@@ -214,7 +234,7 @@ def filter_mass_shifts(results):
 def group_specific_filtering(data, mass_shifts, params_dict):
     """
     Selects window around found mass shift and filters using TDA.
-    Window is defined as mean +- 3*sigma.
+    Window is defined as mean +- sigma.
 
     Parameters
     ----------
@@ -234,8 +254,9 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     shifts = params_dict['mass_shifts_column']
     logger.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list
-    for mass_shift in mass_shifts:
-        mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
+    for mass_shift in mass_shifts: 
+#        tolerance = mass_shift[2]
+        mask = np.abs(data[shifts] - mass_shift[1]) < mass_shift[2]
         data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -351,7 +372,7 @@ def AA_stat(params_dict, args):
 
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
-    final_mass_shifts = filter_mass_shifts(popt_pvar)
+    final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error']*params_dict['bin_width'])
     #logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
     #logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
@@ -398,7 +419,7 @@ def AA_stat(params_dict, args):
         locmod_df.at[reference_label, 'isotop_ind'] = False
         logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
         locmod_df['sum of mass shifts'] = locTools.find_modifications(
-            locmod_df.loc[~locmod_df['is isotope'], 'mass shift'])
+            locmod_df.loc[~locmod_df['is isotope'], 'mass shift'], tolerance=params_dict['shift_error']*params_dict['bin_width'])
 
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table,
                  labels=params_dict['labels'], threshold=AA_STAT_CAND_THRESH)
