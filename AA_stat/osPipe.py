@@ -50,7 +50,7 @@ def main():
     pars.add_argument('--MSFragger', help ='Path to MSFragger .jar file. '
         'If not specified, MSFRAGGER environment variable is used.')
     pars.add_argument('--dir', help='Directory to store the results. Default value is current directory.', default='.')
-    pars.add_argument('-v', '--verbosity', type=int, choices=range(3), default=1, help='Output verbosity.')
+    pars.add_argument('-v', '--verbosity', type=int, choices=range(4), default=1, help='Output verbosity.')
 
     input_spectra = pars.add_mutually_exclusive_group(required=True)
     input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to search.', default=None)
@@ -91,21 +91,8 @@ def main():
         logger.info('Starting two-step procedure.')
         logger.info('Starting preliminary open search.')
         preliminary_aastat, data_dict = run_step_os(spectra, 'preliminary_os', working_dir, args, params_dict, change_dict=None)
-        logger.debug('Preliminary AA_stat results:\n%s', preliminary_aastat)
-        aa_rel = preliminary_aastat[utils.mass_format(0)][2]
-        logger.debug('aa_rel:\n%s', aa_rel)
-        fix_mod_dict = {}
-        candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
-        logger.debug('Fixed mod candidates: %s', candidates)
+        fix_mod_dict = determine_fixed_mods(preliminary_aastat, data_dict)
 
-        for i in candidates:
-            dist_aa = []
-            for ms, v in data_dict.items():    
-                v[1]['peptide'].apply(lambda x: x.count(i)).sum()
-                dist_aa.append([v[0], v[1]['peptide'].apply(lambda x: x.count(i)).sum()])
-            sorted_aa_dist = sorted(dist_aa, key=lambda tup: tup[1], reverse=True)
-            fix_mod_dict[i] = utils.mass_format(sorted_aa_dist[0][0])
-        
         if fix_mod_dict:
             logger.info('Starting second open search with fixed modifications %s', fix_mod_dict)
             run_step_os(spectra, 'second_os', working_dir, args, params_dict, change_dict=fix_mod_dict)
@@ -116,6 +103,23 @@ def main():
         logger.info('Running one-shot search.')
         folder_name = ''
         run_step_os(spectra, folder_name, args.dir, args, params_dict, None)
+
+
+def determine_fixed_mods(preliminary_aastat, data_dict):
+    utils.internal('Preliminary AA_stat results:\n%s', preliminary_aastat)
+    aa_rel = preliminary_aastat[utils.mass_format(0)][2]
+    logger.debug('aa_rel:\n%s', aa_rel)
+    fix_mod_dict = {}
+    candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
+    logger.debug('Fixed mod candidates: %s', candidates)
+
+    for i in candidates:
+        dist_aa = []
+        for ms, v in data_dict.items():
+            v[1]['peptide'].apply(lambda x: x.count(i)).sum()
+            dist_aa.append([v[0], v[1]['peptide'].apply(lambda x: x.count(i)).sum()])
+        sorted_aa_dist = sorted(dist_aa, key=lambda tup: tup[1], reverse=True)
+        fix_mod_dict[i] = utils.mass_format(sorted_aa_dist[0][0])
 
 
 def get_pepxml(input_file, d=None):
