@@ -16,7 +16,7 @@ def main():
 
     input_spectra = pars.add_mutually_exclusive_group()
     input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications')
-    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to localize modifications')
+    input_spectra.add_argument('--mzml',  nargs='+', help='mzML files to localize modifications')
 
     input_file = pars.add_mutually_exclusive_group()
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')

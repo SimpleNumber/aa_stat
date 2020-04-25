@@ -463,7 +463,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     if len(scores) > 1:
 #        logger.info('scores %s', scores)
         scorediff = (scores[0] - scores[1]) / scores[0]
-        
+
     else:
         scorediff = 0
     utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
@@ -513,5 +513,6 @@ def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_d
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(labels_mod,))
     df[columns].to_csv(fname, index=False, sep='\t')
-    logger.debug('Localization result for %s: %s', ms_label, df['localization_count'].sum())
-    return {ms_label: df['localization_count'].sum()}
+    result = df['localization_count'].sum() or Counter()
+    logger.debug('Localization result for %s: %s', ms_label, result)
+    return {ms_label: result}

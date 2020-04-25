@@ -5,7 +5,8 @@ from . import AA_stat, utils
 import argparse
 import logging
 import sys
-#from collections import defaultdict
+import numpy as np
+
 """
 Created on Sun Jan 26 15:41:40 2020
 
@@ -39,6 +40,8 @@ dict_aa = {
     'add_R_arginine'      : 'R',
     'add_Y_tyrosine'      : 'Y',
     'add_W_tryptophan'    : 'W',
+    'add_Cterm_peptide'   : 'C-term',
+    'add_Nterm_peptide'   : 'N-term',
 }
 
 
@@ -54,9 +57,9 @@ def main():
 
     input_spectra = pars.add_mutually_exclusive_group(required=True)
     input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to search.', default=None)
-    input_spectra.add_argument('--mzML',  nargs='+', help='mzML files to search.', default=None)
+    input_spectra.add_argument('--mzml',  nargs='+', help='mzML files to search.', default=None)
 
-    pars.add_argument('--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
+    pars.add_argument('-db', '--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
                               'If it differs, do not forget to specify it in AA_stat params file.')
     pars.add_argument('--os-params', help='Custom open search parameters.')
     pars.add_argument('-x', '--optimize-fixed-mods',
@@ -67,7 +70,7 @@ def main():
 
     args = pars.parse_args()
 
-    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
+    levels = [logging.WARNING, logging.INFO, logging.DEBUG, utils.INTERNAL]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
 
@@ -78,7 +81,7 @@ def main():
         sys.exit(1)
 
     logger.info("Starting MSFragger and AA_stat pipeline.")
-    spectra = args.mgf or args.mzML
+    spectra = args.mgf or args.mzml
     spectra = [os.path.abspath(i) for i in spectra]
     params = utils.read_config_file(args.params)
 
@@ -88,38 +91,106 @@ def main():
     working_dir = args.dir
 
     if args.optimize_fixed_mods:
-        logger.info('Starting two-step procedure.')
-        logger.info('Starting preliminary open search.')
-        preliminary_aastat, data_dict = run_step_os(spectra, 'preliminary_os', working_dir, args, params_dict, change_dict=None)
-        fix_mod_dict = determine_fixed_mods(preliminary_aastat, data_dict)
+        step = 1
+        fix_mod_dict = {}
+        while True:
+            logger.info('Starting step %d.', step)
+            logger.info('Starting preliminary open search.')
+            fig_data, aastat_table, locmod, data_dict = run_step_os(
+                spectra, 'os_step_{}'.format(step), working_dir, args, params_dict, change_dict=fix_mod_dict)
 
-        if fix_mod_dict:
-            logger.info('Starting second open search with fixed modifications %s', fix_mod_dict)
-            run_step_os(spectra, 'second_os', working_dir, args, params_dict, change_dict=fix_mod_dict)
-        else:
-            logger.info('No fixed modifications found.')
+            new_fix_mod_dict = determine_fixed_mods(fig_data, aastat_table, locmod, data_dict, params_dict)
 
+            if new_fix_mod_dict:
+                for k, v in new_fix_mod_dict.items():
+                    fix_mod_dict.setdefault(k, 0.)
+                    fix_mod_dict[k] += v
+                logger.info('Determined fixed modifications: %s', fix_mod_dict)
+                step += 1
+            else:
+                logger.info('No fixed modifications found.')
+                break
+        logger.info('Stopping after %d steps.', step)
     else:
         logger.info('Running one-shot search.')
         folder_name = ''
         run_step_os(spectra, folder_name, args.dir, args, params_dict, None)
 
 
-def determine_fixed_mods(preliminary_aastat, data_dict):
-    utils.internal('Preliminary AA_stat results:\n%s', preliminary_aastat)
-    aa_rel = preliminary_aastat[utils.mass_format(0)][2]
-    logger.debug('aa_rel:\n%s', aa_rel)
-    fix_mod_dict = {}
-    candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
-    logger.debug('Fixed mod candidates: %s', candidates)
+# def get_full_sum(ms_label, locmod_df, seen=set()):
+#     sumof = locmod_df.at[ms_label, 'sum of mass shifts']
+#     seen.add(ms_label)
+#     if sumof is not np.nan:
+#         logger.debug('Sum of shifts for %s: %s', ms_label, sumof)
+#         for pair in sumof:
+#             for shift in pair:
+#                 if shift not in seen:
+#                     seen.add(shift)
+#                     seen.update(get_full_sum(shift, locmod_df, seen))
+#     if locmod_df.at[ms_label, 'is isotope']:
+#         seen.update(get_full_sum(locmod_df.at[ms_label, 'isotope_ind']))
+#     return seen
 
-    for i in candidates:
-        dist_aa = []
-        for ms, v in data_dict.items():
-            v[1]['peptide'].apply(lambda x: x.count(i)).sum()
-            dist_aa.append([v[0], v[1]['peptide'].apply(lambda x: x.count(i)).sum()])
-        sorted_aa_dist = sorted(dist_aa, key=lambda tup: tup[1], reverse=True)
-        fix_mod_dict[i] = utils.mass_format(sorted_aa_dist[0][0])
+
+def get_fixed_mod_raw(aa, data_dict, choices=None):
+    dist_aa = []
+    for ms, v in data_dict.items():
+        if choices is None or ms in choices:
+            dist_aa.append([v[0], v[1]['peptide'].apply(lambda x: x.count(aa)).sum()])
+    utils.internal('Counts for %s: %s', aa, dist_aa)
+    top_shift = max(dist_aa, key=lambda tup: tup[1])
+    return utils.mass_format(top_shift[0])
+
+
+def get_fix_mod_from_l10n(mslabel, locmod_df):
+    l10n = locmod_df.at[mslabel, 'localization']
+    logger.debug('Localizations for %s: %s', mslabel, l10n)
+    if l10n:
+        del l10n['non-localized']
+        top_loc = max(l10n, key=l10n.get)
+        logger.debug('Top localization label for %s: %s', mslabel, top_loc)
+        return top_loc
+
+
+def parse_l10n_site(site):
+    aa, shift = site.split('_')
+    return aa, shift
+
+def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_dict):
+    reference = aastat_df.loc[aastat_df['is reference']].index[0]
+    fix_mod_dict = {}
+    if reference == utils.mass_format(0):
+        logger.info('Reference bin is at zero shift.')
+
+        aa_rel = aastat_result[reference][2]
+        utils.internal('aa_rel:\n%s', aa_rel)
+        candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
+        logger.debug('Fixed mod candidates: %s', candidates)
+        for i in candidates:
+            candidate_label = get_fixed_mod_raw(i, data_dict)
+            if aastat_result[candidate_label][2][i] > FIX_MOD_ZERO_THRESH:
+                fix_mod_dict[i] = data_dict[candidate_label][0]
+            else:
+                logger.info('Could not find %s anywhere. Can\'t fix.', i)
+    else:
+        logger.info('Reference bin is at %s. Looking for fixed modification to compensate.', reference)
+        utils.internal('Localizations for %s: %s', reference, locmod_df.at[reference, 'localization'])
+        loc = get_fix_mod_from_l10n(reference, locmod_df)
+        label = reference
+        while loc is None:
+            del data_dict[label]
+            label = max(data_dict, key=lambda k: data_dict[k][1].shape[0])
+            loc = get_fix_mod_from_l10n(label, locmod_df)
+            logger.debug('No luck. Trying %s. Got %s', label, loc)
+            if not data_dict:
+                break
+        if loc:
+            aa, shift = parse_l10n_site(loc)
+            fix_mod_dict[aa] = data_dict[shift][0]
+        else:
+            logger.info('No localizations. Stopping.')
+
+    return fix_mod_dict
 
 
 def get_pepxml(input_file, d=None):
@@ -157,7 +228,7 @@ def create_os_params(output, original=None, mass_shifts=None, fastafile=None):
                 new_params.write('database_name = {}\n'.format(fastafile))
             elif mass_shifts and dict_aa.get(key) in mass_shifts:
                 aa = dict_aa[key]
-                new_params.write(key + ' = ' + mass_shifts[aa] + '\n')
+                new_params.write(key + ' = ' + str(mass_shifts[aa]) + '\n')
             else:
                 new_params.write(line)
 

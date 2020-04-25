@@ -215,18 +215,11 @@ def filter_mass_shifts(results, tolerance=0.05):
         if check_difference(temp[-1], mass_shift, tolerance=tolerance):
             if len(temp) > 1:
                 logger.info('Joined mass shifts %s', ['{:0.4f}'.format(x[1]) for x in temp])
-            out.append(sorted(temp,key=lambda x:x[0], reverse=True)[0])
+            out.append(sorted(temp, key=lambda x: x[0], reverse=True)[0])
             temp = [mass_shift]
         else:
             temp.append(mass_shift)
-##        logger.info('tol %s', tolerance )
-#        cond = check_difference(results[ind], out[-1], tolerance=tolerance)
-#        if cond:
-#            out.append(mass_shift)
-#        else:
-#            logger.info('Joined mass shifts %.4f and %.4f', out[-1][1], results[ind][1])
-##            logger.info('tol %s', tolerance )
-##    out.append(results[-1])
+
     logger.info('Peaks for subsequent analysis: %s', len(out))
     return out
 
@@ -254,8 +247,7 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     shifts = params_dict['mass_shifts_column']
     logger.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list
-    for mass_shift in mass_shifts: 
-#        tolerance = mass_shift[2]
+    for mass_shift in mass_shifts:
         mask = np.abs(data[shifts] - mass_shift[1]) < mass_shift[2]
         data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
         with warnings.catch_warnings():
@@ -399,7 +391,7 @@ def AA_stat(params_dict, args):
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
     utils.summarizing_hist(table, save_directory)
-    logger.info('Summarizing hist prepared')
+    logger.info('Summary histogram saved.')
     table.index = table['mass shift'].apply(utils.mass_format)
 
     spectra_dict = utils.read_spectra(args)
@@ -433,8 +425,7 @@ def AA_stat(params_dict, args):
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
         locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
-        locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
-        reference_label = utils.mass_format(reference_mass_shift)
+        # locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
         #logger.debug('Locmod:\n%s', locmod_df)
@@ -446,7 +437,7 @@ def AA_stat(params_dict, args):
                                    params_dict, spectra_dict, {k: v[0] for k, v in mass_shift_data_dict.items()}))
 
         # logger.debug('Localizations: %s', localization_dict)
-        locmod_df['localization'] = pd.Series(localization_dict)
+        locmod_df['localization'] = pd.Series(localization_dict).apply(dict)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
         df = mass_shift_data_dict[reference_label][1]
@@ -466,4 +457,5 @@ def AA_stat(params_dict, args):
         utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
     utils.render_html_report(table, params_dict, save_directory)
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
-    return figure_data, mass_shift_data_dict
+    utils.internal('Data dict: \n%s', mass_shift_data_dict)
+    return figure_data, table, locmod_df, mass_shift_data_dict

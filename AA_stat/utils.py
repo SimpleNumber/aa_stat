@@ -71,7 +71,7 @@ def make_0mc_peptides(pep_list, rule):
     return out_set
 
 
-def preprocess_df(df, filename, params_dict,):
+def preprocess_df(df, filename, params_dict):
     '''
     Preprocesses DataFrame.
     Parameters
@@ -364,7 +364,7 @@ def read_spectra(args):
 
     readers = {
         'mgf': read_mgf,
-        'mzML': read_mzml,
+        'mzml': read_mzml,
     }
     out_dict = {}
     for ftype, reader in readers.items():
