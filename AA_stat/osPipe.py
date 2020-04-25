@@ -238,7 +238,7 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
     os.makedirs(dir, exist_ok=True)
     os_params_path = os.path.abspath(os.path.join(working_dir, folder_name, 'os.params'))
     create_os_params(os_params_path, args.os_params, change_dict, args.fasta)
-    # run_os(args.java_executable, args.java_args.split(), spectra, args.MSFragger, dir, os_params_path)
+    run_os(args.java_executable, args.java_args.split(), spectra, args.MSFragger, dir, os_params_path)
     args.pepxml = [get_pepxml(s, dir) for s in spectra]
     args.csv = None
     args.dir = dir

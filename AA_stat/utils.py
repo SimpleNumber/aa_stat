@@ -581,7 +581,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 
     pright = matplotlib.lines.Line2D([], [], marker=None, label=labeltext, alpha=0)
 
-
     ax_left.set_xlim(-1, x[-1] + 1)
     ax_left.set_ylim(0, distributions.loc[labels].max() * 1.4)
 
