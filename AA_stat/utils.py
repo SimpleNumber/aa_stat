@@ -673,6 +673,13 @@ def get_fix_modifications(pepxml_file):
     out = {}
     p = pepxml.PepXML(pepxml_file, use_index=False)
     mod_list = list(p.iterfind('aminoacid_modification'))
+    p.reset()
+    term_mods = list(p.iterfind('terminal_modification'))
     for m in mod_list:
         out[m['aminoacid']] = m['mass']
+    for m in term_mods:
+        if m['terminus'] == 'N':
+            out['H-'] = m['mass']
+        else:
+            out['-OH'] = m['mass']
     return out

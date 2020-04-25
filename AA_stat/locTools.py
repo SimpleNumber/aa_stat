@@ -18,13 +18,14 @@ except ImportError:
 import string
 from . import utils
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
+# H = mass.nist_mass['H'][0][0]
 #FRAG_ACC = 0.02
 MIN_SPEC_MATCHED = 4
 logger = logging.getLogger(__name__)
 
 
-def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,\
-                            aa_mass=mass.std_aa_mass, **kwargs):
+def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
+    aa_mass=mass.std_aa_mass, **kwargs):
     """
     Calculates theoretical spectra in two ways: usual one and in integer format (mz / frag_acc).
 
@@ -69,9 +70,7 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,\
                         mz = peaks[ion_type, charge][-1] - aa_mass[pep]/charge
                 peaks[ion_type, charge].append(mz)
                 theor_set[ion_type].append(int(mz / acc_frag))
-#                 g = int(mz / acc_frag)
-#                 theor_set[ion_type].extend([g, g+1])
-    theor_set = {k:set(v) for k,v in theor_set.items()}
+    theor_set = {k: set(v) for k,v in theor_set.items()}
     return peaks, theor_set
 
 
