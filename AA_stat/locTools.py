@@ -377,17 +377,30 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     -------
     Counter of localizations, top isoform, score difference
     """
-    mass_dict = mass.std_aa_mass.copy()
-    mass_dict.update(params_dict['fix_mod'])
+    mass_dict_0 = mass.std_aa_mass.copy()
+    mass_dict_0.update(params_dict['fix_mod'])
     peptide = params_dict['peptides_column']
     modif_labels = string.ascii_lowercase
-    i = 0
+
     loc_stat_dict = Counter()
-    isoforms = []
+    sequences = []
+
+    charge = row[params_dict['charge_column']]
+    scores = []
+
+    if params_dict['mzml_files']:
+        scan = row[params_dict['spectrum_column']].split('.')[1]
+        spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
+    else:
+        spectrum_id = row[params_dict['spectrum_column']]
+    exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {}, acc=params_dict['frag_acc'],)
+
     for terms in loc_candidates:
-        # logger.debug('Generating isoforms for terms %s for shift %s', terms.keys(), ms_label)
+        mass_dict = mass_dict_0.copy()
         isoform_part = []
         new_isoform_part = []
+        i = 0
+        isoforms = []
         for _ms in terms:
             mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}
             mass_dict.update(mod_aa)
@@ -411,24 +424,17 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
                     new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms])
             i += 1
         isoforms += new_isoform_part
-    sequences = [list(x) for x in set(isoforms)]
-    if len(sequences) < 1:
+        seqs = [list(x) for x in isoforms]
+        sequences.extend(seqs)
+        for seq in seqs:
+            theor_spec = get_theor_spectrum(seq,
+                params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict, ion_types=params_dict['ion_types'])
+            scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED, ion_types=params_dict['ion_types'])[1])
+
+    if len(scores) < 1:
         return loc_stat_dict, None, None
-    if params_dict['mzml_files']:
-        scan = row[params_dict['spectrum_column']].split('.')[1]
-        spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
-    else:
-        spectrum_id = row[params_dict['spectrum_column']]
 
 
-    exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {}, acc=params_dict['frag_acc'],)
-
-    scores = []
-    charge = row[params_dict['charge_column']]
-
-    for seq in sequences:
-        theor_spec = get_theor_spectrum(seq, params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict, ion_types=params_dict['ion_types'])
-        scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED, ion_types=params_dict['ion_types'])[1])
     scores = np.array(scores)
     i = np.argsort(scores)[::-1]
     scores = scores[i]
