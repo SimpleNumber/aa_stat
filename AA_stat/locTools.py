@@ -518,8 +518,9 @@ def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_d
     peptide = params_dict['peptides_column']
     labels_mod = {}
     mod_aa = string.ascii_lowercase
-    i = 0
+
     for pair in locations_ms:
+        i = 0
         for m in pair:
             labels_mod[mod_aa[i]] = m
             i += 1
