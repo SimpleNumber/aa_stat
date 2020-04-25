@@ -49,7 +49,7 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
     Integer is a dict, where key is ion type and value is a set of integers (m/z / fragment accuracy).
     """
     if not isinstance(peptide, list):
-        raise Exception('peptide is not a list')
+        raise Exception('peptide is not a list: {!r}'.format(peptide))
 
     peaks = defaultdict(list)
     theor_set = defaultdict(list)
@@ -383,10 +383,8 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     modif_labels = string.ascii_lowercase
 
     loc_stat_dict = Counter()
-    sequences = []
 
     charge = row[params_dict['charge_column']]
-    scores = []
 
     if params_dict['mzml_files']:
         scan = row[params_dict['spectrum_column']].split('.')[1]
@@ -395,12 +393,17 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
         spectrum_id = row[params_dict['spectrum_column']]
     exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {}, acc=params_dict['frag_acc'],)
 
+    top_score, second_score = 0, 0
+    top_isoform = None
+    top_terms = None
     for terms in loc_candidates:
+        scores = []
         mass_dict = mass_dict_0.copy()
         isoform_part = []
         new_isoform_part = []
         i = 0
         isoforms = []
+        sequences = []
         for _ms in terms:
             mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}
             mass_dict.update(mod_aa)
@@ -424,21 +427,28 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
                     new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms])
             i += 1
         isoforms += new_isoform_part
-        seqs = [list(x) for x in isoforms]
-        sequences.extend(seqs)
-        for seq in seqs:
+        sequences = [list(x) for x in isoforms]
+        for seq in sequences:
+            # utils.internal('seq = %s', seq)
             theor_spec = get_theor_spectrum(seq,
                 params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict, ion_types=params_dict['ion_types'])
             scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED, ion_types=params_dict['ion_types'])[1])
+        scores = np.array(scores)
+        i = np.argsort(scores)[::-1]
+        scores = scores[i]
+        sequences = np.array(sequences)[i]
+        if scores.size:
+            if scores[0] > top_score:
+                second_score = top_score
+                top_score = scores[0]
+                top_isoform = sequences[0]
+                top_terms = terms
+            if scores.size > 1 and scores[1] > second_score:
+                second_score = scores[1]
 
-    if len(scores) < 1:
+    if top_isoform is None:
         return loc_stat_dict, None, None
 
-
-    scores = np.array(scores)
-    i = np.argsort(scores)[::-1]
-    scores = scores[i]
-    sequences = np.array(sequences)[i]
     #    logger.debug('Sorted scores: %s', scores)
     #    logger.debug('Sorted isoforms: %s', sequences)
     # if logger.level <= logging.DEBUG:
@@ -448,12 +458,18 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
         #     for seq, score in zip(sequences, scores):
         #         dump.write('{}\t{}\n'.format(seq, score))
         #     dump.write('\n')
-    if (len(scores) > 1) and (scores[0] == scores[1]):
+    if top_score == second_score:
          loc_stat_dict['non-localized'] += 1
          return loc_stat_dict, None, None
-    else:
-        top_isoform = sequences[0]
 
+    mass_dict = mass_dict_0.copy()
+    logger.debug('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
+    i = 0
+    for _ms in top_terms:
+        mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}
+        mass_dict.update(mod_aa)
+        mass_dict[modif_labels[i]] = mass_shift_dict[_ms]
+        i += 1
     for ind, a in enumerate(top_isoform):
         if len(a) > 1:
             if ind == 0:
@@ -462,15 +478,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
                 loc_stat_dict["_".join(['C-term', utils.mass_format(mass_dict[a[0]])])] += 1
             loc_stat_dict["_".join([a[1], utils.mass_format(mass_dict[a[0]])])] += 1
 
-#    if not loc_stat_dict:
-#        return Counter(), None, None
-#    else:
-    if len(scores) > 1:
-#        logger.info('scores %s', scores)
-        scorediff = (scores[0] - scores[1]) / scores[0]
-
-    else:
-        scorediff = 0
+    scorediff = (top_score - second_score) / top_score
     utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
     return loc_stat_dict, ''.join(top_isoform), scorediff
 
