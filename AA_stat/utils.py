@@ -455,11 +455,18 @@ def set_additional_params(params_dict):
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
 
 
-
 _Mkstyle = matplotlib.markers.MarkerStyle
 _marker_styles = [_Mkstyle('o', fillstyle='full'), (_Mkstyle('o', fillstyle='left'), _Mkstyle('o', fillstyle='right')),
     (_Mkstyle('o', fillstyle='top'), _Mkstyle('o', fillstyle='bottom')), (_Mkstyle(8), _Mkstyle(9)),
     (_Mkstyle('v'), _Mkstyle('^')), (_Mkstyle('|'), _Mkstyle('_')), (_Mkstyle('+'), _Mkstyle('x'))]
+
+
+def _generate_pair_markers():
+    '''Produce style & color pairs for localization markers (except the main one).'''
+    for i in [3, 4, 5, 0, 1, 2]:
+        for ms in _marker_styles[1:]:
+            yield colors[i], ms
+
 
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, localizations=None, sumof=None):
     """
@@ -543,13 +550,13 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         label_prefix = 'Location of '
         ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
         if isinstance(sumof, list):
-            for pair, styles in zip(sumof, _marker_styles[1:]):
+            for pair, (color, style) in zip(sumof, _generate_pair_markers()):
                 values_1 = [localizations.get(key + '_' + pair[0]) for key in labels]
-                ax3.scatter(x, values_1, marker=styles[0], color=colors[3], label=label_prefix+pair[0])
+                ax3.scatter(x, values_1, marker=style[0], color=color, label=label_prefix+pair[0])
                 if pair[0] != pair[1]:
                     values_2 = [localizations.get(key + '_' + pair[1]) for key in labels]
                     if values_2:
-                        ax3.scatter(x, values_2, marker=styles[1], color=colors[3], label=label_prefix+pair[1])
+                        ax3.scatter(x, values_2, marker=style[1], color=color, label=label_prefix+pair[1])
                 else:
                     values_2 = []
         else:
