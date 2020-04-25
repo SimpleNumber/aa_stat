@@ -28,6 +28,7 @@ MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 FIT_BATCH = 900
 INTERNAL = 5
+MIN_PEPTIDES_FOR_MASS_CALIBRATION = 50
 
 
 cc = ["#FF6600",
@@ -86,20 +87,72 @@ def preprocess_df(df, filename, params_dict):
     -------
     DataFrame
     '''
+    logger.debug('Preprocessing %s', filename)
     window = 0.3
     zero_bin = 0
     shifts = params_dict['mass_shifts_column']
-    hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts],
-                    bins=10000)
-                # logger.debug('hist_0: %s', hist_0)
-    hist_y = hist_0[0]
-    hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
-    popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
-    logger.info('Systematic shift is %.4f Da for file %s', popt[1], filename)
-    df[shifts] -= popt[1]
+    df['is_decoy'] = df[params_dict['proteins_column']].apply(
+        lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
+    filtered = fdr_filter_mass_shift([None, zero_bin, window/2], df, params_dict)
+    n = filtered.shape[0]
+    logger.debug('%d filtered peptides near zero.', n)
+    if n < MIN_PEPTIDES_FOR_MASS_CALIBRATION:
+        logger.warning('Skipping mass calibration: not enough peptides near zero mass shift.')
+    else:
+        logger.debug('Fitting zero-shift peptides...')
+        hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts], bins=10000)
+        hist_y = hist_0[0]
+        hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
+        popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
+        logger.info('Systematic shift is %.4f Da for file %s', popt[1], filename)
+        df[shifts] -= popt[1]
     df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
     df['check_composition'] = df[params_dict['peptides_column']].apply(lambda x: check_composition(x, params_dict['labels']))
     return df.loc[df['check_composition']]
+
+
+def fdr_filter_mass_shift(mass_shift, data, params_dict):
+    shifts = params_dict['mass_shifts_column']
+    mask = np.abs(data[shifts] - mass_shift[1]) < mass_shift[2]
+    data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        df = pepxml.filter_df(data_slice,
+            fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
+    internal('Filtered data for %s: %d rows', mass_shift, df.shape[0])
+    return df
+
+
+def group_specific_filtering(data, mass_shifts, params_dict):
+    """
+    Selects window around found mass shift and filters using TDA.
+    Window is defined as mean +- sigma.
+
+    Parameters
+    ----------
+    data : DataFrame
+        DF with all open search data.
+    mass_shifts: numpy array
+        Output of utils.fit_peaks function (poptperr matrix). An array of Gauss fitted mass shift
+        parameters and their tolerances. [[A, mean, sigma, A_error, mean_error, sigma_error],...]
+    params_dict : dict
+        Dict with paramenters for parsing csv file.
+        `mass_shifts_column`, `FDR`, `FDR_correction`, `peptides_column`
+
+    Returns
+    -------
+    Dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
+    """
+    shifts = params_dict['mass_shifts_column']
+    logger.info('Performing group-wise FDR filtering...')
+    out_data = {} # dict corresponds list
+    for mass_shift in mass_shifts:
+        df = fdr_filter_mass_shift(mass_shift, data, params_dict)
+        if len(df) > 0:
+            shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
+            out_data[mass_format(shift)] = (shift, df)
+    logger.info('# of filtered mass shifts = %s', len(out_data))
+    return out_data
 
 
 def read_pepxml(fname, params_dict):
@@ -115,9 +168,9 @@ def read_pepxml(fname, params_dict):
     -------
     DataFrame
     '''
-    # logger.info('Reading %s', fname)
+    logger.debug('Reading %s', fname)
     df = pepxml.DataFrame(fname, read_schema=False)
-    return preprocess_df(df,fname, params_dict)
+    return preprocess_df(df, fname, params_dict)
 
 
 def read_csv(fname, params_dict):
@@ -183,14 +236,14 @@ def read_input(args, params_dict):
         logger.debug('Filenames [%s]: %s', ftype, filenames)
         if filenames:
             for filename in filenames:
-                pool.apply_async(reader, args =(filename, params_dict), callback=update_dfs)
+                # dfs.append(reader(filename, params_dict))
+                pool.apply_async(reader, args=(filename, params_dict), callback=update_dfs)
     pool.close()
     pool.join()
     logger.info('Starting analysis...')
+    logger.debug('%d dfs collected.', len(dfs))
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))
-    data['is_decoy'] = data[params_dict['proteins_column']].apply(
-        lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
 
     data['bin'] = np.digitize(data[shifts], params_dict['bins'])
     return data

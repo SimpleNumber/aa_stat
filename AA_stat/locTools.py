@@ -293,7 +293,7 @@ def find_isotopes(ms, peptides_in_bin, tolerance=0.01):
     for row in out.iterrows():
         if row[1]['isotope']:
             if peptides_in_bin[row[0]] > peptides_in_bin[row[1]['monoisotop_index']]:
-                out.at[row[0],['isotope']], out.at[row[0],['monoisotop_index']] = False, False
+                out.at[row[0], ['isotope']], out.at[row[0], ['monoisotop_index']] = False, False
     return out
 
 
@@ -463,7 +463,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
          return loc_stat_dict, None, None
 
     mass_dict = mass_dict_0.copy()
-    logger.debug('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
+    utils.internal('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
     i = 0
     for _ms in top_terms:
         mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}

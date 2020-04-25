@@ -224,43 +224,6 @@ def filter_mass_shifts(results, tolerance=0.05):
     return out
 
 
-def group_specific_filtering(data, mass_shifts, params_dict):
-    """
-    Selects window around found mass shift and filters using TDA.
-    Window is defined as mean +- sigma.
-
-    Parameters
-    ----------
-    data : DataFrame
-        DF with all open search data.
-    mass_shifts: numpy array
-        Output of utils.fit_peaks function (poptperr matrix). An array of Gauss fitted mass shift
-        parameters and their tolerances. [[A, mean, sigma, A_error, mean_error, sigma_error],...]
-    params_dict : dict
-        Dict with paramenters for parsing csv file.
-        `mass_shifts_column`, `FDR`, `FDR_correction`, `peptides_column`
-
-    Returns
-    -------
-    Dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
-    """
-    shifts = params_dict['mass_shifts_column']
-    logger.info('Performing group-wise FDR filtering...')
-    out_data = {} # dict corresponds list
-    for mass_shift in mass_shifts:
-        mask = np.abs(data[shifts] - mass_shift[1]) < mass_shift[2]
-        data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            df = pepxml.filter_df(data_slice,
-                fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
-        if len(df) > 0:
-            shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
-            out_data[utils.mass_format(shift)] = (shift, df)
-    logger.info('# of filtered mass shifts = %s', len(out_data))
-    return out_data
-
-
 def calculate_statistics(mass_shifts_dict, reference_label, params_dict, args):
     """
     Calculates amino acid statistics, relative amino acids presence in peptides
@@ -366,7 +329,7 @@ def AA_stat(params_dict, args):
     # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error']*params_dict['bin_width'])
     #logger.debug('final_mass_shifts: %s', final_mass_shifts)
-    mass_shift_data_dict = group_specific_filtering(data, final_mass_shifts, params_dict)
+    mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
     #logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
     if abs(reference_mass_shift) < ZERO_BIN_TOLERANCE:
@@ -411,7 +374,8 @@ def AA_stat(params_dict, args):
         locmod_df.at[reference_label, 'isotop_ind'] = False
         logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
         locmod_df['sum of mass shifts'] = locTools.find_modifications(
-            locmod_df.loc[~locmod_df['is isotope'], 'mass shift'], tolerance=params_dict['shift_error']*params_dict['bin_width'])
+            locmod_df.loc[~locmod_df['is isotope'], 'mass shift'],
+            tolerance=params_dict['shift_error']*params_dict['bin_width'])
 
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table,
                  labels=params_dict['labels'], threshold=AA_STAT_CAND_THRESH)
