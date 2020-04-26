@@ -65,6 +65,10 @@ def main():
     pars.add_argument('-x', '--optimize-fixed-mods',
         help='Run two searches, use the first one to determine which fixed modifications to apply.',
         action='store_true', default=False)
+    pars.add_argument('-s', '--skip', help='Skip search if pepXML files exist already. If not specified, '
+        'no steps are skipped. If specified without value, first step may be skipped. Value is number of steps to skip.'
+        ' Only works with "-x".',
+        nargs='?', default=0, const=1, type=int)
     pars.add_argument('-je', '--java-executable', default='java')
     pars.add_argument('-ja', '--java-args', default='')
 
@@ -91,13 +95,14 @@ def main():
     working_dir = args.dir
 
     if args.optimize_fixed_mods:
+        logger.debug('Skipping up to %d steps.', args.skip)
         step = 1
         fix_mod_dict = {}
         while True:
             logger.info('Starting step %d.', step)
             logger.info('Starting preliminary open search.')
             fig_data, aastat_table, locmod, data_dict = run_step_os(
-                spectra, 'os_step_{}'.format(step), working_dir, args, params_dict, change_dict=fix_mod_dict)
+                spectra, 'os_step_{}'.format(step), working_dir, args, params_dict, change_dict=fix_mod_dict, step=step)
 
             new_fix_mod_dict = determine_fixed_mods(fig_data, aastat_table, locmod, data_dict, params_dict)
 
@@ -233,13 +238,22 @@ def create_os_params(output, original=None, mass_shifts=None, fastafile=None):
                 new_params.write(line)
 
 
-def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dict=None):
+def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dict=None, step=None):
     dir = os.path.abspath(os.path.join(working_dir, folder_name))
     os.makedirs(dir, exist_ok=True)
     os_params_path = os.path.abspath(os.path.join(working_dir, folder_name, 'os.params'))
     create_os_params(os_params_path, args.os_params, change_dict, args.fasta)
-    run_os(args.java_executable, args.java_args.split(), spectra, args.MSFragger, dir, os_params_path)
-    args.pepxml = [get_pepxml(s, dir) for s in spectra]
+    pepxml_names = [get_pepxml(s, dir) for s in spectra]
+    run = True
+    if step is not None:
+        if step <= args.skip:
+            run = not all(os.path.isfile(f) for f in pepxml_names)
+            logger.debug('On step %d, need to run search: %s', step, run)
+        else:
+            logger.debug('Can\'t skip step %d, running.', step)
+    if run:
+        run_os(args.java_executable, args.java_args.split(), spectra, args.MSFragger, dir, os_params_path)
+    args.pepxml = pepxml_names
     args.csv = None
     args.dir = dir
     return AA_stat.AA_stat(params_dict, args)
