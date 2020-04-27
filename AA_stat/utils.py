@@ -114,9 +114,9 @@ def preprocess_df(df, filename, params_dict):
 def fdr_filter_mass_shift(mass_shift, data, params_dict):
     shifts = params_dict['mass_shifts_column']
     ms_shift = data.loc[np.abs(data[shifts] - mass_shift[1]) < mass_shift[2], shifts].mean()
-    
+
     mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
-    print(mass_shift[1], mass_shift[2])
+    internal('Mass shift %.3f - %.3f', mass_shift[1], mass_shift[2])
     data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -156,7 +156,7 @@ def group_specific_filtering(data, mass_shifts, params_dict):
                 ms[2] = diff / 6
                 mass_shifts[ind+1][2] = diff / 6
         shift, df = fdr_filter_mass_shift(ms, data, params_dict)
-        
+
         if len(df) > 0:
 #            shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
             out_data[mass_format(shift)] = (shift, df)

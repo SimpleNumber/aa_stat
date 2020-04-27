@@ -5,7 +5,6 @@ from . import AA_stat, utils
 import argparse
 import logging
 import sys
-import numpy as np
 
 """
 Created on Sun Jan 26 15:41:40 2020
@@ -253,6 +252,8 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
             logger.debug('Can\'t skip step %d, running.', step)
     if run:
         run_os(args.java_executable, args.java_args.split(), spectra, args.MSFragger, dir, os_params_path)
+    else:
+        logger.info('Skipping search.')
     args.pepxml = pepxml_names
     args.csv = None
     args.dir = dir
