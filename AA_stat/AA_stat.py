@@ -1,5 +1,5 @@
 import pandas as pd
-import numpy as  np
+import numpy as np
 import os
 
 from collections import defaultdict
@@ -7,7 +7,7 @@ from scipy.stats import ttest_ind
 
 import logging
 import warnings
-from pyteomics import parser, pepxml, mass
+from pyteomics import parser, mass
 from . import utils, locTools
 
 logger = logging.getLogger(__name__)
@@ -211,14 +211,15 @@ def filter_mass_shifts(results, tolerance=0.05):
         return [results[0]]
 
     temp = [results[0]]
-    for ind, mass_shift in enumerate(results[1:]):
+    for mass_shift in results[1:]:
         if check_difference(temp[-1], mass_shift, tolerance=tolerance):
             if len(temp) > 1:
                 logger.info('Joined mass shifts %s', ['{:0.4f}'.format(x[1]) for x in temp])
-            out.append(sorted(temp, key=lambda x: x[0], reverse=True)[0])
+            out.append(max(temp, key=lambda x: x[0]))
             temp = [mass_shift]
         else:
             temp.append(mass_shift)
+    out.append(max(temp, key=lambda x: x[0]))
 
     logger.info('Peaks for subsequent analysis: %s', len(out))
     return out
@@ -255,16 +256,16 @@ def calculate_statistics(mass_shifts_dict, reference_label, params_dict, args):
     peptides = params_dict['peptides_column']
     reference_bin = mass_shifts_dict[reference_label][1]
 
-    number_of_PSMs = dict()#pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
+    number_of_PSMs = dict()  # pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
     reference = pd.Series(get_aa_distribution(reference_bin[peptides], expasy_rule))
     reference.fillna(0, inplace=True)
 
-    #bootstraping for errors and p values calculation in reference (zero) mass shift
+    # bootstraping for errors and p values calculation in reference (zero) mass shift
     err_reference_df = pd.DataFrame(index=labels)
     for i in range(50):
         err_reference_df[i] = pd.Series(get_aa_distribution(
             np.random.choice(np.array(reference_bin[peptides]), size=(len(reference_bin) // 2), replace=False),
-        expasy_rule)) / reference
+            expasy_rule)) / reference
 
     logger.info('Mass shifts:')
     distributions = pd.DataFrame(index=labels)
@@ -328,9 +329,9 @@ def AA_stat(params_dict, args):
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error']*params_dict['bin_width'])
-    #logger.debug('final_mass_shifts: %s', final_mass_shifts)
+    # logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
-    #logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
+    # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
     if abs(reference_mass_shift) < ZERO_BIN_TOLERANCE:
         logger.info("Systematic mass shift equals to %s", reference_label)
@@ -392,7 +393,7 @@ def AA_stat(params_dict, args):
         # locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
-        #logger.debug('Locmod:\n%s', locmod_df)
+        # logger.debug('Locmod:\n%s', locmod_df)
 
         for ms_label, (ms, df) in mass_shift_data_dict.items():
             # logger.debug('counter sum: %s',  ms_label)

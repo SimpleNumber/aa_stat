@@ -8,7 +8,7 @@ import logging
 from scipy.optimize import curve_fit
 from scipy.signal import argrelextrema, savgol_filter
 import pandas as pd
-import numpy as  np
+import numpy as np
 import warnings
 from collections import defaultdict
 import re
@@ -45,6 +45,7 @@ colors = sb.color_palette(palette=cc)
 def internal(*args, **kwargs):
     """Emit log message with level INTERNAL, which is lower than DEBUG."""
     logger.log(INTERNAL, *args, **kwargs)
+
 
 def mass_format(mass):
     return MASS_FORMAT.format(mass)
@@ -146,9 +147,9 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     -------
     Dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
     """
-#    shifts = params_dict['mass_shifts_column']
+    # shifts = params_dict['mass_shifts_column']
     logger.info('Performing group-wise FDR filtering...')
-    out_data = {} # dict corresponds list
+    out_data = {}  # dict corresponds list
     for ind, ms in enumerate(mass_shifts):
         if ind != len(mass_shifts) - 1:
             diff = abs(ms[1] - mass_shifts[ind+1][1])
@@ -158,7 +159,7 @@ def group_specific_filtering(data, mass_shifts, params_dict):
         shift, df = fdr_filter_mass_shift(ms, data, params_dict)
 
         if len(df) > 0:
-#            shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
+            #  shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
             out_data[mass_format(shift)] = (shift, df)
     logger.info('# of filtered mass shifts = %s', len(out_data))
     return out_data
@@ -205,7 +206,7 @@ def read_csv(fname, params_dict):
         df[protein] = df[protein].apply(ast.literal_eval)
     else:
         df[protein] = df[protein].str.split(params_dict['proteins_delimeter'])
-    return preprocess_df(df,fname, params_dict)
+    return preprocess_df(df, fname, params_dict)
 
 
 def check_composition(peptide, aa_labels):
@@ -230,8 +231,10 @@ def read_input(args, params_dict):
 
     """
     dfs = []
+
     def update_dfs(result):
         dfs.append(result)
+
     data = pd.DataFrame()
     logger.info('Reading input files...')
     readers = {
@@ -331,17 +334,17 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
             label = 'NO FIT'
         else:
             if (x[0] <= popt[1] and popt[1] <= x[-1] and perr[0]/popt[0] < height_error
-                and perr[2]/popt[2] < sigma_error):
+                    and perr[2]/popt[2] < sigma_error):
                 label = 'PASSED'
                 poptpvar.append(np.concatenate([popt, perr]))
                 plt.vlines(popt[1] - 3 * popt[2], 0, ys[center], label='3sigma interval')
                 plt.vlines(popt[1] + 3 * popt[2], 0, ys[center])
             else:
-                label='FAILED'
+                label = 'FAILED'
         plt.plot(x, y, 'b+:', label=label)
         if label != 'NO FIT':
             plt.scatter(x, gauss(x, *popt),
-                        label='Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]) )
+                        label=r'Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]))
 
         plt.legend()
         plt.title("{0:.3f}".format(xs[center]))
@@ -410,7 +413,8 @@ def fit_peaks(data, args, params_dict):
                 for center in loc_max_candidates_ind])
         poptpvar = fit_batch_worker(os.path.join(args.dir, 'gauss_fit.pdf'),
             len(loc_max_candidates_ind), xs, ys, half_window, height_error, sigma_error)
-    logger.debug('Returning from fit_peaks.')
+
+    logger.debug('Returning from fit_peaks. Array size is %d.', len(poptpvar))
     return hist, np.array(poptpvar)
 
 
