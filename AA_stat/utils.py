@@ -93,7 +93,7 @@ def preprocess_df(df, filename, params_dict):
     shifts = params_dict['mass_shifts_column']
     df['is_decoy'] = df[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
-    filtered = fdr_filter_mass_shift([None, zero_bin, window/2], df, params_dict)
+    ms, filtered = fdr_filter_mass_shift([None, zero_bin, window/2], df, params_dict)
     n = filtered.shape[0]
     logger.debug('%d filtered peptides near zero.', n)
     if n < MIN_PEPTIDES_FOR_MASS_CALIBRATION:
@@ -113,14 +113,17 @@ def preprocess_df(df, filename, params_dict):
 
 def fdr_filter_mass_shift(mass_shift, data, params_dict):
     shifts = params_dict['mass_shifts_column']
-    mask = np.abs(data[shifts] - mass_shift[1]) < mass_shift[2]
+    ms_shift = data.loc[np.abs(data[shifts] - mass_shift[1]) < mass_shift[2], shifts].mean()
+    
+    mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
+    print(mass_shift[1], mass_shift[2])
     data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         df = pepxml.filter_df(data_slice,
             fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
     internal('Filtered data for %s: %d rows', mass_shift, df.shape[0])
-    return df
+    return ms_shift, df
 
 
 def group_specific_filtering(data, mass_shifts, params_dict):
@@ -143,13 +146,19 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     -------
     Dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
     """
-    shifts = params_dict['mass_shifts_column']
+#    shifts = params_dict['mass_shifts_column']
     logger.info('Performing group-wise FDR filtering...')
     out_data = {} # dict corresponds list
-    for mass_shift in mass_shifts:
-        df = fdr_filter_mass_shift(mass_shift, data, params_dict)
+    for ind, ms in enumerate(mass_shifts):
+        if ind != len(mass_shifts) - 1:
+            diff = abs(ms[1] - mass_shifts[ind+1][1])
+            if diff < 3 * ms[2]:
+                ms[2] = diff / 6
+                mass_shifts[ind+1][2] = diff / 6
+        shift, df = fdr_filter_mass_shift(ms, data, params_dict)
+        
         if len(df) > 0:
-            shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
+#            shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
             out_data[mass_format(shift)] = (shift, df)
     logger.info('# of filtered mass shifts = %s', len(out_data))
     return out_data
