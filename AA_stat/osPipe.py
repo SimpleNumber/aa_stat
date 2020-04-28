@@ -13,8 +13,7 @@ Created on Sun Jan 26 15:41:40 2020
 """
 OS_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'open_search.params')
 
-FIX_MOD_ZERO_THRESH = 2 #in %
-#FIX_MOD_THRESH = 90 # in %
+FIX_MOD_ZERO_THRESH = 3  # in %
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ def main():
     pars.add_argument('--params', help='CFG file with parameters. If there is no file, AA_stat uses default one. '
         'An example can be found at https://github.com/SimpleNumber/aa_stat',
         required=False)
-    pars.add_argument('--MSFragger', help ='Path to MSFragger .jar file. '
+    pars.add_argument('--MSFragger', help='Path to MSFragger .jar file. '
         'If not specified, MSFRAGGER environment variable is used.')
     pars.add_argument('--dir', help='Directory to store the results. Default value is current directory.', default='.')
     pars.add_argument('-v', '--verbosity', type=int, choices=range(4), default=1, help='Output verbosity.')
@@ -59,7 +58,7 @@ def main():
     input_spectra.add_argument('--mzml',  nargs='+', help='mzML files to search.', default=None)
 
     pars.add_argument('-db', '--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
-                              'If it differs, do not forget to specify it in AA_stat params file.')
+            'If it differs, do not forget to specify it in AA_stat params file.')
     pars.add_argument('--os-params', help='Custom open search parameters.')
     pars.add_argument('-x', '--optimize-fixed-mods',
         help='Run two searches, use the first one to determine which fixed modifications to apply.',
@@ -121,21 +120,6 @@ def main():
         run_step_os(spectra, folder_name, args.dir, args, params_dict, None)
 
 
-# def get_full_sum(ms_label, locmod_df, seen=set()):
-#     sumof = locmod_df.at[ms_label, 'sum of mass shifts']
-#     seen.add(ms_label)
-#     if sumof is not np.nan:
-#         logger.debug('Sum of shifts for %s: %s', ms_label, sumof)
-#         for pair in sumof:
-#             for shift in pair:
-#                 if shift not in seen:
-#                     seen.add(shift)
-#                     seen.update(get_full_sum(shift, locmod_df, seen))
-#     if locmod_df.at[ms_label, 'is isotope']:
-#         seen.update(get_full_sum(locmod_df.at[ms_label, 'isotope_ind']))
-#     return seen
-
-
 def get_fixed_mod_raw(aa, data_dict, choices=None):
     dist_aa = []
     for ms, v in data_dict.items():
@@ -159,6 +143,7 @@ def get_fix_mod_from_l10n(mslabel, locmod_df):
 def parse_l10n_site(site):
     aa, shift = site.split('_')
     return aa, shift
+
 
 def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_dict):
     reference = aastat_df.loc[aastat_df['is reference']].index[0]

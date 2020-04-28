@@ -422,7 +422,7 @@ def read_mgf(file_path):
     return mgf.IndexedMGF(file_path)
 
 
-def read_mzml(file_path): # write this
+def read_mzml(file_path):  # write this
     return mzml.PreIndexedMzML(file_path)
 
 
@@ -710,7 +710,10 @@ def render_html_report(table_, params_dict, save_directory):
 
     if params_dict['fix_mod']:
         d = params_dict['fix_mod'].copy()
-        d = {k: float(v) - mass.std_aa_mass[k] for k, v in d.items()}
+        std_aa_mass = mass.std_aa_mass.copy()
+        std_aa_mass['H-'] = 1.007825
+        std_aa_mass['-OH'] = 17.00274
+        d = {k: float(v) - std_aa_mass[k] for k, v in d.items()}
         if 'H-' in d:
             d['N-term'] = d.pop('H-')
         if '-OH' in d:
