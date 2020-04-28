@@ -6,7 +6,7 @@ Created on Thu Oct 24 11:44:50 2019
 """
 
 import pandas as pd
-import numpy as  np
+import numpy as np
 from collections import defaultdict, Counter
 import logging
 
@@ -19,13 +19,12 @@ import string
 from . import utils
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
 # H = mass.nist_mass['H'][0][0]
-#FRAG_ACC = 0.02
 MIN_SPEC_MATCHED = 4
 logger = logging.getLogger(__name__)
 
 
 def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
-    aa_mass=mass.std_aa_mass, **kwargs):
+        aa_mass=mass.std_aa_mass, **kwargs):
     """
     Calculates theoretical spectra in two ways: usual one and in integer format (mz / frag_acc).
 
@@ -61,7 +60,7 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
                     if nterminal:
                         mz = cmass.fast_mass2(pep, ion_type=ion_type, charge=charge, aa_mass=aa_mass, **kwargs)
                     else:
-                        mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,\
+                        mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,
                                              aa_mass=aa_mass, **kwargs)
                 else:
                     if nterminal:
@@ -70,7 +69,7 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
                         mz = peaks[ion_type, charge][-1] - aa_mass[pep]/charge
                 peaks[ion_type, charge].append(mz)
                 theor_set[ion_type].append(int(mz / acc_frag))
-    theor_set = {k: set(v) for k,v in theor_set.items()}
+    theor_set = {k: set(v) for k, v in theor_set.items()}
     return peaks, theor_set
 
 
@@ -215,7 +214,7 @@ def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
     return list(sites_set)
 
 
-def get_candidates_from_aastat(mass_shifts_table, labels, threshold = 1.5):
+def get_candidates_from_aastat(mass_shifts_table, labels, threshold=1.5):
     """
     Get localization candidates from amono acid statistics.
 
@@ -409,7 +408,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
             mass_dict.update(mod_aa)
             mass_dict[modif_labels[i]] = mass_shift_dict[_ms]
 
-            if not isoform_part: # first modification within this shift (or whole shift)
+            if not isoform_part:  # first modification within this shift (or whole shift)
                 # logger.debug('Applying mod %s at shift %s...', _ms, ms_label)
                 isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], terms[_ms])
                 if _ms == ms_label:
@@ -428,6 +427,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
             i += 1
         isoforms += new_isoform_part
         sequences = [list(x) for x in isoforms]
+        utils.internal('Generated %d isoforms for terms %s at shift %s', len(sequences), terms.keys(), ms_label)
         for seq in sequences:
             # utils.internal('seq = %s', seq)
             theor_spec = get_theor_spectrum(seq,
@@ -447,7 +447,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
                 second_score = scores[1]
 
     if top_isoform is None:
-        return loc_stat_dict, None, None
+        return loc_stat_dict, None, None, None
 
     #    logger.debug('Sorted scores: %s', scores)
     #    logger.debug('Sorted isoforms: %s', sequences)
@@ -459,8 +459,8 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
         #         dump.write('{}\t{}\n'.format(seq, score))
         #     dump.write('\n')
     if top_score == second_score:
-         loc_stat_dict['non-localized'] += 1
-         return loc_stat_dict, None, None
+        loc_stat_dict['non-localized'] += 1
+        return loc_stat_dict, None, None, None
 
     mass_dict = mass_dict_0.copy()
     utils.internal('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
@@ -480,7 +480,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
 
     scorediff = (top_score - second_score) / top_score
     utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
-    return loc_stat_dict, ''.join(top_isoform), scorediff
+    return loc_stat_dict, ''.join(top_isoform), top_terms, scorediff
 
 
 def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass_shift_dict):
@@ -509,23 +509,28 @@ def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_d
     """
     logger.info('Localizing %s at %s', ms_label, locations_ms)
     if len(locations_ms) < 2 and list(locations_ms[0].values())[0] == set():
-        df['localization_count'], df['top isoform'], df['localization score'] = None, None, None
+        df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'] = None, None, None, None
     else:
-        df['localization_count'], df['top isoform'], df['localization score'] = zip(*df.apply(lambda x: localization_of_modification(
+        df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'] = zip(
+            *df.apply(lambda x: localization_of_modification(
                     ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1))
-    logger.debug('Localizing 2 %s at %s', ms_label, locations_ms)
     fname = utils.table_path(params_dict['out_dir'], ms_label)
     peptide = params_dict['peptides_column']
-    labels_mod = {}
+
     mod_aa = string.ascii_lowercase
 
+    mod_dicts = {}
     for pair in locations_ms:
+        labels_mod = {}
         i = 0
         for m in pair:
             labels_mod[mod_aa[i]] = m
             i += 1
+        mod_dicts[tuple(sorted(pair))] = labels_mod
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
-    df['top isoform'] = df['top isoform'].fillna(df[peptide]).apply(utils.format_isoform, args=(labels_mod,))
+    df['top isoform'] = df['top isoform'].fillna(df[peptide])
+    df.loc[df.top_terms.notna(), 'mod_dict'] = df.loc[df.top_terms.notna(), 'top_terms'].apply(lambda t: mod_dicts[tuple(sorted(t))])
+    df['top isoform'] = df.apply(utils.format_isoform, axis=1)
     df[columns].to_csv(fname, index=False, sep='\t')
     result = df['localization_count'].sum() or Counter()
     logger.debug('Localization result for %s: %s', ms_label, result)

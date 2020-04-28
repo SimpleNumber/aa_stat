@@ -729,7 +729,9 @@ def render_html_report(table_, params_dict, save_directory):
         f.write(report)
 
 
-def format_isoform(seq, ms):
+def format_isoform(row):
+    ms = row['mod_dict']
+    seq = row['top isoform']
     return re.sub(r'([a-z])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), float(ms[m.group(1)])), seq)
 
 
