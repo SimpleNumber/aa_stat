@@ -409,25 +409,22 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
             mass_dict[modif_labels[i]] = mass_shift_dict[_ms]
 
             if not isoform_part:  # first modification within this shift (or whole shift)
-                # logger.debug('Applying mod %s at shift %s...', _ms, ms_label)
                 isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], terms[_ms])
                 if _ms == ms_label:
                     # this is the whole-shift modification
                     isoforms += isoform_part
                 elif len(terms) == 1:
                     # two equal mass shifts form this mass shift. Apply the second half
-                    # logger.debug('Repeating mod %s at shift %s...', _ms, ms_label)
                     for p in isoform_part:
                         new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms])
             else:
                 # second mass shift
-                # logger.debug('Adding mod %s at shift %s...', _ms, ms_label)
                 for p in isoform_part:
                     new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms])
             i += 1
         isoforms += new_isoform_part
         sequences = [list(x) for x in isoforms]
-        utils.internal('Generated %d isoforms for terms %s at shift %s', len(sequences), terms.keys(), ms_label)
+        # utils.internal('Generated %d isoforms for terms %s at shift %s', len(sequences), terms.keys(), ms_label)
         for seq in sequences:
             # utils.internal('seq = %s', seq)
             theor_spec = get_theor_spectrum(seq,
@@ -449,21 +446,12 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     if top_isoform is None:
         return loc_stat_dict, None, None, None
 
-    #    logger.debug('Sorted scores: %s', scores)
-    #    logger.debug('Sorted isoforms: %s', sequences)
-    # if logger.level <= logging.DEBUG:
-        # fname = os.path.join(params_dict['out_dir'], utils.mass_format(mass_shift[0])+'.txt')
-        # logger.debug('Writing isoform scores for %s to %s', row[peptide], fname)
-        # with open(fname, 'a') as dump:
-        #     for seq, score in zip(sequences, scores):
-        #         dump.write('{}\t{}\n'.format(seq, score))
-        #     dump.write('\n')
     if top_score == second_score:
         loc_stat_dict['non-localized'] += 1
         return loc_stat_dict, None, None, None
 
     mass_dict = mass_dict_0.copy()
-    utils.internal('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
+    # utils.internal('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
     i = 0
     for _ms in top_terms:
         mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}
@@ -473,13 +461,13 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     for ind, a in enumerate(top_isoform):
         if len(a) > 1:
             if ind == 0:
-                loc_stat_dict["_".join(['N-term', utils.mass_format(mass_dict[a[0]])])] += 1
+                loc_stat_dict['N-term_' + utils.mass_format(mass_dict[a[0]])] += 1
             elif ind == len(top_isoform) - 1:
-                loc_stat_dict["_".join(['C-term', utils.mass_format(mass_dict[a[0]])])] += 1
+                loc_stat_dict['C-term_' + utils.mass_format(mass_dict[a[0]])] += 1
             loc_stat_dict["_".join([a[1], utils.mass_format(mass_dict[a[0]])])] += 1
 
     scorediff = (top_score - second_score) / top_score
-    utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
+    # utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
     return loc_stat_dict, ''.join(top_isoform), top_terms, scorediff
 
 

@@ -26,6 +26,11 @@ def main():
     levels = [logging.WARNING, logging.INFO, logging.DEBUG, utils.INTERNAL]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[args.verbosity], style='{')
+
+    # Performance optimizations as per https://docs.python.org/3/howto/logging.html#optimization
+    logging._srcfile = None
+    logging.logThreads = 0
+    logging.logProcesses = 0
     logger = logging.getLogger(__name__)
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
     test_prog = unittest.main(module=tests, argv=['ignored', '-v'], exit=False)
