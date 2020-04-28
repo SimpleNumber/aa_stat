@@ -19,7 +19,7 @@ except ImportError:
     from ConfigParser import ConfigParser
 import math
 import multiprocessing as mp
-from pyteomics import parser, pepxml, mgf, mzml
+from pyteomics import parser, pepxml, mgf, mzml, mass
 
 logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').disabled = True
@@ -437,7 +437,7 @@ def read_spectra(args):
         filenames = getattr(args, ftype)
         if filenames:
             for filename in filenames:
-                name = os.path.split(filename)[-1].split('.')[0] #write it in a proper way
+                name = os.path.split(filename)[-1].split('.')[0]  # write it in a proper way
                 out_dict[name] = reader(filename)
     return out_dict
 
@@ -464,7 +464,7 @@ def get_parameters(params):
     Returns dict.
     """
     parameters_dict = defaultdict()
-    #data
+    # data
     parameters_dict['decoy_prefix'] = params.get('data', 'decoy prefix')
     parameters_dict['FDR'] = params.getfloat('data', 'FDR')
     parameters_dict['labels'] = params.get('data', 'labels').strip().split()
@@ -475,27 +475,27 @@ def get_parameters(params):
     parameters_dict['proteins_column'] = params.get('csv input', 'proteins column')
     parameters_dict['peptides_column'] = params.get('csv input', 'peptides column')
     parameters_dict['mass_shifts_column'] = params.get('csv input', 'mass shift column')
-    #general
+    # general
     parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
     parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
-    parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins') # area_thresh
-    parameters_dict['walking_window'] = params.getfloat('general', 'shifting window') #shifting_window
-    parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction') #corrction
+    parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins')  # area_thresh
+    parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')  # shifting_window
+    parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')  # corrction
 
-    parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window') #spec_window_flag
-    parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')] #spec_window
+    parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')  # spec_window_flag
+    parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]  # spec_window
 
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
-    #fit
+    # fit
     parameters_dict['shift_error'] = params.getint('fit', 'shift error')
     #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
-    #localization
+    # localization
     parameters_dict['spectrum_column'] = params.get('localization', 'spectrum column')
     parameters_dict['charge_column'] = params.get('localization', 'charge column')
     parameters_dict['ion_types'] = tuple(params.get('localization', 'ion type').replace(' ', '').split(','))
-    parameters_dict['frag_acc'] = params.getfloat('localization','fragmentation mass tolerance')
+    parameters_dict['frag_acc'] = params.getfloat('localization', 'fragmentation mass tolerance')
     return parameters_dict
 
 
@@ -516,7 +516,7 @@ def set_additional_params(params_dict):
     if int(window) % 2 == 0:
         params_dict['window'] = int(window) + 1
     else:
-        params_dict['window'] = int(window)  #should be odd
+        params_dict['window'] = int(window)  # should be odd
     params_dict['bins'] = np.arange(params_dict['so_range'][0],
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
 
@@ -558,8 +558,8 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         List of str tuples for constituent mass shifts.
 
     """
-    b = 0.1 # shift in bar plots
-    width = 0.2 # for bar plots
+    b = 0.1  # shift in bar plots
+    width = 0.2  # for bar plots
     labels = params_dict['labels']
     labeltext = ms_label + ' Da mass shift,\n' + str(ms_counts) + ' peptides'
     x = np.arange(len(labels))
@@ -611,7 +611,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         ax3.tick_params('y', colors=colors[3])
         # plot simple modifications (not sum) with the first style,
         # then parts of sum as second and third style
-        values = [localizations.get(key+ '_' + ms_label) for key in labels]
+        values = [localizations.get(key + '_' + ms_label) for key in labels]
         label_prefix = 'Location of '
         ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
         if isinstance(sumof, list):
@@ -648,7 +648,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 def summarizing_hist(table, save_directory):
     ax = table.sort_values('mass shift').plot(
         y='# peptides in bin', kind='bar', color=colors[2], figsize=(len(table), 5))
-    ax.set_title('Peptides in mass shifts', fontsize=12) #PSMs
+    ax.set_title('Peptides in mass shifts', fontsize=12)  # PSMs
     ax.set_xlabel('Mass shift', fontsize=10)
     ax.set_ylabel('Number of peptides')
     ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply(lambda x: round(x, 2)))
@@ -664,7 +664,7 @@ def summarizing_hist(table, save_directory):
 
     plt.ylim(0, max_height * 1.2)
     plt.tight_layout()
-    plt.savefig(os.path.join(save_directory, 'summary.png')) #dpi=500
+    plt.savefig(os.path.join(save_directory, 'summary.png'))  # dpi=500
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
 
 
@@ -684,13 +684,12 @@ def render_html_report(table_, params_dict, save_directory):
             lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
             ).set_precision(3).apply(
             lambda row: ['background-color: #cccccc' if row['is reference'] else '' for cell in row], axis=1).set_table_styles([
-            {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
-            {'selector': 'td, th', 'props': [('text-align', 'center')]},
-            {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
+                {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
+                {'selector': 'td, th', 'props': [('text-align', 'center')]},
+                {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
             ).format({'Unimod': '<a href="{}">search</a>'.format,
                 mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format,
-                '# peptides in bin': '<a href="#">{}</a>'.format}
-            ).bar(subset='# peptides in bin', color=cc[2]).render()
+                '# peptides in bin': '<a href="#">{}</a>'.format}).bar(subset='# peptides in bin', color=cc[2]).render()
 
     peptide_tables = []
     for ms in table.index:
@@ -708,8 +707,18 @@ def render_html_report(table_, params_dict, save_directory):
         else:
             logger.debug('File not found: %s', fname)
 
-
-    report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables))
+    if params_dict['fix_mod']:
+        d = params_dict['fix_mod'].copy()
+        d = {k: float(v) - mass.std_aa_mass[k] for k, v in d.items()}
+        if 'H-' in d:
+            d['N-term'] = d.pop('H-')
+        if '-OH' in d:
+            d['C-term'] = d.pop('-OH')
+        fixmod = pd.DataFrame.from_dict(d, orient='index', columns=['value']).to_html(
+            float_format=mass_format, table_id="fix_mod_table")
+    else:
+        fixmod = "None."
+    report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables)).replace(r'===', fixmod)
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
 
@@ -724,7 +733,7 @@ def table_path(dir, ms):
 
 def save_df(ms, df, save_directory, peptide, spectrum):
     with open(table_path(save_directory, ms), 'w') as out:
-            df[[peptide, spectrum]].to_csv(out, index=False, sep='\t')
+        df[[peptide, spectrum]].to_csv(out, index=False, sep='\t')
 
 
 def save_peptides(data, save_directory, params_dict):

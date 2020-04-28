@@ -3,9 +3,19 @@
 <head>
     <title>AA_stat report</title>
     <style type="text/css">
+        #fixmod {
+          margin-left: auto;
+          margin-right: auto;
+          margin-top: 1vh;
+          margin-bottom: 1vh;
+          text-align: center;
+        }
+        #aa_stat {
+          text-align: center;
+        }
         #pic_container {
           max-height: 80vh;
-          max-width: 70vw;
+          max-width: 85vw;
           min-height: 25vh;
           display: block;
           margin-left: auto;
@@ -14,6 +24,9 @@
         }
         #pic {
           max-height: 80vh;
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
         }
         .figure {
           max-width: 70vw;
@@ -60,7 +73,14 @@
     </style>
 </head>
 <body>
-%%%
+<div id="fixmod">
+  <h3>Fixed modifications</h3>
+  ===
+</div>
+<div id="aa_stat">
+  <h3>Amino acid statistics</h3>
+  %%%
+</div>
 <div id="legend">
   <h2>Figure Legend</h2>
   <p>
