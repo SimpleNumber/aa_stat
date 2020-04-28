@@ -405,8 +405,10 @@ def AA_stat(params_dict, args):
         locmod_df['localization'] = pd.Series(localization_dict).apply(dict)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
-        df = mass_shift_data_dict[reference_label][1]
-        utils.save_df(reference_label, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
+        if not locmod_df.at[reference_label, 'all candidates']:
+            logger.debug('Explicitly writing out peptide table for reference mass shift.')
+            df = mass_shift_data_dict[reference_label][1]
+            utils.save_df(reference_label, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
     else:
         locmod_df = None
         utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
