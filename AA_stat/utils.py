@@ -689,7 +689,8 @@ def render_html_report(table_, params_dict, save_directory):
                 {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
             ).format({'Unimod': '<a href="{}">search</a>'.format,
                 mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format,
-                '# peptides in bin': '<a href="#">{}</a>'.format}).bar(subset='# peptides in bin', color=cc[2]).render()
+                '# peptides in bin': '<a href="#">{}</a>'.format}).bar(subset='# peptides in bin', color=cc[2]).render(
+            uuid="aa_stat_table")
 
     peptide_tables = []
     for ms in table.index:
@@ -718,7 +719,9 @@ def render_html_report(table_, params_dict, save_directory):
             float_format=mass_format, table_id="fix_mod_table")
     else:
         fixmod = "None."
-    report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables)).replace(r'===', fixmod)
+    reference = table.loc[table['is reference']].index[0]
+    report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables)).replace(
+        r'===', fixmod).replace('{{}}', reference)
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
 

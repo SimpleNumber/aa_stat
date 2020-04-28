@@ -134,9 +134,9 @@
     else {
       pic.classList.remove('summary');
       pic.classList.add('figure');
-    };
+    }
+  }
 
-  };
   function showTable(elem) {
     hideTablesAndLegend();
     var ms = getMassShift(elem);
@@ -157,15 +157,24 @@
   binh.onclick = function (e) {
     showPic('summary.png');
     hideTablesAndLegend();
-  };
+  }
 
   var amounts = document.getElementsByClassName('data col1');
   for(i = 0; i < amounts.length; i++) {
     amounts[i].children[0].onclick = function (e) {
       document.getElementById('pic').style.display = 'none';
-
       showTable(e.target);
     }
   }
+  var reference = "{{}}";
+  var table = document.getElementById("T_aa_stat_table");
+  for (var i = 0, row; row = table.rows[i]; i++) {
+    var ms = row.cells[0].innerText;
+    if (ms == reference) {
+      row.title = "Reference mass shift";
+      break;
+    }
+  }
+
 </script>
 </html>
