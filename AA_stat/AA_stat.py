@@ -394,7 +394,7 @@ def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_
     return fix_mod_dict
 
 
-def AA_stat(params_dict, args):
+def AA_stat(params_dict, args, step=None):
     """
     Calculates all statistics, saves tables and pictures.
     """
@@ -504,5 +504,5 @@ def AA_stat(params_dict, args):
         logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict(recommended_fix_mods))
     else:
         logger.info('Fixed modifications not recommended.')
-    utils.render_html_report(table, params_dict, recommended_fix_mods, save_directory)
+    utils.render_html_report(table, params_dict, recommended_fix_mods, save_directory, step=step)
     return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods

@@ -668,7 +668,7 @@ def summarizing_hist(table, save_directory):
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
 
 
-def render_html_report(table_, params_dict, recommended_fmods, save_directory):
+def render_html_report(table_, params_dict, recommended_fmods, save_directory, step=None):
     table = table_.copy()
     labels = params_dict['labels']
     report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
@@ -722,8 +722,24 @@ def render_html_report(table_, params_dict, recommended_fmods, save_directory):
     else:
         recmod = "Recommended modifications: none."
     reference = table.loc[table['is reference']].index[0]
+    if step is None:
+        steps = ''
+    else:
+        if step != 1:
+            prev_url = 'file://' + os.path.abspath(os.path.join(
+                os.path.split(save_directory)[0], 'os_step_{}'.format(step - 1), 'report.html'))
+            prev_a = r'<a class="prev steplink" href="{}">Previous step</a>'.format(prev_url)
+        else:
+            prev_a = ''
+        if recommended_fmods:
+            next_url = 'file://' + os.path.abspath(os.path.join(
+                os.path.split(save_directory)[0], 'os_step_{}'.format(step + 1), 'report.html'))
+            next_a = r'<a class="next steplink" href="{}">Next step</a>'.format(next_url)
+        else:
+            next_a = ''
+        steps = prev_a + '\n' + next_a
     report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables)).replace(
-        r'===', fixmod).replace('{{}}', reference).replace(r'+++', recmod)
+        r'===', fixmod).replace('{{}}', reference).replace(r'+++', recmod).replace(r'|||', steps)
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
 

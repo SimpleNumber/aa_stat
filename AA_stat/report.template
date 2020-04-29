@@ -3,6 +3,12 @@
 <head>
     <title>AA_stat report</title>
     <style type="text/css">
+        #steps {
+          text-align: center;
+        }
+        .steplink {
+          margin: 3vw 3vw;
+        }
         #fixmod_outer {
           text-align: center;
         }
@@ -88,6 +94,7 @@
     </style>
 </head>
 <body>
+<div id="steps">|||</div>
 <div id="fixmod_outer">
   <h3>Fixed modifications</h3>
   <div id="fixmod">

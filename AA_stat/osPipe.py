@@ -95,7 +95,6 @@ def main():
         fix_mod_dict = {}
         while True:
             logger.info('Starting step %d.', step)
-            logger.info('Starting preliminary open search.')
             fig_data, aastat_table, locmod, data_dict, new_fix_mod_dict = run_step_os(
                 spectra, 'os_step_{}'.format(step), working_dir, args, params_dict, change_dict=fix_mod_dict, step=step)
 
@@ -173,4 +172,4 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
     args.pepxml = pepxml_names
     args.csv = None
     args.dir = dir
-    return AA_stat.AA_stat(params_dict, args)
+    return AA_stat.AA_stat(params_dict, args, step=step)
