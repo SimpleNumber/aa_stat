@@ -17,6 +17,7 @@ AA_STAT_CAND_THRESH = 1.5
 ISOTOPE_TOLERANCE = 0.015
 UNIIMOD_TOLERANCE = 0.01
 ZERO_BIN_TOLERANCE = 0.05
+FIX_MOD_ZERO_THRESH = 3  # in %
 
 
 def get_peptide_statistics(peptide_list):
@@ -316,6 +317,83 @@ def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
     return out
 
 
+def get_fix_mod_from_l10n(mslabel, locmod_df):
+    l10n = locmod_df.at[mslabel, 'localization']
+    logger.debug('Localizations for %s: %s', mslabel, l10n)
+    if l10n:
+        l10n.pop('non-localized', None)
+        top_loc = max(l10n, key=l10n.get)
+        logger.debug('Top localization label for %s: %s', mslabel, top_loc)
+        return top_loc
+
+
+def get_fixed_mod_raw(aa, data_dict, choices=None):
+    dist_aa = []
+    for ms, v in data_dict.items():
+        if choices is None or ms in choices:
+            dist_aa.append([v[0], v[1]['peptide'].apply(lambda x: x.count(aa)).sum()])
+    utils.internal('Counts for %s: %s', aa, dist_aa)
+    top_shift = max(dist_aa, key=lambda tup: tup[1])
+    return utils.mass_format(top_shift[0])
+
+
+def determine_fixed_mods_nonzero(reference, locmod_df, data_dict):
+    """Determine fixed modifications in case the reference shift is not at zero.
+    Needs localization.
+    """
+    utils.internal('Localizations for %s: %s', reference, locmod_df.at[reference, 'localization'])
+    loc = get_fix_mod_from_l10n(reference, locmod_df)
+    label = reference
+    while loc is None:
+        del data_dict[label]
+        label = max(data_dict, key=lambda k: data_dict[k][1].shape[0])
+        loc = get_fix_mod_from_l10n(label, locmod_df)
+        logger.debug('No luck. Trying %s. Got %s', label, loc)
+        if not data_dict:
+            break
+    return loc
+
+
+def determine_fixed_mods_zero(aastat_result, data_dict):
+    """Determine fixed modifications in case the reference shift is at zero.
+    Does not need localization.
+    """
+    fix_mod_dict = {}
+    reference = utils.mass_format(0)
+    aa_rel = aastat_result[reference][2]
+    utils.internal('aa_rel:\n%s', aa_rel)
+    candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
+    logger.debug('Fixed mod candidates: %s', candidates)
+    for i in candidates:
+        candidate_label = get_fixed_mod_raw(i, data_dict)
+        if aastat_result[candidate_label][2][i] > FIX_MOD_ZERO_THRESH:
+            fix_mod_dict[i] = data_dict[candidate_label][0]
+        else:
+            logger.info('Could not find %s anywhere. Can\'t fix.', i)
+    return fix_mod_dict
+
+
+def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_dict):
+    reference = aastat_df.loc[aastat_df['is reference']].index[0]
+    if reference == utils.mass_format(0):
+        logger.info('Reference bin is at zero shift.')
+        fix_mod_dict = determine_fixed_mods_zero(aastat_result, data_dict)
+    else:
+        if locmod_df is None:
+            logger.warning('No localization data. '
+                'Cannot determine fixed modifications when reference mass shift is non-zero.')
+            return {}
+        logger.info('Reference bin is at %s. Looking for fixed modification to compensate.', reference)
+        loc = determine_fixed_mods_nonzero(reference, locmod_df, data_dict)
+        if loc:
+            aa, shift = utils.parse_l10n_site(loc)
+            fix_mod_dict = {aa: data_dict[shift][0]}
+        else:
+            logger.info('No localizations. Stopping.')
+
+    return fix_mod_dict
+
+
 def AA_stat(params_dict, args):
     """
     Calculates all statistics, saves tables and pictures.
@@ -323,12 +401,12 @@ def AA_stat(params_dict, args):
     save_directory = args.dir
     params_dict['out_dir'] = args.dir
     params_dict['fix_mod'] = utils.get_fix_modifications(args.pepxml[0])
-    logging.info('Using fixed modifications: %s', params_dict['fix_mod'])
+    logging.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
     data = utils.read_input(args, params_dict)
 
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
-    final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error']*params_dict['bin_width'])
+    final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error'] * params_dict['bin_width'])
     # logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
@@ -376,10 +454,10 @@ def AA_stat(params_dict, args):
         logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
         locmod_df['sum of mass shifts'] = locTools.find_modifications(
             locmod_df.loc[~locmod_df['is isotope'], 'mass shift'],
-            tolerance=params_dict['shift_error']*params_dict['bin_width'])
+            tolerance=params_dict['shift_error'] * params_dict['bin_width'])
 
-        locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(table,
-                 labels=params_dict['labels'], threshold=AA_STAT_CAND_THRESH)
+        locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(
+            table, labels=params_dict['labels'], threshold=AA_STAT_CAND_THRESH)
         u = mass.Unimod().mods
         unimod_df = pd.DataFrame(u)
         locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(
@@ -390,18 +468,14 @@ def AA_stat(params_dict, args):
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
         locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
-        # locmod_df.to_csv(os.path.join(save_directory, 'logmod_df.csv'))
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
-        # logger.debug('Locmod:\n%s', locmod_df)
 
         for ms_label, (ms, df) in mass_shift_data_dict.items():
-            # logger.debug('counter sum: %s',  ms_label)
-            # logger.debug('loc parameters %s, %s, %s, %s', df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'])
-            localization_dict.update(locTools.two_step_localization(df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
-                                   params_dict, spectra_dict, {k: v[0] for k, v in mass_shift_data_dict.items()}))
+            localization_dict.update(locTools.localization(
+                df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
+                params_dict, spectra_dict, {k: v[0] for k, v in mass_shift_data_dict.items()}))
 
-        # logger.debug('Localizations: %s', localization_dict)
         locmod_df['localization'] = pd.Series(localization_dict).apply(dict)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
@@ -422,7 +496,13 @@ def AA_stat(params_dict, args):
             localizations = None
             sumof = None
         utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
-    utils.render_html_report(table, params_dict, save_directory)
+
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
     utils.internal('Data dict: \n%s', mass_shift_data_dict)
-    return figure_data, table, locmod_df, mass_shift_data_dict
+    recommended_fix_mods = determine_fixed_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict)
+    if recommended_fix_mods:
+        logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict(recommended_fix_mods))
+    else:
+        logger.info('Fixed modifications not recommended.')
+    utils.render_html_report(table, params_dict, recommended_fix_mods, save_directory)
+    return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods

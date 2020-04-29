@@ -471,7 +471,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     return loc_stat_dict, ''.join(top_isoform), top_terms, scorediff
 
 
-def two_step_localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass_shift_dict):
+def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass_shift_dict):
     """
     Localizes modification or sum of modifications for mass shift and repeat localization if there are redundant candidates.
     If two peptide isoforms have the same max score, modification counts as 'non-localized'.

@@ -668,7 +668,7 @@ def summarizing_hist(table, save_directory):
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
 
 
-def render_html_report(table_, params_dict, save_directory):
+def render_html_report(table_, params_dict, recommended_fmods, save_directory):
     table = table_.copy()
     labels = params_dict['labels']
     report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
@@ -694,37 +694,36 @@ def render_html_report(table_, params_dict, save_directory):
 
     peptide_tables = []
     for ms in table.index:
-        fname = os.path.join(save_directory, ms+'.csv')
+        fname = os.path.join(save_directory, ms + '.csv')
         if os.path.isfile(fname):
             df = pd.read_csv(fname, sep='\t')
             if 'localization score' in df:
                 out = df.sort_values(['localization score'], ascending=False)
             else:
                 out = df
-            peptide_tables.append(out.to_html(table_id='peptides_'+ms, classes=('peptide_table',), index=False, escape=False,
-                formatters={'top isoform': lambda form: re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', form),
-                'localization score': lambda v: '' if pd.isna(v) else '{:.2f}'.format(v)},
-                ))
+            peptide_tables.append(out.to_html(
+                table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False,
+                formatters={
+                    'top isoform': lambda form: re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', form),
+                    'localization score': lambda v: '' if pd.isna(v) else '{:.2f}'.format(v)}))
         else:
             logger.debug('File not found: %s', fname)
 
     if params_dict['fix_mod']:
         d = params_dict['fix_mod'].copy()
-        std_aa_mass = mass.std_aa_mass.copy()
-        std_aa_mass['H-'] = 1.007825
-        std_aa_mass['-OH'] = 17.00274
-        d = {k: float(v) - std_aa_mass[k] for k, v in d.items()}
-        if 'H-' in d:
-            d['N-term'] = d.pop('H-')
-        if '-OH' in d:
-            d['C-term'] = d.pop('-OH')
-        fixmod = pd.DataFrame.from_dict(d, orient='index', columns=['value']).to_html(
-            float_format=mass_format, table_id="fix_mod_table")
+        d = masses_to_mods(d)
+        fixmod = pd.DataFrame.from_dict(d, orient='index', columns=['value']).T.style.set_caption(
+            'Configured').format(MASS_FORMAT).render(uuid="set_fix_mod_table")
     else:
-        fixmod = "None."
+        fixmod = "Set modifications: none."
+    if recommended_fmods:
+        recmod = pd.DataFrame.from_dict(recommended_fmods, orient='index', columns=['value']).T.style.set_caption(
+            'Recommended').format(MASS_FORMAT).render(uuid="rec_fix_mod_table")
+    else:
+        recmod = "Recommended modifications: none."
     reference = table.loc[table['is reference']].index[0]
     report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables)).replace(
-        r'===', fixmod).replace('{{}}', reference)
+        r'===', fixmod).replace('{{}}', reference).replace(r'+++', recmod)
     with open(os.path.join(save_directory, 'report.html'), 'w') as f:
         f.write(report)
 
@@ -765,3 +764,30 @@ def get_fix_modifications(pepxml_file):
         else:
             out['-OH'] = m['mass']
     return out
+
+
+def parse_l10n_site(site):
+    aa, shift = site.split('_')
+    return aa, shift
+
+
+def mass_to_mod(label, value, aa_mass=mass.std_aa_mass):
+    return value - aa_mass.get(label, 0)
+
+
+def masses_to_mods(d):
+    aa_mass = mass.std_aa_mass.copy()
+    aa_mass['H-'] = 1.007825
+    aa_mass['-OH'] = 17.00274
+    d = {k: mass_to_mod(k, v, aa_mass) for k, v in d.items()}
+    if 'H-' in d:
+        d['N-term'] = d.pop('H-')
+    if '-OH' in d:
+        d['C-term'] = d.pop('-OH')
+    return d
+
+
+def format_mod_dict(d):
+    if d:
+        return ', '.join('{} @ {}'.format(mass_format(v), k) for k, v in d.items())
+    return 'none'

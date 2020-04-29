@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
-#from . import locTools
 from .locTools import get_theor_spectrum
 from pyteomics import mass
+
 
 class AA_stat_Test(unittest.TestCase):
 
@@ -10,19 +10,18 @@ class AA_stat_Test(unittest.TestCase):
         pass
 
     def _compare_specs(self, spec, spec_int, spec_true, spec_int_true, eps=1e-6):
-        spec = {k: sorted(v) for k,v in spec.items()}
+        spec = {k: sorted(v) for k, v in spec.items()}
         self.assertEqual(len(spec), len(spec_true))
         self.assertCountEqual(spec.keys(), spec_true.keys())
-        self.assertDictEqual({k:len(v) for k,v in spec.items()},
-                             {k:len(v) for k,v in spec_true.items()})
+        self.assertDictEqual({k: len(v) for k, v in spec.items()},
+                             {k: len(v) for k, v in spec_true.items()})
         self.assertTrue(np.array([np.abs(spec[k] - spec_true[k]) < eps for k in spec]).all())
 
         self.assertEqual(len(spec_int), len(spec_int_true))
         self.assertCountEqual(spec_int.keys(), spec_int_true.keys())
-        self.assertDictEqual({k:len(v) for k,v in spec_int.items()},
-                             {k:len(v) for k,v in spec_int_true.items()})
+        self.assertDictEqual({k: len(v) for k, v in spec_int.items()},
+                             {k: len(v) for k, v in spec_int_true.items()})
         self.assertTrue(np.array([(spec_int[k] - spec_int_true[k]) == set() for k in spec_int]).all())
-
 
     def test_theor_spec_PEPTIDE(self):
         spec, spec_int = get_theor_spectrum(list('PEPTIDE'), 0.01, ion_types=('b', 'y'), maxcharge=2)
@@ -40,12 +39,11 @@ class AA_stat_Test(unittest.TestCase):
                                37617, 57427, 13204, 14806, 70331, 7453}}
         self._compare_specs(spec, spec_int, spec_true, spec_int_true)
 
-
     def test_theor_spec_mPEPTIDE(self):
         custom_mass = mass.std_aa_mass.copy()
         custom_mass['mP'] = mass.std_aa_mass['P'] + 15.994915
-        spec, spec_int = get_theor_spectrum(['mP']+list('EPTIDE'), 0.01, ion_types=('b', 'y'), maxcharge=2,
-                           aa_mass=custom_mass)
+        spec, spec_int = get_theor_spectrum(['mP'] + list('EPTIDE'), 0.01, ion_types=('b', 'y'), maxcharge=2,
+                                            aa_mass=custom_mass)
         spec_true = {('b', 1): np.array([114.05495147, 243.09754147, 340.15030147, 441.19798147,
                                          554.28204147, 669.30898147]),
                      ('y', 1): np.array([148.06043115, 263.08737115, 376.17143115, 477.21911115,
@@ -59,7 +57,6 @@ class AA_stat_Test(unittest.TestCase):
                          'y': {7453, 13204, 14806, 18858, 23911, 26308,
                                28763, 35216, 37617, 47721, 57427, 70331}}
         self._compare_specs(spec, spec_int, spec_true, spec_int_true)
-
 
     def test_theor_spec_PEPTIDE_cz(self):
         spec, spec_int = get_theor_spectrum(list('PEPTIDE'), 0.01, ion_types=('c', 'z'), maxcharge=2)
@@ -76,8 +73,3 @@ class AA_stat_Test(unittest.TestCase):
                          'z': {12353, 46019, 27912, 35914, 6602, 55724,
                                13103, 23059, 68628, 18007, 34364, 24606}}
         self._compare_specs(spec, spec_int, spec_true, spec_int_true)
-
-
-#if __name__ == '__main__':
-##    unittest.main(argv=['ignored', '-v'], exit=False)
-#    unittest.main()

@@ -3,11 +3,26 @@
 <head>
     <title>AA_stat report</title>
     <style type="text/css">
+        #fixmod_outer {
+          text-align: center;
+        }
         #fixmod {
-          margin-left: auto;
-          margin-right: auto;
+          display: flex;
           margin-top: 1vh;
           margin-bottom: 1vh;
+          /*text-align: center;*/
+          justify-content: center;
+          align-items: center;
+        }
+        .fixtable {
+          width: 30vw;
+        }
+        .fixtable table {
+          border-collapse: collapse;
+        }
+        .fixtable td, th {
+          border: 1px solid;
+          padding: 0.3rem;
           text-align: center;
         }
         #aa_stat {
@@ -73,9 +88,16 @@
     </style>
 </head>
 <body>
-<div id="fixmod">
+<div id="fixmod_outer">
   <h3>Fixed modifications</h3>
-  ===
+  <div id="fixmod">
+    <div id="set_mods" class="fixtable">
+    ===
+    </div>
+    <div id="rec_mods" class="fixtable">
+    +++
+    </div>
+  </div>
 </div>
 <div id="aa_stat">
   <h3>Amino acid statistics</h3>
@@ -145,7 +167,7 @@
     // document.getElementById('table_header').textContent = "Mass shift " + ms + " (" + elem.text + " peptides)";
   }
 
-  var shifts = document.getElementsByClassName('data col0');
+  var shifts = document.getElementById('T_aa_stat_table').querySelectorAll('.data.col0');
   for(i = 0; i < shifts.length; i++) {
     shifts[i].children[0].onclick = function (e) {
       showPic(e.target.text + '.png');
@@ -159,7 +181,7 @@
     hideTablesAndLegend();
   }
 
-  var amounts = document.getElementsByClassName('data col1');
+  var amounts = document.getElementById('T_aa_stat_table').querySelectorAll('.data.col1');
   for(i = 0; i < amounts.length; i++) {
     amounts[i].children[0].onclick = function (e) {
       document.getElementById('pic').style.display = 'none';
