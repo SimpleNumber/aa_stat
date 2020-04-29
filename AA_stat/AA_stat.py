@@ -458,7 +458,7 @@ def AA_stat(params_dict, args, step=None):
 
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(
             table, labels=params_dict['labels'], threshold=AA_STAT_CAND_THRESH)
-        u = mass.Unimod().mods
+        u = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml')).mods
         unimod_df = pd.DataFrame(u)
         locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(
             lambda x: locTools.get_candidates_from_unimod(x, UNIIMOD_TOLERANCE, unimod_df))
