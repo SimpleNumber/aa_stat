@@ -105,6 +105,12 @@ def main():
                 step += 1
             else:
                 break
+        try:
+            os.symlink(os.path.join('os_step_1', 'report.html'), os.path.join(working_dir, 'report.html'))
+        except Exception as e:
+            logger.debug('Can\'t create symlink to report: %s', e)
+        else:
+            logger.debug('Symlink created successfully.')
         logger.info('Stopping after %d steps.', step)
     else:
         logger.info('Running one-shot search.')

@@ -94,14 +94,14 @@ def preprocess_df(df, filename, params_dict):
     shifts = params_dict['mass_shifts_column']
     df['is_decoy'] = df[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
-    ms, filtered = fdr_filter_mass_shift([None, zero_bin, window/2], df, params_dict)
+    ms, filtered = fdr_filter_mass_shift([None, zero_bin, window / 2], df, params_dict)
     n = filtered.shape[0]
     logger.debug('%d filtered peptides near zero.', n)
     if n < MIN_PEPTIDES_FOR_MASS_CALIBRATION:
         logger.warning('Skipping mass calibration: not enough peptides near zero mass shift.')
     else:
         logger.debug('Fitting zero-shift peptides...')
-        hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window/2, shifts], bins=10000)
+        hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window / 2, shifts], bins=10000)
         hist_y = hist_0[0]
         hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
         popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
@@ -152,10 +152,10 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     out_data = {}  # dict corresponds list
     for ind, ms in enumerate(mass_shifts):
         if ind != len(mass_shifts) - 1:
-            diff = abs(ms[1] - mass_shifts[ind+1][1])
+            diff = abs(ms[1] - mass_shifts[ind + 1][1])
             if diff < 3 * ms[2]:
                 ms[2] = diff / 6
-                mass_shifts[ind+1][2] = diff / 6
+                mass_shifts[ind + 1][2] = diff / 6
         shift, df = fdr_filter_mass_shift(ms, data, params_dict)
 
         if len(df) > 0:
@@ -291,7 +291,7 @@ def smooth(y, window_size=15, power=5):
 def gauss(x, a,  x0, sigma):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return a/sigma/np.sqrt(2*np.pi) * np.exp(-(x - x0) * (x - x0) / (2 * sigma ** 2))
+        return a / sigma / np.sqrt(2 * np.pi) * np.exp(-(x - x0) * (x - x0) / (2 * sigma ** 2))
 
 
 def gauss_fitting(center_y, x, y):
@@ -302,9 +302,9 @@ def gauss_fitting(center_y, x, y):
     `y` numpy array of number of psms in this mass shifts
 
     """
-    mean = sum(x*y) / sum(y)
+    mean = sum(x * y) / sum(y)
     sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
-    a = center_y * sigma * np.sqrt(2*np.pi)
+    a = center_y * sigma * np.sqrt(2 * np.pi)
     try:
         popt, pcov = curve_fit(gauss, x, y, p0=(a, mean, sigma))
         perr = np.sqrt(np.diag(pcov))
@@ -329,12 +329,12 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
         x = xs[center - half_window : center + half_window + 1]
         y = ys[center - half_window : center + half_window + 1]
         popt, perr = gauss_fitting(ys[center], x, y)
-        plt.subplot(shape, shape, i+1)
+        plt.subplot(shape, shape, i + 1)
         if popt is None:
             label = 'NO FIT'
         else:
-            if (x[0] <= popt[1] and popt[1] <= x[-1] and perr[0]/popt[0] < height_error
-                    and perr[2]/popt[2] < sigma_error):
+            if (x[0] <= popt[1] and popt[1] <= x[-1] and perr[0] / popt[0] < height_error
+                    and perr[2] / popt[2] < sigma_error):
                 label = 'PASSED'
                 poptpvar.append(np.concatenate([popt, perr]))
                 plt.vlines(popt[1] - 3 * popt[2], 0, ys[center], label='3sigma interval')
@@ -370,7 +370,7 @@ def fit_peaks(data, args, params_dict):
     """
     logger.info('Performing Gaussian fit...')
 
-    half_window = int(params_dict['window']/2) + 1
+    half_window = int(params_dict['window'] / 2) + 1
     hist = np.histogram(data[params_dict['mass_shifts_column']], bins=params_dict['bins'])
     hist_y = smooth(hist[0], window_size=params_dict['window'], power=5)
     hist_x = 0.5 * (hist[1][:-1] + hist[1][1:])
@@ -392,12 +392,12 @@ def fit_peaks(data, args, params_dict):
         pool = mp.Pool(n)
         for proc in range(nproc):
             xlist = [hist_x[center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc*FIT_BATCH:(proc+1)*FIT_BATCH]]
+                for center in loc_max_candidates_ind[proc * FIT_BATCH : (proc + 1) * FIT_BATCH]]
             xs = np.concatenate(xlist)
             ylist = [hist[0][center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc*FIT_BATCH:(proc+1)*FIT_BATCH]]
+                for center in loc_max_candidates_ind[proc * FIT_BATCH : (proc + 1) * FIT_BATCH]]
             ys = np.concatenate(ylist)
-            out = os.path.join(args.dir, 'gauss_fit_{}.pdf'.format(proc+1))
+            out = os.path.join(args.dir, 'gauss_fit_{}.pdf'.format(proc + 1))
             arguments.append((out, len(xlist), xs, ys, half_window, height_error, sigma_error))
         res = pool.map_async(fit_worker, arguments)
         poptpvar_list = res.get()
@@ -569,7 +569,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     fig, ax_left = plt.subplots()
     fig.set_size_inches(params_dict['figsize'])
 
-    ax_left.bar(x-b, distributions.loc[labels],
+    ax_left.bar(x - b, distributions.loc[labels],
             yerr=errors.loc[labels], width=width, color=colors[2], linewidth=0)
 
     ax_left.set_ylabel('Relative AA abundance', color=colors[2])
@@ -578,7 +578,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     ax_left.hlines(1, -1, x[-1] + 1, linestyles='dashed', color=colors[3])
     ax_right = ax_left.twinx()
 
-    ax_right.bar(x+b, right, width=width, linewidth=0, color=colors[0])
+    ax_right.bar(x + b, right, width=width, linewidth=0, color=colors[0])
 
     ax_right.set_ylim(0, 125)
     ax_right.set_yticks(np.arange(0, 120, 20))
@@ -613,15 +613,15 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         # then parts of sum as second and third style
         values = [localizations.get(key + '_' + ms_label) for key in labels]
         label_prefix = 'Location of '
-        ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix+ms_label)
+        ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix + ms_label)
         if isinstance(sumof, list):
             for pair, (color, style) in zip(sumof, _generate_pair_markers()):
                 values_1 = [localizations.get(key + '_' + pair[0]) for key in labels]
-                ax3.scatter(x, values_1, marker=style[0], color=color, label=label_prefix+pair[0])
+                ax3.scatter(x, values_1, marker=style[0], color=color, label=label_prefix + pair[0])
                 if pair[0] != pair[1]:
                     values_2 = [localizations.get(key + '_' + pair[1]) for key in labels]
                     if values_2:
-                        ax3.scatter(x, values_2, marker=style[1], color=color, label=label_prefix+pair[1])
+                        ax3.scatter(x, values_2, marker=style[1], color=color, label=label_prefix + pair[1])
                 else:
                     values_2 = []
         else:
@@ -659,7 +659,7 @@ def summarizing_hist(table, save_directory):
         current_height = i.get_height()
         if current_height > max_height:
             max_height = current_height
-        ax.text(i.get_x()-.03, current_height + 40,
+        ax.text(i.get_x() - 0.03, current_height + 40,
             '{:>6.2%}'.format(i.get_height() / total), fontsize=10, color='dimgrey')
 
     plt.ylim(0, max_height * 1.2)
