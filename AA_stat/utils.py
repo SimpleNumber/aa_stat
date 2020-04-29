@@ -726,14 +726,12 @@ def render_html_report(table_, params_dict, recommended_fmods, save_directory, s
         steps = ''
     else:
         if step != 1:
-            prev_url = 'file://' + os.path.abspath(os.path.join(
-                os.path.split(save_directory)[0], 'os_step_{}'.format(step - 1), 'report.html'))
+            prev_url = os.path.join(os.path.pardir, 'os_step_{}'.format(step - 1), 'report.html')
             prev_a = r'<a class="prev steplink" href="{}">Previous step</a>'.format(prev_url)
         else:
             prev_a = ''
         if recommended_fmods:
-            next_url = 'file://' + os.path.abspath(os.path.join(
-                os.path.split(save_directory)[0], 'os_step_{}'.format(step + 1), 'report.html'))
+            next_url = os.path.join(os.path.pardir, 'os_step_{}'.format(step + 1), 'report.html')
             next_a = r'<a class="next steplink" href="{}">Next step</a>'.format(next_url)
         else:
             next_a = ''
