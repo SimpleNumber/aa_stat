@@ -28,7 +28,7 @@ MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 FIT_BATCH = 900
 INTERNAL = 5
-MIN_PEPTIDES_FOR_MASS_CALIBRATION = 50
+MIN_PEPTIDES_FOR_MASS_CALIBRATION = 100
 
 
 cc = ["#FF6600",
