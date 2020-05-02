@@ -18,6 +18,7 @@ ISOTOPE_TOLERANCE = 0.015
 UNIIMOD_TOLERANCE = 0.01
 ZERO_BIN_TOLERANCE = 0.05
 FIX_MOD_ZERO_THRESH = 3  # in %
+ZERO_BIN_MIN_INTENSITY = 0.05  # relative to the most abundant mass shift
 
 
 def get_peptide_statistics(peptide_list):
@@ -137,26 +138,28 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
     return p_val, d.std(axis=1)
 
 
-def get_zero_mass_shift(mass_shifts, tolerance=0.05):
+def get_zero_mass_shift(mass_shift_data_dict, tolerance=0.05):
     """
     Shift of non-modified peak. Finds zero mass shift.
 
     Parameters
     ----------
-    mass_shifts : Series
-        Series of mass shifts.
+    mass_shift_data_dict : dict
+        dict of mass shifts.
     tolerance: float
         Tolerance for zero mass shift in Da.
+
     Returns
     -------
     Mass shift label, Mass shift in float format.
     """
-    values = [v[0] for v in mass_shifts.values()]
-    keys = list(mass_shifts.keys())
+    values = [v[0] for v in mass_shift_data_dict.values()]
+    keys = list(mass_shift_data_dict.keys())
+    data = [v[1] for v in mass_shift_data_dict.values()]
     l = np.argmin(np.abs(values))
-    if abs(values[l]) > tolerance:
-        logger.warning('No mass shift near zero. Mass shift with max identifications will be reference mass shift.')
-        identifications = [len(v[1]) for v in mass_shifts.values()]
+    if abs(values[l]) > tolerance or data[l].shape[0] / max(df.shape[0] for df in data) < ZERO_BIN_MIN_INTENSITY:
+        logger.warning('Too few unmodified peptides. Mass shift with most identifications will be the reference.')
+        identifications = [len(v[1]) for v in mass_shift_data_dict.values()]
         l = np.argmax(np.abs(identifications))
     return keys[l], values[l]
 
@@ -417,7 +420,7 @@ def AA_stat(params_dict, args, step=None):
         reference_mass_shift = 0.0
         reference_label = utils.mass_format(0.0)
     else:
-        logger.info('No mass shift near 0.0, new reference bin is %s', reference_label)
+        logger.info('Reference mass shift is %s', reference_label)
     ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
     logger.debug('Final shift labels: %s', ms_labels.keys())
     if len(mass_shift_data_dict) < 2:
