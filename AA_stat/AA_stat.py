@@ -156,12 +156,15 @@ def get_zero_mass_shift(mass_shift_data_dict, tolerance=0.05):
     values = [v[0] for v in mass_shift_data_dict.values()]
     keys = list(mass_shift_data_dict.keys())
     data = [v[1] for v in mass_shift_data_dict.values()]
-    l = np.argmin(np.abs(values))
-    if abs(values[l]) > tolerance or data[l].shape[0] / max(df.shape[0] for df in data) < ZERO_BIN_MIN_INTENSITY:
+    lref = np.argmin(np.abs(values))
+    maxbin = max(df.shape[0] for df in data)
+    logger.debug('Closest to zero: %s, with %d peptides. Top mass shift has %d peptides.',
+                 keys[lref], data[lref].shape[0], maxbin)
+    if abs(values[lref]) > tolerance or data[lref].shape[0] / maxbin < ZERO_BIN_MIN_INTENSITY:
         logger.warning('Too few unmodified peptides. Mass shift with most identifications will be the reference.')
         identifications = [len(v[1]) for v in mass_shift_data_dict.values()]
-        l = np.argmax(np.abs(identifications))
-    return keys[l], values[l]
+        lref = np.argmax(np.abs(identifications))
+    return keys[lref], values[lref]
 
 
 def check_difference(shift1, shift2, tolerance=0.05):
