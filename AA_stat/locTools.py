@@ -52,21 +52,27 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
 
     peaks = defaultdict(list)
     theor_set = defaultdict(list)
+    aa_mass = aa_mass.copy()
+    H = mass.nist_mass['H'][0][0]
+    nterm_mod = aa_mass.pop('H-', H)
+    OH = H + mass.nist_mass['O'][0][0]
+    cterm_mod = aa_mass.pop('-OH', OH)
     for ind, pep in enumerate(peptide[:-1]):
         for ion_type in ion_types:
             nterminal = ion_type[0] in 'abc'
-            for charge in range(1, maxcharge+1):
+            for charge in range(1, maxcharge + 1):
                 if ind == 0:
                     if nterminal:
-                        mz = cmass.fast_mass2(pep, ion_type=ion_type, charge=charge, aa_mass=aa_mass, **kwargs)
+                        mz = cmass.fast_mass2(
+                            pep, ion_type=ion_type, charge=charge, aa_mass=aa_mass, **kwargs) + (nterm_mod - H) / charge
                     else:
                         mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,
-                                             aa_mass=aa_mass, **kwargs)
+                                             aa_mass=aa_mass, **kwargs) + (cterm_mod - OH) / charge
                 else:
                     if nterminal:
-                        mz = peaks[ion_type, charge][-1] + aa_mass[pep]/charge
+                        mz = peaks[ion_type, charge][-1] + aa_mass[pep] / charge
                     else:
-                        mz = peaks[ion_type, charge][-1] - aa_mass[pep]/charge
+                        mz = peaks[ion_type, charge][-1] - aa_mass[pep] / charge
                 peaks[ion_type, charge].append(mz)
                 theor_set[ion_type].append(int(mz / acc_frag))
     theor_set = {k: set(v) for k, v in theor_set.items()}
@@ -157,8 +163,8 @@ def preprocess_spectrum(reader, spec_id, kwargs, acc=0.01):
     for idx, mt in enumerate(tmp):
         i = int_array[idx]
         spectrum[mt] = max(spectrum.get(mt, 0), i)
-        spectrum[mt-1] = max(spectrum.get(mt-1, 0), i)
-        spectrum[mt+1] = max(spectrum.get(mt+1, 0), i)
+        spectrum[mt - 1] = max(spectrum.get(mt - 1, 0), i)
+        spectrum[mt + 1] = max(spectrum.get(mt + 1, 0), i)
     return spectrum
 
 
@@ -184,7 +190,7 @@ def peptide_isoforms(peptide, m, sites):
         isoforms.append(tuple(peptide[:-1]) + (m + peptide[-1],))
     for ind, a in enumerate(peptide):
         if a in sites:
-            isoforms.append(tuple(peptide[:ind]) + (m + a,) + tuple(peptide[ind+1:]))
+            isoforms.append(tuple(peptide[:ind]) + (m + a,) + tuple(peptide[ind + 1:]))
     return isoforms
 
 
