@@ -104,7 +104,7 @@ def save_table(distributions, number_of_PSMs, mass_shifts, reference_label):
     return out
 
 
-def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
+def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, aas):
     '''
     Calculates p-values and error standard deviation of amino acids statistics
     using bootstraping method.
@@ -119,7 +119,7 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
         Indexes are amino acids and values are amino acids statistics of a reference mass shift.
     rule : str or compiled regex.
         Cleavage rule in pyteomics format.
-    l: Iterable
+    aas: Iterable
         An Iterable of amino acids to be considered.
 
     Returns
@@ -127,13 +127,13 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, l):
 
     Series of p-values, std of amino acid statistics for considered `pep_list`.
     '''
-    d = pd.DataFrame(index=l)
+    d = pd.DataFrame(index=aas)
     for i in range(50):
         d[i] = pd.Series(get_aa_distribution(
             np.random.choice(np.array(pep_list),
             size=(len(pep_list) // 2), replace=False), rule)) / reference
     p_val = pd.Series()
-    for i in l:
+    for i in aas:
         p_val[i] = ttest_ind(err_ref_df.loc[i, :], d.loc[i, :])[1]
     return p_val, d.std(axis=1)
 
@@ -162,8 +162,8 @@ def get_zero_mass_shift(mass_shift_data_dict, tolerance=0.05):
                  keys[lref], data[lref].shape[0], maxbin)
     if abs(values[lref]) > tolerance or data[lref].shape[0] / maxbin < ZERO_BIN_MIN_INTENSITY:
         logger.warning('Too few unmodified peptides. Mass shift with most identifications will be the reference.')
-        identifications = [len(v[1]) for v in mass_shift_data_dict.values()]
-        lref = np.argmax(np.abs(identifications))
+        identifications = [df.shape[0] for df in data]
+        lref = np.argmax(identifications)
     return keys[lref], values[lref]
 
 
