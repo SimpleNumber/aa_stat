@@ -58,7 +58,7 @@ def main():
                       'If it differs, do not forget to specify it in AA_stat params file.')
     pars.add_argument('--os-params', help='Custom open search parameters.')
     pars.add_argument('-x', '--optimize-fixed-mods',
-                      help='Run two searches, use the first one to determine which fixed modifications to apply.',
+                      help='Run multiple searches, automatically determine which fixed modifications to apply.',
                       action='store_true', default=False)
     pars.add_argument('-s', '--skip', help='Skip search if pepXML files exist already. If not specified, '
                       'no steps are skipped. If specified without value, first step may be skipped. '

@@ -69,7 +69,7 @@ optional arguments:
 --os-params OS_PARAMS
                       Custom open search parameters.
 -x, --optimize-fixed-mods
-                      Run two searches, use the first one to determine which fixed modifications to apply.
+                      Run multiple searches, automatically determine which fixed modifications to apply.
 -s [SKIP], --skip [SKIP]
                       Skip search if pepXML files exist already. If not specified, no steps are skipped. If specified without value, first step may be skipped. Value is number of steps to skip. Only works with "-x".
 -je JAVA_EXECUTABLE, --java-executable JAVA_EXECUTABLE
