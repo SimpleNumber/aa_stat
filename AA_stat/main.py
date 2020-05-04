@@ -7,16 +7,15 @@ from . import AA_stat, utils, tests
 
 def main():
     pars = argparse.ArgumentParser()
-    pars.add_argument('--params', help='CFG file with parameters. If there is no file, AA_stat uses default one.'
-        'An example can be found at https://github.com/SimpleNumber/aa_stat',
-        required=False)
+    pars.add_argument('--params', help='CFG file with parameters. If there is no file, AA_stat uses default one. '
+        'An example can be found at https://github.com/SimpleNumber/aa_stat', required=False)
 
     pars.add_argument('--dir', help='Directory to store the results. Default value is current directory.', default='.')
     pars.add_argument('-v', '--verbosity', type=int, choices=range(4), default=1, help='Output verbosity')
 
     input_spectra = pars.add_mutually_exclusive_group()
-    input_spectra.add_argument('--mgf',  nargs='+', help='MGF files to localize modifications')
-    input_spectra.add_argument('--mzml',  nargs='+', help='mzML files to localize modifications')
+    input_spectra.add_argument('--mgf', nargs='+', help='MGF files to localize modifications')
+    input_spectra.add_argument('--mzml', nargs='+', help='mzML files to localize modifications')
 
     input_file = pars.add_mutually_exclusive_group()
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')

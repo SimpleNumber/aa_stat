@@ -30,22 +30,52 @@ pip install .
 
 ## Usage
 
+Regular usage:
+
 ```
-AA_stat [-h] --params PARAMS [--dir DIR] [-v {0,1,2}] [--mgf MGF [MGF ...] | --mzML MZML [MZML ...]] (--pepxml PEPXML [PEPXML ...] | --csv CSV [CSV ...])
+AA_stat [-h] [--params PARAMS] [--dir DIR] [-v {0,1,2,3}] [--mgf MGF [MGF ...] | --mzml MZML [MZML ...]] [--pepxml PEPXML [PEPXML ...] | --csv CSV [CSV ...]]
 
 optional arguments:
-  -h, --help            show this help message and exit
-  --params PARAMS       CFG file with parameters.An example can be found at https://github.com/SimpleNumber/aa_stat
-  --dir DIR             Directory to store the results. Default value is current directory.
-  -v {0,1,2}, --verbosity {0,1,2}
+-h, --help              show this help message and exit
+--params PARAMS         CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
+--dir DIR               Directory to store the results. Default value is current directory.
+-v {0,1,2,3}, --verbosity {0,1,2,3}
                         Output verbosity
-  --mgf MGF [MGF ...]   MGF files to localize modifications
-  --mzML MZML [MZML ...]
-                        mzML files to localize modifications
-  --pepxml PEPXML [PEPXML ...]
+--mgf MGF [MGF ...]     MGF files to localize modifications
+--mzml MZML [MZML ...]  mzML files to localize modifications
+--pepxml PEPXML [PEPXML ...]
                         List of input files in pepXML format
-  --csv CSV [CSV ...]   List of input files in CSV format
+--csv CSV [CSV ...]     List of input files in CSV format
 ```
+
+Combine with open search:
+
+```
+AA_search [-h] [--params PARAMS] [--MSFragger MSFRAGGER] [--dir DIR] [-v {0,1,2,3}] (--mgf MGF [MGF ...] | --mzml MZML [MZML ...]) [-db FASTA] [--os-params OS_PARAMS] [-x] [-s [SKIP]] [-je JAVA_EXECUTABLE] [-ja JAVA_ARGS]
+
+optional arguments:
+-h, --help            show this help message and exit
+--params PARAMS       CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
+--MSFragger MSFRAGGER
+                      Path to MSFragger .jar file. If not specified, MSFRAGGER environment variable is used.
+--dir DIR             Directory to store the results. Default value is current directory.
+-v {0,1,2,3}, --verbosity {0,1,2,3}
+                      Output verbosity.
+--mgf MGF [MGF ...]   MGF files to search.
+--mzml MZML [MZML ...]
+                      mzML files to search.
+-db FASTA, --fasta FASTA
+                      Fasta file with decoys for open search. Default decoy prefix is "DECOY_".If it differs, do not forget to specify it in AA_stat params file.
+--os-params OS_PARAMS
+                      Custom open search parameters.
+-x, --optimize-fixed-mods
+                      Run two searches, use the first one to determine which fixed modifications to apply.
+-s [SKIP], --skip [SKIP]
+                      Skip search if pepXML files exist already. If not specified, no steps are skipped. If specified without value, first step may be skipped. Value is number of steps to skip. Only works with "-x".
+-je JAVA_EXECUTABLE, --java-executable JAVA_EXECUTABLE
+-ja JAVA_ARGS, --java-args JAVA_ARGS
+```
+
 
 ### Configuration file
 
