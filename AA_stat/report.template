@@ -94,21 +94,21 @@
     </style>
 </head>
 <body>
-<div id="steps">|||</div>
+<div id="steps">{{ steps }}</div>
 <div id="fixmod_outer">
   <h3>Fixed modifications</h3>
   <div id="fixmod">
     <div id="set_mods" class="fixtable">
-    ===
+    {{ fixmod }}
     </div>
     <div id="rec_mods" class="fixtable">
-    +++
+    {{ recmod }}
     </div>
   </div>
 </div>
 <div id="aa_stat">
   <h3>Amino acid statistics</h3>
-  %%%
+  {{ table_html }}
 </div>
 <div id="legend">
   <h2>Figure Legend</h2>
@@ -135,7 +135,9 @@
 
 <div id="peptides">
   <h2 id="table_header"></h2>
-  &&&
+  {% for table in  peptide_tables %}
+      {{ table }}
+  {% endfor %}
 </div>
 </body>
 <script type="text/javascript">
@@ -195,7 +197,7 @@
       showTable(e.target);
     }
   }
-  var reference = "{{}}";
+  var reference = "{{ reference }}";
   var table = document.getElementById("T_aa_stat_table");
   for (var i = 0, row; row = table.rows[i]; i++) {
     var ms = row.cells[0].innerText;

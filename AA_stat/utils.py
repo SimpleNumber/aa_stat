@@ -19,6 +19,7 @@ except ImportError:
     from ConfigParser import ConfigParser
 import math
 import multiprocessing as mp
+import jinja2
 from pyteomics import parser, pepxml, mgf, mzml, mass
 
 logger = logging.getLogger(__name__)
@@ -682,10 +683,7 @@ def render_html_report(table_, params_dict, recommended_fmods, save_directory, s
         return
     table = table_.copy()
     labels = params_dict['labels']
-    report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
 
-    with open(report_template) as f:
-        report = f.read()
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
         mslabel = '<a id="binh" href="#">mass shift</a>'
@@ -747,11 +745,18 @@ def render_html_report(table_, params_dict, recommended_fmods, save_directory, s
         else:
             next_a = ''
         steps = prev_a + '\n' + next_a
-    report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables)).replace(
-        r'===', fixmod).replace('{{}}', reference).replace(r'+++', recmod).replace(r'|||', steps)
+    write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, reference=reference,
+        recmod=recmod, steps=steps)
 
-    with open(path, 'w') as f:
-        f.write(report)
+
+def write_html(path, **template_vars):
+    templateloader = jinja2.PackageLoader('AA_stat', '')
+    templateenv = jinja2.Environment(loader=templateloader, autoescape=False)
+    template_file = 'report.template'
+    template = templateenv.get_template(template_file)
+
+    with open(path, 'w') as output:
+        output.write(template.render(template_vars))
 
 
 def format_isoform(row):
