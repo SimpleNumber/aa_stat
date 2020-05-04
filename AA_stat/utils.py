@@ -288,7 +288,7 @@ def smooth(y, window_size=15, power=5):
     return y_smooth
 
 
-def gauss(x, a,  x0, sigma):
+def gauss(x, a, x0, sigma):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return a / sigma / np.sqrt(2 * np.pi) * np.exp(-(x - x0) * (x - x0) / (2 * sigma ** 2))
@@ -379,7 +379,9 @@ def fit_peaks(data, args, params_dict):
     min_height = 2 * np.median(hist[0][hist[0] > 1])
     # minimum bin height expected to be peak approximate noise level as median of all non-negative
     loc_max_candidates_ind = loc_max_candidates_ind[hist_y[loc_max_candidates_ind] >= min_height]
-
+    if not loc_max_candidates_ind.size:
+        logger.info('No peaks found for fit.')
+        return hist, np.array([])
     height_error = params_dict['max_deviation_height']
     sigma_error = params_dict['max_deviation_sigma']
     logger.debug('Candidates for fit: %s', len(loc_max_candidates_ind))
@@ -669,6 +671,15 @@ def summarizing_hist(table, save_directory):
 
 
 def render_html_report(table_, params_dict, recommended_fmods, save_directory, step=None):
+    path = os.path.join(save_directory, 'report.html')
+    if os.path.islink(path):
+        logger.debug('Deleting link: %s.', path)
+        os.remove(path)
+
+    if table_ is None:
+        with open(path, 'w') as f:
+            f.write('No mass shifts found.')
+        return
     table = table_.copy()
     labels = params_dict['labels']
     report_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'report.template')
@@ -738,7 +749,8 @@ def render_html_report(table_, params_dict, recommended_fmods, save_directory, s
         steps = prev_a + '\n' + next_a
     report = report.replace(r'%%%', table_html).replace(r'&&&', '\n'.join(peptide_tables)).replace(
         r'===', fixmod).replace('{{}}', reference).replace(r'+++', recmod).replace(r'|||', steps)
-    with open(os.path.join(save_directory, 'report.html'), 'w') as f:
+
+    with open(path, 'w') as f:
         f.write(report)
 
 

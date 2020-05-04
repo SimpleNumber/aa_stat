@@ -214,7 +214,9 @@ def filter_mass_shifts(results, tolerance=0.05):
     logger.info('Discarding bad peaks...')
     temp = []
     out = []
-    if len(results) < 2:
+    if not results.size:
+        return []
+    if results.size == 1:
         return [results[0]]
 
     temp = [results[0]]
@@ -416,6 +418,10 @@ def AA_stat(params_dict, args, step=None):
     # logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
+    if not mass_shift_data_dict:
+        utils.render_html_report(None, params_dict, {}, save_directory, step=step)
+        return None, None, None, mass_shift_data_dict, {}
+
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
     if abs(reference_mass_shift) < ZERO_BIN_TOLERANCE:
         logger.info("Systematic mass shift equals to %s", reference_label)
@@ -426,12 +432,6 @@ def AA_stat(params_dict, args, step=None):
         logger.info('Reference mass shift is %s', reference_label)
     ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
     logger.debug('Final shift labels: %s', ms_labels.keys())
-    if len(mass_shift_data_dict) < 2:
-        logger.info('Mass shifts were not found.')
-        logger.info('Filtered mass shifts:')
-        for i in mass_shift_data_dict:
-            logger.info(i)
-        return
 
     distributions, number_of_PSMs, figure_data = calculate_statistics(mass_shift_data_dict, reference_label, params_dict, args)
 
