@@ -65,7 +65,7 @@ optional arguments:
 --mzml MZML [MZML ...]
                       mzML files to search.
 -db FASTA, --fasta FASTA
-                      Fasta file with decoys for open search. Default decoy prefix is "DECOY_".If it differs, do not forget to specify it in AA_stat params file.
+                      Fasta file with decoys for open search. Default decoy prefix is "DECOY_". If it differs, do not forget to specify it in AA_stat params file.
 --os-params OS_PARAMS
                       Custom open search parameters.
 -x, --optimize-fixed-mods

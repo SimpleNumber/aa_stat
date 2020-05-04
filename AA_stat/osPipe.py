@@ -55,7 +55,7 @@ def main():
     input_spectra.add_argument('--mzml', nargs='+', help='mzML files to search.', default=None)
 
     pars.add_argument('-db', '--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
-                      'If it differs, do not forget to specify it in AA_stat params file.')
+                      ' If it differs, do not forget to specify it in AA_stat params file.')
     pars.add_argument('--os-params', help='Custom open search parameters.')
     pars.add_argument('-x', '--optimize-fixed-mods',
                       help='Run multiple searches, automatically determine which fixed modifications to apply.',
