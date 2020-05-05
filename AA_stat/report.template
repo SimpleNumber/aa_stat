@@ -9,7 +9,7 @@
         .steplink {
           margin: 3vw 3vw;
         }
-        #fixmod_outer {
+        #mods_outer {
           text-align: center;
         }
         #fixmod {
@@ -20,13 +20,13 @@
           justify-content: center;
           align-items: center;
         }
-        .fixtable {
+        .modtable {
           width: 30vw;
         }
-        .fixtable table {
+        .modtable table {
           border-collapse: collapse;
         }
-        .fixtable td, th {
+        .modtable td, th {
           border: 1px solid;
           padding: 0.3rem;
           text-align: center;
@@ -95,14 +95,17 @@
 </head>
 <body>
 <div id="steps">{{ steps }}</div>
-<div id="fixmod_outer">
-  <h3>Fixed modifications</h3>
+<div id="mods_outer">
+  <h3>Modifications</h3>
   <div id="fixmod">
-    <div id="set_mods" class="fixtable">
+    <div id="set_mods" class="modtable">
     {{ fixmod }}
     </div>
-    <div id="rec_mods" class="fixtable">
+    <div id="rec_mods" class="modtable">
     {{ recmod }}
+    </div>
+    <div id="rec_var_mods" class="modtable">
+    {{ rec_var_mod }}
     </div>
   </div>
 </div>

@@ -671,7 +671,7 @@ def summarizing_hist(table, save_directory):
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
 
 
-def render_html_report(table_, params_dict, recommended_fmods, save_directory, step=None):
+def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods, save_directory, step=None):
     path = os.path.join(save_directory, 'report.html')
     if os.path.islink(path):
         logger.debug('Deleting link: %s.', path)
@@ -722,15 +722,23 @@ def render_html_report(table_, params_dict, recommended_fmods, save_directory, s
         d = params_dict['fix_mod'].copy()
         d = masses_to_mods(d)
         fixmod = pd.DataFrame.from_dict(d, orient='index', columns=['value']).T.style.set_caption(
-            'Configured').format(MASS_FORMAT).render(uuid="set_fix_mod_table")
+            'Configured, fixed').format(MASS_FORMAT).render(uuid="set_fix_mod_table")
     else:
         fixmod = "Set modifications: none."
     if recommended_fmods:
         recmod = pd.DataFrame.from_dict(recommended_fmods, orient='index', columns=['value']).T.style.set_caption(
-            'Recommended').format(MASS_FORMAT).render(uuid="rec_fix_mod_table")
+            'Recommended, fixed').format(MASS_FORMAT).render(uuid="rec_fix_mod_table")
     else:
         recmod = "Recommended modifications: none."
+
+    if recommended_vmods:
+        rec_var_mods = pd.DataFrame.from_dict(recommended_vmods, orient='index', columns=['value']).T.style.set_caption(
+            'Recommended, variable').format(MASS_FORMAT).render(uuid="rec_var_mod_table")
+    else:
+        rec_var_mods = "Recommended variable modifications: none."
+
     reference = table.loc[table['is reference']].index[0]
+
     if step is None:
         steps = ''
     else:
@@ -746,7 +754,7 @@ def render_html_report(table_, params_dict, recommended_fmods, save_directory, s
             next_a = ''
         steps = prev_a + '\n' + next_a
     write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, reference=reference,
-        recmod=recmod, steps=steps)
+        recmod=recmod, rec_var_mod=rec_var_mods, steps=steps)
 
 
 def write_html(path, **template_vars):

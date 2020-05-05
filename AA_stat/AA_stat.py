@@ -402,6 +402,11 @@ def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_
     return fix_mod_dict
 
 
+def determine_var_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict):
+    logger.info('Variable modifications will be recommended in the next version.')
+    return {}
+
+
 def AA_stat(params_dict, args, step=None):
     """
     Calculates all statistics, saves tables and pictures.
@@ -419,7 +424,7 @@ def AA_stat(params_dict, args, step=None):
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     if not mass_shift_data_dict:
-        utils.render_html_report(None, params_dict, {}, save_directory, step=step)
+        utils.render_html_report(None, params_dict, {}, {}, save_directory, step=step)
         return None, None, None, mass_shift_data_dict, {}
 
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
@@ -510,5 +515,10 @@ def AA_stat(params_dict, args, step=None):
         logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict(recommended_fix_mods))
     else:
         logger.info('Fixed modifications not recommended.')
-    utils.render_html_report(table, params_dict, recommended_fix_mods, save_directory, step=step)
+    recommended_var_mods = determine_var_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict)
+    if recommended_var_mods:
+        logger.info('Recommended variable modifications: %s.', utils.format_mod_dict(recommended_var_mods))
+    else:
+        logger.info('Variable modifications not recommended.')
+    utils.render_html_report(table, params_dict, recommended_fix_mods, recommended_var_mods, save_directory, step=step)
     return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods
