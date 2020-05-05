@@ -19,6 +19,7 @@ UNIIMOD_TOLERANCE = 0.01
 ZERO_BIN_TOLERANCE = 0.05
 FIX_MOD_ZERO_THRESH = 3  # in %
 ZERO_BIN_MIN_INTENSITY = 0.05  # relative to the most abundant mass shift
+MIN_FIX_MOD_PEP_COUNT_FACTOR = 2  # criterion for enabling fixed modification
 
 
 def get_peptide_statistics(peptide_list):
@@ -362,7 +363,7 @@ def determine_fixed_mods_nonzero(reference, locmod_df, data_dict):
     return loc
 
 
-def determine_fixed_mods_zero(aastat_result, data_dict):
+def determine_fixed_mods_zero(aastat_result, data_dict, params_dict):
     """Determine fixed modifications in case the reference shift is at zero.
     Does not need localization.
     """
@@ -374,10 +375,23 @@ def determine_fixed_mods_zero(aastat_result, data_dict):
     logger.debug('Fixed mod candidates: %s', candidates)
     for i in candidates:
         candidate_label = get_fixed_mod_raw(i, data_dict)
-        if aastat_result[candidate_label][2][i] > FIX_MOD_ZERO_THRESH:
-            fix_mod_dict[i] = data_dict[candidate_label][0]
+        if candidate_label != reference:
+            # number of peptides with `i` at shift `candidate label` must be higher than ...
+            count_cand = data_dict[candidate_label][1][params_dict['peptides_column']].str.contains(i).sum()
+            # number of peptides with `i` at shift `reference` by a factor of `MIN_FIX_MOD_PEP_COUNT_FACTOR`
+            count_ref = data_dict[reference][1][params_dict['peptides_column']].str.contains(i).sum()
+            # peptide count at candidate shift over # of peptides at reference
+            est_ratio = count_cand / len(data_dict[reference][1])
+            logger.debug('Peptides with %s: ~%d at %s, ~%d at %s. Estimated pct: %f',
+                i, count_ref, reference, count_cand, candidate_label, est_ratio)
+            if aastat_result[candidate_label][2][i] > FIX_MOD_ZERO_THRESH and (
+                    est_ratio * 100 > FIX_MOD_ZERO_THRESH) and (
+                    count_cand > count_ref * MIN_FIX_MOD_PEP_COUNT_FACTOR):
+                fix_mod_dict[i] = data_dict[candidate_label][0]
+            else:
+                logger.info('Could not find %s anywhere. Can\'t fix.', i)
         else:
-            logger.info('Could not find %s anywhere. Can\'t fix.', i)
+            logger.info('Reference shift is the best for %d.', i)
     return fix_mod_dict
 
 
@@ -385,7 +399,7 @@ def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_
     reference = aastat_df.loc[aastat_df['is reference']].index[0]
     if reference == utils.mass_format(0):
         logger.info('Reference bin is at zero shift.')
-        fix_mod_dict = determine_fixed_mods_zero(aastat_result, data_dict)
+        fix_mod_dict = determine_fixed_mods_zero(aastat_result, data_dict, params_dict)
     else:
         if locmod_df is None:
             logger.warning('No localization data. '
