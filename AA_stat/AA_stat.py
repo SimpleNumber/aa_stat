@@ -20,6 +20,7 @@ ZERO_BIN_TOLERANCE = 0.05
 FIX_MOD_ZERO_THRESH = 3  # in %
 ZERO_BIN_MIN_INTENSITY = 0.05  # relative to the most abundant mass shift
 MIN_FIX_MOD_PEP_COUNT_FACTOR = 2  # criterion for enabling fixed modification
+RECOMMEND_ISOTOPE_THRESH = 10  # in %
 
 
 def get_peptide_statistics(peptide_list):
@@ -353,6 +354,7 @@ def determine_fixed_mods_nonzero(reference, locmod_df, data_dict):
     utils.internal('Localizations for %s: %s', reference, locmod_df.at[reference, 'localization'])
     loc = get_fix_mod_from_l10n(reference, locmod_df)
     label = reference
+    data_dict = data_dict.copy()
     while loc is None:
         del data_dict[label]
         label = max(data_dict, key=lambda k: data_dict[k][1].shape[0])
@@ -391,7 +393,7 @@ def determine_fixed_mods_zero(aastat_result, data_dict, params_dict):
             else:
                 logger.info('Could not find %s anywhere. Can\'t fix.', i)
         else:
-            logger.info('Reference shift is the best for %d.', i)
+            logger.info('Reference shift is the best for %s.', i)
     return fix_mod_dict
 
 
@@ -416,9 +418,67 @@ def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_
     return fix_mod_dict
 
 
-def determine_var_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict):
-    logger.info('Variable modifications will be recommended in the next version.')
-    return {}
+def recommend_isotope_error(aastat_df, locmod_df):
+    reference = aastat_df.loc[aastat_df['is reference']].index[0]
+    ref_peptides = locmod_df.at[reference, '# peptides in bin']
+    logger.debug('%d peptides at reference %s', ref_peptides, reference)
+    ref_isotopes = []
+    label = reference
+    while label:
+        label = utils.get_isotope_shift(label, locmod_df)
+        ref_isotopes.append(label)
+    ref_isotopes.pop()
+
+    i = 0
+    for i, label in enumerate(ref_isotopes, 1):
+        peps = locmod_df.at[label, '# peptides in bin']
+        logger.debug('%d peptides at %s.', peps, label)
+        if peps * 100 / ref_peptides < RECOMMEND_ISOTOPE_THRESH:
+            return i - 1
+    return i
+
+
+def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_dict, recommended_fix_mods=None):
+    if locmod_df is None:
+        logger.info('Cannot recommend variable modifications without localization.')
+        return {}
+    var_mods = {}
+    isotope_rec = recommend_isotope_error(aastat_df, locmod_df)
+    logger.info('Recommended isotope mass error: %d.', isotope_rec)
+    if isotope_rec:
+        var_mods['isotope error'] = isotope_rec
+    reference = aastat_df.loc[aastat_df['is reference']].index[0]
+    mods_and_counts = defaultdict(dict)  # dict of AA: label: count
+    for shift in data_dict:
+        if shift == reference:
+            continue
+        l10n = locmod_df.at[shift, 'localization']
+        for k, count in l10n.items():
+            if k == 'non-localized':
+                continue
+            aa, locshift = utils.parse_l10n_site(k)
+            if locshift == shift:
+                mods_and_counts[aa][shift] = count
+    if isotope_rec:
+        for aa, dcounts in mods_and_counts.items():
+            for shift, count in dcounts.items():
+                i = 0
+                while i < isotope_rec:
+                    label = utils.get_isotope_shift(shift, locmod_df)
+                    if label:
+                        dcounts[shift] += mods_and_counts[aa].get(label, 0)
+                        i += 1
+                    else:
+                        break
+    aa_shifts = {aa: max(mods_and_counts[aa], key=mods_and_counts[aa].get) for aa in mods_and_counts}
+    aa_counts = {aa: mods_and_counts[aa][shift] for aa, shift in aa_shifts.items()}
+    logger.debug('Best localization counts: %s', aa_shifts)
+    left_shifts = {aa: shift for aa, shift in aa_shifts.items() if aa not in recommended_fix_mods}
+    logger.debug('Left to consider: %s', left_shifts)
+    top_mods = sorted(left_shifts, key=aa_counts.get, reverse=True)[:params_dict['variable_mods']]
+    for aa in top_mods:
+        var_mods[aa] = data_dict[left_shifts[aa]][0]
+    return var_mods
 
 
 def AA_stat(params_dict, args, step=None):
@@ -529,7 +589,8 @@ def AA_stat(params_dict, args, step=None):
         logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict(recommended_fix_mods))
     else:
         logger.info('Fixed modifications not recommended.')
-    recommended_var_mods = determine_var_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict)
+    recommended_var_mods = determine_var_mods(
+        figure_data, table, locmod_df, mass_shift_data_dict, params_dict, recommended_fix_mods)
     if recommended_var_mods:
         logger.info('Recommended variable modifications: %s.', utils.format_mod_dict(recommended_var_mods))
     else:

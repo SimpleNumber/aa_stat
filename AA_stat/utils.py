@@ -481,9 +481,10 @@ def get_parameters(params):
     # general
     parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
     parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
-    parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins')  # area_thresh
-    parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')  # shifting_window
-    parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')  # corrction
+    parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins')
+    parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')
+    parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
+    parameters_dict['variable_mods'] = params.getint('general', 'recommend variable modifications')
 
     parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')  # spec_window_flag
     parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]  # spec_window
@@ -733,7 +734,7 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
 
     if recommended_vmods:
         rec_var_mods = pd.DataFrame.from_dict(recommended_vmods, orient='index', columns=['value']).T.style.set_caption(
-            'Recommended, variable').format(MASS_FORMAT).render(uuid="rec_var_mod_table")
+            'Recommended, variable').format(MASS_FORMAT).format({'isotope error': '{:.0f}'}).render(uuid="rec_var_mod_table")
     else:
         rec_var_mods = "Recommended variable modifications: none."
 
@@ -830,3 +831,10 @@ def format_mod_dict(d):
     if d:
         return ', '.join('{} @ {}'.format(mass_format(v), k) for k, v in d.items())
     return 'none'
+
+
+def get_isotope_shift(label, locmod_df):
+    isotope = locmod_df[locmod_df['isotop_ind'] == label]
+    if not isotope.shape[0]:
+        return
+    return isotope[isotope['# peptides in bin'] == isotope['# peptides in bin'].max()].index[0]
