@@ -461,12 +461,13 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
                 mods_and_counts[aa][shift] = count
     if isotope_rec:
         for aa, dcounts in mods_and_counts.items():
-            for shift, count in dcounts.items():
+            for shift, count in list(dcounts.items()):
                 i = 0
                 while i < isotope_rec:
                     label = utils.get_isotope_shift(shift, locmod_df)
                     if label:
                         dcounts[shift] += mods_and_counts[aa].get(label, 0)
+                        dcounts.pop(label, None)
                         i += 1
                     else:
                         break
