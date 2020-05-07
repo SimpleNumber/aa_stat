@@ -631,7 +631,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         else:
             values_1 = values_2 = []
         terms = {key for key in localizations if key[1:6] == '-term'}
-        logger.debug('Found terminal localizations: %s', terms)
+        # logger.debug('Found terminal localizations: %s', terms)
         for t in terms:
             label = '{} at {}: {}'.format(*reversed(t.split('_')), localizations[t])
             p = ax3.plot([], [], label=label)[0]

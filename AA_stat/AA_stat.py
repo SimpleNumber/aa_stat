@@ -459,6 +459,9 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
             aa, locshift = utils.parse_l10n_site(k)
             if locshift == shift:
                 mods_and_counts[aa][shift] = count
+    logger.debug('Without isotopes, localization counts are:')
+    for k, d in mods_and_counts.items():
+        logger.debug('%s: %s', k, d)
     if isotope_rec:
         for aa, dcounts in mods_and_counts.items():
             for shift, count in list(dcounts.items()):
@@ -466,11 +469,14 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
                 while i < isotope_rec:
                     label = utils.get_isotope_shift(shift, locmod_df)
                     if label:
-                        dcounts[shift] += mods_and_counts[aa].get(label, 0)
+                        dcounts[shift] = dcounts.get(shift, 0) + mods_and_counts[aa].get(label, 0)
                         dcounts.pop(label, None)
                         i += 1
                     else:
                         break
+        logger.debug('With isotopes, localization counts are:')
+        for k, d in mods_and_counts.items():
+            logger.debug('%s: %s', k, d)
     aa_shifts = {aa: max(mods_and_counts[aa], key=mods_and_counts[aa].get) for aa in mods_and_counts}
     aa_counts = {aa: mods_and_counts[aa][shift] for aa, shift in aa_shifts.items()}
     logger.debug('Best localization counts: %s', aa_shifts)
