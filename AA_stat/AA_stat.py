@@ -462,6 +462,20 @@ def recalculate_counts(aa, ms, mods_and_counts, data_dict):
                     mods_and_counts['C-term'][ms] -= 1
 
 
+def recalculate_witgh_isotopes(aa, ms, isotope_rec, mods_and_counts, data_dict, locmod_df):
+    logger.debug('Recalculating counts for %s @ %s', aa, ms)
+    recalculate_counts(aa, ms, mods_and_counts, data_dict)
+    i = 0
+    while i < isotope_rec:
+        label = utils.get_isotope_shift(ms, locmod_df)
+        if label:
+            logger.debug('Recalculating %s counts for isotope shift %s', aa, label)
+            recalculate_counts(aa, label, mods_and_counts, data_dict)
+            i += 1
+        else:
+            break
+
+
 def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_dict, recommended_fix_mods=None):
     if locmod_df is None:
         logger.info('Cannot recommend variable modifications without localization.')
@@ -522,16 +536,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
     if recommended_fix_mods:
         logger.debug('Subtracting counts for fixed mods.')
         for aa, shift in recommended_fix_mods.items():
-            recalculate_counts(aa, shift, mods_and_counts, data_dict)
-            i = 0
-            while i < isotope_rec:
-                label = utils.get_isotope_shift(shift, locmod_df)
-                if label:
-                    logger.debug('Recalculating counts for isotope shift %s', label)
-                    recalculate_counts(aa, label, mods_and_counts, data_dict)
-                    i += 1
-                else:
-                    break
+            recalculate_witgh_isotopes(aa, shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
 
     for i in range(params_dict['variable_mods']):
         logger.debug('Choosing variable modification %d. Counts are:', i + 1)
@@ -550,7 +555,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
         recommended.add(top_aa)
         var_mods.append((top_aa, top_shift))
         logger.debug('Chose %s @ %s.', top_shift, top_aa)
-        recalculate_counts(top_aa, top_shift, mods_and_counts, data_dict)
+        recalculate_witgh_isotopes(top_aa, top_shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
         if not multiple:
             logger.debug('Removing all counts for %s.', top_aa)
             for sh in mods_and_counts[top_aa]:
