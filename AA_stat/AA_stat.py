@@ -542,7 +542,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
         logger.debug('Choosing variable modification %d. Counts are:', i + 1)
         for k, d in mods_and_counts.items():
             logger.debug('%s: %s', k, d)
-        aa_shifts = {aa: max(mods_and_counts[aa], key=mods_and_counts[aa].get) for aa in mods_and_counts}
+        aa_shifts = {aa: max(dcounts, key=dcounts.get) for aa, dcounts in mods_and_counts.items() if dcounts}
         aa_counts = {aa: mods_and_counts[aa][shift] for aa, shift in aa_shifts.items()}
         logger.debug('Best localization counts: %s', aa_shifts)
         logger.debug('Values: %s', aa_counts)
