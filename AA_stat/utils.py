@@ -485,6 +485,7 @@ def get_parameters(params):
     parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')
     parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
     parameters_dict['variable_mods'] = params.getint('general', 'recommend variable modifications')
+    parameters_dict['multiple_mods'] = params.getboolean('general', 'recommend multiple modifications on residue')
 
     parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')  # spec_window_flag
     parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]  # spec_window
@@ -728,13 +729,16 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         fixmod = "Set modifications: none."
     if recommended_fmods:
         recmod = pd.DataFrame.from_dict(recommended_fmods, orient='index', columns=['value']).T.style.set_caption(
-            'Recommended, fixed').format(MASS_FORMAT).render(uuid="rec_fix_mod_table")
+            'Recommended, fixed').render(uuid="rec_fix_mod_table")
     else:
         recmod = "Recommended modifications: none."
 
     if recommended_vmods:
-        rec_var_mods = pd.DataFrame.from_dict(recommended_vmods, orient='index', columns=['value']).T.style.set_caption(
-            'Recommended, variable').format(MASS_FORMAT).format({'isotope error': '{:.0f}'}).render(uuid="rec_var_mod_table")
+        rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
+            'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(
+            [{'selector': 'th.col_heading', 'props': [('display', 'none')]},
+            {'selector': 'th.blank', 'props': [('display', 'none')]},
+            {'selector': '.data.row0', 'props': [('font-weight', 'bold')]}]).render(uuid="rec_var_mod_table")
     else:
         rec_var_mods = "Recommended variable modifications: none."
 
@@ -827,9 +831,21 @@ def masses_to_mods(d):
     return d
 
 
+def format_mod_dict_str(d):
+    if d:
+        return ', '.join('{} @ {}'.format(v, k) for k, v in d.items())
+    return 'none'
+
+
 def format_mod_dict(d):
     if d:
         return ', '.join('{} @ {}'.format(mass_format(v), k) for k, v in d.items())
+    return 'none'
+
+
+def format_mod_list(items):
+    if items:
+        return ', '.join('{} @ {}'.format(v, k) for k, v in items)
     return 'none'
 
 

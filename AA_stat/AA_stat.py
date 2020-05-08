@@ -21,6 +21,7 @@ FIX_MOD_ZERO_THRESH = 3  # in %
 ZERO_BIN_MIN_INTENSITY = 0.05  # relative to the most abundant mass shift
 MIN_FIX_MOD_PEP_COUNT_FACTOR = 2  # criterion for enabling fixed modification
 RECOMMEND_ISOTOPE_THRESH = 10  # in %
+MIN_LOC_COUNT_FOR_REC = 10
 
 
 def get_peptide_statistics(peptide_list):
@@ -186,8 +187,7 @@ def check_difference(shift1, shift2, tolerance=0.05):
 
     Returns
     -------
-    Boolean.
-    True if distance between mass shifts more thn sum of stds.
+    out : bool
     """
     mean_diff = (shift1[1] - shift2[1]) ** 2
     sigma_diff = (shift1[2] + shift2[2]) ** 2
@@ -211,7 +211,7 @@ def filter_mass_shifts(results, tolerance=0.05):
         Matching tolerance in Da.
     Returns
     -------
-     Updated poptperr matrix.
+    Updated poptperr matrix.
     """
     logger.info('Discarding bad peaks...')
     temp = []
@@ -389,11 +389,11 @@ def determine_fixed_mods_zero(aastat_result, data_dict, params_dict):
             if aastat_result[candidate_label][2][i] > FIX_MOD_ZERO_THRESH and (
                     est_ratio * 100 > FIX_MOD_ZERO_THRESH) and (
                     count_cand > count_ref * MIN_FIX_MOD_PEP_COUNT_FACTOR):
-                fix_mod_dict[i] = data_dict[candidate_label][0]
+                fix_mod_dict[i] = candidate_label
             else:
-                logger.info('Could not find %s anywhere. Can\'t fix.', i)
+                logger.debug('Could not find %s anywhere. Can\'t fix.', i)
         else:
-            logger.info('Reference shift is the best for %s.', i)
+            logger.debug('Reference shift is the best for %s.', i)
     return fix_mod_dict
 
 
@@ -411,7 +411,7 @@ def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_
         loc = determine_fixed_mods_nonzero(reference, locmod_df, data_dict)
         if loc:
             aa, shift = utils.parse_l10n_site(loc)
-            fix_mod_dict = {aa: data_dict[shift][0]}
+            fix_mod_dict = {aa: shift}
         else:
             logger.info('No localizations. Stopping.')
 
@@ -438,15 +438,45 @@ def recommend_isotope_error(aastat_df, locmod_df):
     return i
 
 
+def recalculate_counts(aa, ms, mods_and_counts, data_dict):
+    mods_and_counts[aa].pop(ms, None)
+    for i, row in data_dict[ms][1].iterrows():
+        seq = row['top isoform']
+        if row['top_terms'] is not None and ms in row['top_terms']:
+            if aa == 'N-term' and seq[1] == '[':
+                utils.internal('Reducing count of %s for %s (%s)', seq[0], seq, aa)
+                if mods_and_counts[seq[0]].get(ms, 0) > 0:
+                    mods_and_counts[seq[0]][ms] -= 1
+            elif aa == 'C-term' and seq[-1] == ']':
+                res = seq.split('[')[0][-1]
+                utils.internal('Reducing count of %s for %s (%s)', res, seq, aa)
+                if mods_and_counts[res].get(ms, 0) > 0:
+                    mods_and_counts[res][ms] -= 1
+            elif seq[:2] == aa + '[':
+                utils.internal('Reducing count of N-term for %s', seq)
+                if mods_and_counts['N-term'].get(ms, 0) > 0:
+                    mods_and_counts['N-term'][ms] -= 1
+            elif seq[-1] == ']' and seq.split('[')[0][-1] == aa:
+                utils.internal('Reducing count of C-term for %s', seq)
+                if mods_and_counts['C-term'].get(ms, 0) > 0:
+                    mods_and_counts['C-term'][ms] -= 1
+
+
 def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_dict, recommended_fix_mods=None):
     if locmod_df is None:
         logger.info('Cannot recommend variable modifications without localization.')
         return {}
-    var_mods = {}
+    var_mods = []
+    recommended = set()
+    multiple = params_dict['multiple_mods']
+    if multiple:
+        logger.info('Recommending multiple modifications on same residue.')
+    else:
+        logger.info('Recommending one modification per residue.')
     isotope_rec = recommend_isotope_error(aastat_df, locmod_df)
     logger.info('Recommended isotope mass error: %d.', isotope_rec)
     if isotope_rec:
-        var_mods['isotope error'] = isotope_rec
+        var_mods.append(('isotope error', isotope_rec))
     reference = aastat_df.loc[aastat_df['is reference']].index[0]
     mods_and_counts = defaultdict(dict)  # dict of AA: label: count
     for shift in data_dict:
@@ -470,21 +500,61 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
                     label = utils.get_isotope_shift(shift, locmod_df)
                     if label:
                         dcounts[shift] = dcounts.get(shift, 0) + mods_and_counts[aa].get(label, 0)
-                        dcounts.pop(label, None)
+                        # dcounts.pop(label, None)
                         i += 1
                     else:
                         break
+        i = 0
+        shift = reference
+        while i < isotope_rec:
+            label = utils.get_isotope_shift(shift, locmod_df)
+            if label:
+                logger.debug('Removing all counts for isotope shift %s', label)
+                for aa, dcounts in mods_and_counts.items():
+                    dcounts[label] = 0
+                i += 1
+            else:
+                break
         logger.debug('With isotopes, localization counts are:')
         for k, d in mods_and_counts.items():
             logger.debug('%s: %s', k, d)
-    aa_shifts = {aa: max(mods_and_counts[aa], key=mods_and_counts[aa].get) for aa in mods_and_counts}
-    aa_counts = {aa: mods_and_counts[aa][shift] for aa, shift in aa_shifts.items()}
-    logger.debug('Best localization counts: %s', aa_shifts)
-    left_shifts = {aa: shift for aa, shift in aa_shifts.items() if aa not in recommended_fix_mods}
-    logger.debug('Left to consider: %s', left_shifts)
-    top_mods = sorted(left_shifts, key=aa_counts.get, reverse=True)[:params_dict['variable_mods']]
-    for aa in top_mods:
-        var_mods[aa] = data_dict[left_shifts[aa]][0]
+
+    if recommended_fix_mods:
+        logger.debug('Subtracting counts for fixed mods.')
+        for aa, shift in recommended_fix_mods.items():
+            recalculate_counts(aa, shift, mods_and_counts, data_dict)
+            i = 0
+            while i < isotope_rec:
+                label = utils.get_isotope_shift(shift, locmod_df)
+                if label:
+                    logger.debug('Recalculating counts for isotope shift %s', label)
+                    recalculate_counts(aa, label, mods_and_counts, data_dict)
+                    i += 1
+                else:
+                    break
+
+    for i in range(params_dict['variable_mods']):
+        logger.debug('Choosing variable modification %d. Counts are:', i + 1)
+        for k, d in mods_and_counts.items():
+            logger.debug('%s: %s', k, d)
+        aa_shifts = {aa: max(mods_and_counts[aa], key=mods_and_counts[aa].get) for aa in mods_and_counts}
+        aa_counts = {aa: mods_and_counts[aa][shift] for aa, shift in aa_shifts.items()}
+        logger.debug('Best localization counts: %s', aa_shifts)
+        logger.debug('Values: %s', aa_counts)
+        top_aa = max(aa_shifts, key=aa_counts.get)
+        top_shift = aa_shifts[top_aa]
+        top_count = aa_counts[top_aa]
+        if top_count < MIN_LOC_COUNT_FOR_REC:
+            logger.debug('Localication count too small (%d), stopping.', top_count)
+            break
+        recommended.add(top_aa)
+        var_mods.append((top_aa, top_shift))
+        logger.debug('Chose %s @ %s.', top_shift, top_aa)
+        recalculate_counts(top_aa, top_shift, mods_and_counts, data_dict)
+        if not multiple:
+            logger.debug('Removing all counts for %s.', top_aa)
+            for sh in mods_and_counts[top_aa]:
+                mods_and_counts[top_aa][sh] = 0
     return var_mods
 
 
@@ -593,13 +663,13 @@ def AA_stat(params_dict, args, step=None):
     utils.internal('Data dict: \n%s', mass_shift_data_dict)
     recommended_fix_mods = determine_fixed_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict)
     if recommended_fix_mods:
-        logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict(recommended_fix_mods))
+        logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict_str(recommended_fix_mods))
     else:
         logger.info('Fixed modifications not recommended.')
     recommended_var_mods = determine_var_mods(
         figure_data, table, locmod_df, mass_shift_data_dict, params_dict, recommended_fix_mods)
     if recommended_var_mods:
-        logger.info('Recommended variable modifications: %s.', utils.format_mod_dict(recommended_var_mods))
+        logger.info('Recommended variable modifications: %s.', utils.format_mod_list(recommended_var_mods))
     else:
         logger.info('Variable modifications not recommended.')
     utils.render_html_report(table, params_dict, recommended_fix_mods, recommended_var_mods, save_directory, step=step)

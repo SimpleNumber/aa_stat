@@ -15,7 +15,7 @@ OS_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'op
 
 logger = logging.getLogger(__name__)
 
-dict_aa = {
+DICT_AA = {
     'add_G_glycine'       : 'G',
     'add_A_alanine'       : 'A',
     'add_S_serine'        : 'S',
@@ -101,11 +101,14 @@ def main():
             if new_fix_mod_dict:
                 for k, v in new_fix_mod_dict.items():
                     fix_mod_dict.setdefault(k, 0.)
-                    fix_mod_dict[k] += v
+                    fix_mod_dict[k] += data_dict[v][0]
                 step += 1
             else:
                 break
         try:
+            if os.path.isfile(os.path.join(working_dir, 'report.html')):
+                logger.debug('Removing existing report.html.')
+                os.remove(os.path.join(working_dir, 'report.html'))
             os.symlink(os.path.join('os_step_1', 'report.html'), os.path.join(working_dir, 'report.html'))
         except Exception as e:
             logger.debug('Can\'t create symlink to report: %s', e)
@@ -115,7 +118,7 @@ def main():
     else:
         logger.info('Running one-shot search.')
         folder_name = ''
-        run_step_os(spectra, folder_name, args.dir, args, params_dict, None)
+        run_step_os(spectra, folder_name, args.dir, args, params_dict)
 
 
 def get_pepxml(input_file, d=None):
@@ -151,8 +154,8 @@ def create_os_params(output, original=None, mass_shifts=None, fastafile=None):
             key = line.split('=')[0].strip()
             if key == 'database_name' and fastafile:
                 new_params.write('database_name = {}\n'.format(fastafile))
-            elif mass_shifts and dict_aa.get(key) in mass_shifts:
-                aa = dict_aa[key]
+            elif mass_shifts and DICT_AA.get(key) in mass_shifts:
+                aa = DICT_AA[key]
                 new_params.write(key + ' = ' + str(mass_shifts[aa]) + '\n')
             else:
                 new_params.write(line)
