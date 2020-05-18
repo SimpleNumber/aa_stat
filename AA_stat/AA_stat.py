@@ -504,6 +504,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
             if locshift == shift:
                 mods_and_counts[aa][shift] = count
     logger.debug('Without isotopes, localization counts are:')
+#    print(mods_and_counts)
     for k, d in mods_and_counts.items():
         logger.debug('%s: %s', k, d)
     if isotope_rec:
@@ -542,24 +543,26 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
         logger.debug('Choosing variable modification %d. Counts are:', i + 1)
         for k, d in mods_and_counts.items():
             logger.debug('%s: %s', k, d)
-        aa_shifts = {aa: max(dcounts, key=dcounts.get) for aa, dcounts in mods_and_counts.items() if dcounts}
-        aa_counts = {aa: mods_and_counts[aa][shift] for aa, shift in aa_shifts.items()}
-        logger.debug('Best localization counts: %s', aa_shifts)
-        logger.debug('Values: %s', aa_counts)
-        top_aa = max(aa_shifts, key=aa_counts.get)
-        top_shift = aa_shifts[top_aa]
-        top_count = aa_counts[top_aa]
-        if top_count < MIN_LOC_COUNT_FOR_REC:
-            logger.debug('Localication count too small (%d), stopping.', top_count)
-            break
-        recommended.add(top_aa)
-        var_mods.append((top_aa, top_shift))
-        logger.debug('Chose %s @ %s.', top_shift, top_aa)
-        recalculate_witgh_isotopes(top_aa, top_shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
-        if not multiple:
-            logger.debug('Removing all counts for %s.', top_aa)
-            for sh in mods_and_counts[top_aa]:
-                mods_and_counts[top_aa][sh] = 0
+            aa_shifts = {aa: max(dcounts, key=dcounts.get) for aa, dcounts in mods_and_counts.items() if dcounts}
+        if mods_and_counts:
+            aa_counts = {aa: mods_and_counts[aa][shift] for aa, shift in aa_shifts.items()}
+            logger.debug('Best localization counts: %s', aa_shifts)
+            logger.debug('Values: %s', aa_counts)
+            if aa_shifts:
+                top_aa = max(aa_shifts, key=aa_counts.get)
+                top_shift = aa_shifts[top_aa]
+                top_count = aa_counts[top_aa]
+                if top_count < MIN_LOC_COUNT_FOR_REC:
+                    logger.debug('Localication count too small (%d), stopping.', top_count)
+                    break
+                recommended.add(top_aa)
+                var_mods.append((top_aa, top_shift))
+                logger.debug('Chose %s @ %s.', top_shift, top_aa)
+                recalculate_witgh_isotopes(top_aa, top_shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
+                if not multiple:
+                    logger.debug('Removing all counts for %s.', top_aa)
+                    for sh in mods_and_counts[top_aa]:
+                        mods_and_counts[top_aa][sh] = 0
     return var_mods
 
 
