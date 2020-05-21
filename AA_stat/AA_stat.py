@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 AA_STAT_CAND_THRESH = 1.5
 ISOTOPE_TOLERANCE = 0.015
-UNIIMOD_TOLERANCE = 0.01
+UNIMOD_TOLERANCE = 0.01
 ZERO_BIN_TOLERANCE = 0.05
 FIX_MOD_ZERO_THRESH = 3  # in %
 ZERO_BIN_MIN_INTENSITY = 0.05  # relative to the most abundant mass shift
@@ -462,7 +462,7 @@ def recalculate_counts(aa, ms, mods_and_counts, data_dict):
                     mods_and_counts['C-term'][ms] -= 1
 
 
-def recalculate_witgh_isotopes(aa, ms, isotope_rec, mods_and_counts, data_dict, locmod_df):
+def recalculate_with_isotopes(aa, ms, isotope_rec, mods_and_counts, data_dict, locmod_df):
     logger.debug('Recalculating counts for %s @ %s', aa, ms)
     recalculate_counts(aa, ms, mods_and_counts, data_dict)
     i = 0
@@ -492,7 +492,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
     if isotope_rec:
         var_mods.append(('isotope error', isotope_rec))
     reference = aastat_df.loc[aastat_df['is reference']].index[0]
-    mods_and_counts = defaultdict(dict)  # dict of AA: label: count
+    mods_and_counts = defaultdict(dict)  # dict of AA: shift label: count
     for shift in data_dict:
         if shift == reference:
             continue
@@ -504,7 +504,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
             if locshift == shift:
                 mods_and_counts[aa][shift] = count
     logger.debug('Without isotopes, localization counts are:')
-#    print(mods_and_counts)
+
     for k, d in mods_and_counts.items():
         logger.debug('%s: %s', k, d)
     if isotope_rec:
@@ -537,7 +537,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
     if recommended_fix_mods:
         logger.debug('Subtracting counts for fixed mods.')
         for aa, shift in recommended_fix_mods.items():
-            recalculate_witgh_isotopes(aa, shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
+            recalculate_with_isotopes(aa, shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
 
     for i in range(params_dict['variable_mods']):
         logger.debug('Choosing variable modification %d. Counts are:', i + 1)
@@ -558,7 +558,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
                 recommended.add(top_aa)
                 var_mods.append((top_aa, top_shift))
                 logger.debug('Chose %s @ %s.', top_shift, top_aa)
-                recalculate_witgh_isotopes(top_aa, top_shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
+                recalculate_with_isotopes(top_aa, top_shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
                 if not multiple:
                     logger.debug('Removing all counts for %s.', top_aa)
                     for sh in mods_and_counts[top_aa]:
@@ -631,7 +631,7 @@ def AA_stat(params_dict, args, step=None):
         u = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml')).mods
         unimod_df = pd.DataFrame(u)
         locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(
-            lambda x: locTools.get_candidates_from_unimod(x, UNIIMOD_TOLERANCE, unimod_df))
+            lambda x: locTools.get_candidates_from_unimod(x, UNIMOD_TOLERANCE, unimod_df))
         locmod_df['all candidates'] = locmod_df.apply(
             lambda x: set(x['unimod candidates']) | (set(x['aa_stat candidates'])), axis=1)
         for i in locmod_df.loc[locmod_df['is isotope']].index:
