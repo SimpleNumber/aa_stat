@@ -19,7 +19,6 @@ import string
 from . import utils
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
 # H = mass.nist_mass['H'][0][0]
-MIN_SPEC_MATCHED = 4
 logger = logging.getLogger(__name__)
 
 
@@ -435,7 +434,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
             # utils.internal('seq = %s', seq)
             theor_spec = get_theor_spectrum(seq,
                 params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict, ion_types=params_dict['ion_types'])
-            scores.append(RNHS_fast(exp_dict, theor_spec[1], MIN_SPEC_MATCHED, ion_types=params_dict['ion_types'])[1])
+            scores.append(RNHS_fast(exp_dict, theor_spec[1], params_dict['min_spec_matched'], ion_types=params_dict['ion_types'])[1])
         scores = np.array(scores)
         i = np.argsort(scores)[::-1]
         scores = scores[i]

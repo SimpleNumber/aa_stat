@@ -13,17 +13,6 @@ from . import utils, locTools
 logger = logging.getLogger(__name__)
 
 
-AA_STAT_CAND_THRESH = 1.5
-ISOTOPE_TOLERANCE = 0.015
-UNIMOD_TOLERANCE = 0.01
-ZERO_BIN_TOLERANCE = 0.05
-FIX_MOD_ZERO_THRESH = 3  # in %
-ZERO_BIN_MIN_INTENSITY = 0.05  # relative to the most abundant mass shift
-MIN_FIX_MOD_PEP_COUNT_FACTOR = 2  # criterion for enabling fixed modification
-RECOMMEND_ISOTOPE_THRESH = 10  # in %
-MIN_LOC_COUNT_FOR_REC = 10
-
-
 def get_peptide_statistics(peptide_list):
     '''
     Calculates presence of amino acid in peptide sequences.
@@ -141,7 +130,7 @@ def calculate_error_and_p_vals(pep_list, err_ref_df, reference, rule, aas):
     return p_val, d.std(axis=1)
 
 
-def get_zero_mass_shift(mass_shift_data_dict, tolerance=0.05):
+def get_zero_mass_shift(mass_shift_data_dict, params_dict):
     """
     Shift of non-modified peak. Finds zero mass shift.
 
@@ -149,8 +138,7 @@ def get_zero_mass_shift(mass_shift_data_dict, tolerance=0.05):
     ----------
     mass_shift_data_dict : dict
         dict of mass shifts.
-    tolerance: float
-        Tolerance for zero mass shift in Da.
+    params_dict: dict
 
     Returns
     -------
@@ -163,7 +151,7 @@ def get_zero_mass_shift(mass_shift_data_dict, tolerance=0.05):
     maxbin = max(df.shape[0] for df in data)
     logger.debug('Closest to zero: %s, with %d peptides. Top mass shift has %d peptides.',
                  keys[lref], data[lref].shape[0], maxbin)
-    if abs(values[lref]) > tolerance or data[lref].shape[0] / maxbin < ZERO_BIN_MIN_INTENSITY:
+    if abs(values[lref]) > params_dict['zero bin tolerance'] or data[lref].shape[0] / maxbin < params_dict['zero min intensity']:
         logger.warning('Too few unmodified peptides. Mass shift with most identifications will be the reference.')
         identifications = [df.shape[0] for df in data]
         lref = np.argmax(identifications)
@@ -369,26 +357,29 @@ def determine_fixed_mods_zero(aastat_result, data_dict, params_dict):
     """Determine fixed modifications in case the reference shift is at zero.
     Does not need localization.
     """
+    fix_mod_zero_thresh = params_dict['fix_mod_zero_thresh']
+    min_fix_mod_pep_count_factor = params_dict['min_fix_mod_pep_count_factor']
+
     fix_mod_dict = {}
     reference = utils.mass_format(0)
     aa_rel = aastat_result[reference][2]
     utils.internal('aa_rel:\n%s', aa_rel)
-    candidates = aa_rel[aa_rel < FIX_MOD_ZERO_THRESH].index
+    candidates = aa_rel[aa_rel < fix_mod_zero_thresh].index
     logger.debug('Fixed mod candidates: %s', candidates)
     for i in candidates:
         candidate_label = get_fixed_mod_raw(i, data_dict)
         if candidate_label != reference:
             # number of peptides with `i` at shift `candidate label` must be higher than ...
             count_cand = data_dict[candidate_label][1][params_dict['peptides_column']].str.contains(i).sum()
-            # number of peptides with `i` at shift `reference` by a factor of `MIN_FIX_MOD_PEP_COUNT_FACTOR`
+            # number of peptides with `i` at shift `reference` by a factor of `min_fix_mod_pep_count_factor`
             count_ref = data_dict[reference][1][params_dict['peptides_column']].str.contains(i).sum()
             # peptide count at candidate shift over # of peptides at reference
             est_ratio = count_cand / len(data_dict[reference][1])
             logger.debug('Peptides with %s: ~%d at %s, ~%d at %s. Estimated pct: %f',
                 i, count_ref, reference, count_cand, candidate_label, est_ratio)
-            if aastat_result[candidate_label][2][i] > FIX_MOD_ZERO_THRESH and (
-                    est_ratio * 100 > FIX_MOD_ZERO_THRESH) and (
-                    count_cand > count_ref * MIN_FIX_MOD_PEP_COUNT_FACTOR):
+            if aastat_result[candidate_label][2][i] > fix_mod_zero_thresh and (
+                    est_ratio * 100 > fix_mod_zero_thresh) and (
+                    count_cand > count_ref * min_fix_mod_pep_count_factor):
                 fix_mod_dict[i] = candidate_label
             else:
                 logger.debug('Could not find %s anywhere. Can\'t fix.', i)
@@ -418,7 +409,7 @@ def determine_fixed_mods(aastat_result, aastat_df, locmod_df, data_dict, params_
     return fix_mod_dict
 
 
-def recommend_isotope_error(aastat_df, locmod_df):
+def recommend_isotope_error(aastat_df, locmod_df, params_dict):
     reference = aastat_df.loc[aastat_df['is reference']].index[0]
     ref_peptides = locmod_df.at[reference, '# peptides in bin']
     logger.debug('%d peptides at reference %s', ref_peptides, reference)
@@ -433,7 +424,7 @@ def recommend_isotope_error(aastat_df, locmod_df):
     for i, label in enumerate(ref_isotopes, 1):
         peps = locmod_df.at[label, '# peptides in bin']
         logger.debug('%d peptides at %s.', peps, label)
-        if peps * 100 / ref_peptides < RECOMMEND_ISOTOPE_THRESH:
+        if peps * 100 / ref_peptides < params_dict['recommend isotope threshold']:
             return i - 1
     return i
 
@@ -487,7 +478,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
         logger.info('Recommending multiple modifications on same residue.')
     else:
         logger.info('Recommending one modification per residue.')
-    isotope_rec = recommend_isotope_error(aastat_df, locmod_df)
+    isotope_rec = recommend_isotope_error(aastat_df, locmod_df, params_dict)
     logger.info('Recommended isotope mass error: %d.', isotope_rec)
     if isotope_rec:
         var_mods.append(('isotope error', isotope_rec))
@@ -552,7 +543,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
                 top_aa = max(aa_shifts, key=aa_counts.get)
                 top_shift = aa_shifts[top_aa]
                 top_count = aa_counts[top_aa]
-                if top_count < MIN_LOC_COUNT_FOR_REC:
+                if top_count < params_dict['min_loc_count']:
                     logger.debug('Localication count too small (%d), stopping.', top_count)
                     break
                 recommended.add(top_aa)
@@ -586,8 +577,8 @@ def AA_stat(params_dict, args, step=None):
         utils.render_html_report(None, params_dict, {}, {}, save_directory, step=step)
         return None, None, None, mass_shift_data_dict, {}
 
-    reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, tolerance=ZERO_BIN_TOLERANCE)
-    if abs(reference_mass_shift) < ZERO_BIN_TOLERANCE:
+    reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, params_dict)
+    if abs(reference_mass_shift) < params_dict['zero bin tolerance']:
         logger.info("Systematic mass shift equals to %s", reference_label)
         mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, reference_mass_shift)
         reference_mass_shift = 0.0
@@ -618,7 +609,7 @@ def AA_stat(params_dict, args, step=None):
         locmod_df = pd.DataFrame({'mass shift': ms_labels})
         locmod_df['# peptides in bin'] = table['# peptides in bin']
         locmod_df[['is isotope', 'isotop_ind']] = locTools.find_isotopes(
-            locmod_df['mass shift'], locmod_df['# peptides in bin'], tolerance=ISOTOPE_TOLERANCE)
+            locmod_df['mass shift'], locmod_df['# peptides in bin'], tolerance=params_dict['isotope mass tolerance'])
         locmod_df.at[reference_label, 'is isotope'] = False
         locmod_df.at[reference_label, 'isotop_ind'] = False
         logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
@@ -627,11 +618,11 @@ def AA_stat(params_dict, args, step=None):
             tolerance=params_dict['shift_error'] * params_dict['bin_width'])
 
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(
-            table, labels=params_dict['labels'], threshold=AA_STAT_CAND_THRESH)
+            table, labels=params_dict['labels'], threshold=params_dict['candidate threshold'])
         u = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml')).mods
         unimod_df = pd.DataFrame(u)
         locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(
-            lambda x: locTools.get_candidates_from_unimod(x, UNIMOD_TOLERANCE, unimod_df))
+            lambda x: locTools.get_candidates_from_unimod(x, params_dict['unimod mass tolerance'], unimod_df))
         locmod_df['all candidates'] = locmod_df.apply(
             lambda x: set(x['unimod candidates']) | (set(x['aa_stat candidates'])), axis=1)
         for i in locmod_df.loc[locmod_df['is isotope']].index:

@@ -27,9 +27,7 @@ logging.getLogger('matplotlib.font_manager').disabled = True
 
 MASS_FORMAT = '{:+.4f}'
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
-FIT_BATCH = 900
 INTERNAL = 5
-MIN_PEPTIDES_FOR_MASS_CALIBRATION = 100
 
 
 cc = ["#FF6600",
@@ -98,7 +96,7 @@ def preprocess_df(df, filename, params_dict):
     ms, filtered = fdr_filter_mass_shift([None, zero_bin, window / 2], df, params_dict)
     n = filtered.shape[0]
     logger.debug('%d filtered peptides near zero.', n)
-    if n < MIN_PEPTIDES_FOR_MASS_CALIBRATION:
+    if n < params_dict['min_peptides_for_mass_calibration']:
         logger.warning('Skipping mass calibration: not enough peptides near zero mass shift.')
     else:
         logger.debug('Fitting zero-shift peptides...')
@@ -370,7 +368,7 @@ def fit_peaks(data, args, params_dict):
         Parameters dict.
     """
     logger.info('Performing Gaussian fit...')
-
+    fit_batch = params_dict['fit batch']
     half_window = int(params_dict['window'] / 2) + 1
     hist = np.histogram(data[params_dict['mass_shifts_column']], bins=params_dict['bins'])
     hist_y = smooth(hist[0], window_size=params_dict['window'], power=5)
@@ -386,7 +384,7 @@ def fit_peaks(data, args, params_dict):
     height_error = params_dict['max_deviation_height']
     sigma_error = params_dict['max_deviation_sigma']
     logger.debug('Candidates for fit: %s', len(loc_max_candidates_ind))
-    nproc = int(math.ceil(len(loc_max_candidates_ind) / FIT_BATCH))
+    nproc = int(math.ceil(len(loc_max_candidates_ind) / fit_batch))
     if nproc > 1:
         arguments = []
         logger.debug('Splitting the fit into %s batches...', nproc)
@@ -395,10 +393,10 @@ def fit_peaks(data, args, params_dict):
         pool = mp.Pool(n)
         for proc in range(nproc):
             xlist = [hist_x[center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc * FIT_BATCH : (proc + 1) * FIT_BATCH]]
+                for center in loc_max_candidates_ind[proc * fit_batch : (proc + 1) * fit_batch]]
             xs = np.concatenate(xlist)
             ylist = [hist[0][center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc * FIT_BATCH : (proc + 1) * FIT_BATCH]]
+                for center in loc_max_candidates_ind[proc * fit_batch : (proc + 1) * fit_batch]]
             ys = np.concatenate(ylist)
             out = os.path.join(args.dir, 'gauss_fit_{}.pdf'.format(proc + 1))
             arguments.append((out, len(xlist), xs, ys, half_window, height_error, sigma_error))
@@ -484,8 +482,10 @@ def get_parameters(params):
     parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins')
     parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')
     parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
-    parameters_dict['variable_mods'] = params.getint('general', 'recommend variable modifications')
-    parameters_dict['multiple_mods'] = params.getboolean('general', 'recommend multiple modifications on residue')
+
+    parameters_dict['zero bin tolerance'] = params.getfloat('general', 'zero shift mass tolerance')
+    parameters_dict['zero min intensity'] = params.getfloat('general', 'zero shift minimum intensity')
+    parameters_dict['min_peptides_for_mass_calibration'] = params.getint('general', 'minimum peptides for mass calibration')
 
     parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')  # spec_window_flag
     parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]  # spec_window
@@ -496,19 +496,28 @@ def get_parameters(params):
     #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
     parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
+    parameters_dict['fit batch'] = params.getint('fit', 'batch')
     # localization
     parameters_dict['spectrum_column'] = params.get('localization', 'spectrum column')
     parameters_dict['charge_column'] = params.get('localization', 'charge column')
     parameters_dict['ion_types'] = tuple(params.get('localization', 'ion type').replace(' ', '').split(','))
     parameters_dict['frag_acc'] = params.getfloat('localization', 'fragmentation mass tolerance')
+    parameters_dict['candidate threshold'] = params.getfloat('localization', 'frequency threshold')
+    parameters_dict['isotope mass tolerance'] = params.getfloat('localization', 'isotope mass tolerance')
+    parameters_dict['unimod mass tolerance'] = params.getfloat('localization', 'unimod mass tolerance')
+    parameters_dict['min_spec_matched'] = params.getint('localization', 'minimum matched peaks')
+
+    # modifications
+    parameters_dict['variable_mods'] = params.getint('modifications', 'recommend variable modifications')
+    parameters_dict['multiple_mods'] = params.getboolean('modifications', 'recommend multiple modifications on residue')
+    parameters_dict['fix_mod_zero_thresh'] = params.getfloat('modifications', 'fixed modification intensity threshold')
+    parameters_dict['min_fix_mod_pep_count_factor'] = params.getfloat('modifications', 'peptide count factor threshold')
+    parameters_dict['recommend isotope threshold'] = params.getfloat('modifications', 'isotope error abundance threshold')
+    parameters_dict['min_loc_count'] = params.getint('modifications', 'minimum localization count')
     return parameters_dict
 
 
 def set_additional_params(params_dict):
-    """
-    Updates dict with new paramenters.
-    Returns dict.
-    """
     if params_dict['specific_mass_shift_flag']:
         logger.info('Custom bin: %s', params_dict['specific_window'])
         params_dict['so_range'] = params_dict['specific_window'][:]
