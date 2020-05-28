@@ -26,9 +26,10 @@ logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').disabled = True
 
 MASS_FORMAT = '{:+.4f}'
+UNIMOD = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml'))
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 INTERNAL = 5
-
+DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
 
 cc = ["#FF6600",
       "#FFCC00",
@@ -682,6 +683,28 @@ def summarizing_hist(table, save_directory):
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
 
 
+def format_unimod_repr(record_id):
+    record = UNIMOD[record_id]
+    return '<a href="http://www.unimod.org/modifications_view.php?editid1={0[record_id]}">{0[title]}</a>'.format(record)
+
+
+def get_label(table, ms, second=False):
+    row = table.loc[ms]
+    if row['isotope index'] is None and row['sum of mass shifts'] is None:
+        if len(row['unimod accessions']) == 1:
+            return ('+' if second else '') + format_unimod_repr(next(iter(row['unimod accessions'])))
+    return ms
+
+
+def format_info(row, table):
+    options = list(map(format_unimod_repr, row['unimod accessions']))
+    if row['isotope index']:
+        options.append('isotope of {}'.format(get_label(table, row['isotope index'])))
+    if isinstance(row['sum of mass shifts'], list):
+        options.extend('{}{}'.format(get_label(table, s1), get_label(table, s2, True)) for s1, s2 in row['sum of mass shifts'])
+    return ', '.join(options)
+
+
 def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods, save_directory, step=None):
     path = os.path.join(save_directory, 'report.html')
     if os.path.islink(path):
@@ -694,20 +717,23 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         return
     table = table_.copy()
     labels = params_dict['labels']
+    table['info'] = table.apply(format_info, axis=1, args=(table,))
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
         mslabel = '<a id="binh" href="#">mass shift</a>'
         columns[0] = mslabel
         table.columns = columns
-        table_html = table.style.hide_index().hide_columns(['is reference']).applymap(
+        to_hide = list({'is reference', 'sum of mass shifts', 'isotope index', 'unimod accessions',
+            'is isotope', 'unimod candidates'}.intersection(columns))
+        table_html = table.style.hide_index().hide_columns(to_hide).applymap(
             lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
             ).set_precision(3).apply(
             lambda row: ['background-color: #cccccc' if row['is reference'] else '' for cell in row], axis=1).set_table_styles([
                 {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
                 {'selector': 'td, th', 'props': [('text-align', 'center')]},
                 {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
-            ).format({'Unimod': '<a href="{}">search</a>'.format,
+            ).format({  #'Unimod': '<a href="{}">search</a>'.format,
                 mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format,
                 '# peptides in bin': '<a href="#">{}</a>'.format}).bar(subset='# peptides in bin', color=cc[2]).render(
             uuid="aa_stat_table")
@@ -779,6 +805,120 @@ def write_html(path, **template_vars):
 
     with open(path, 'w') as output:
         output.write(template.render(template_vars))
+
+
+def find_isotopes(ms, peptides_in_bin, tolerance=0.01):
+    """
+    Find the isotopes between mass shifts using mass difference of C13 and C12, information of amino acids statistics as well.
+
+    Paramenters
+    -----------
+
+    ms : Series
+        Series with mass in str format as index and values float mass shift.
+    peptides_in_bin : Series
+        Series with # of peptides in each mass shift.
+    tolerance : float
+        Tolerance for isotop matching.
+
+    Returns
+    -------
+    DataFrame with 'isotop'(boolean) and 'monoisotop_index' columns.
+    """
+    out = pd.DataFrame({'isotope': False, 'monoisotop_index': None}, index=ms.index)
+    np_ms = ms.to_numpy()
+    difference_matrix = np.abs(np_ms.reshape(-1, 1) - np_ms.reshape(1, -1) - DIFF_C13)
+    isotop, monoisotop = np.where(difference_matrix < tolerance)
+    logger.debug('Found %d potential isotopes.', isotop.sum())
+    out.iloc[isotop, 0] = True
+    out.iloc[isotop, 1] = out.iloc[monoisotop, :].index
+    for i, row in out.iterrows():
+        if row['isotope']:
+            if peptides_in_bin[i] > peptides_in_bin[row['monoisotop_index']]:
+                out.at[i, 'isotope'], out.at[i, 'monoisotop_index'] = False, None
+    return out
+
+
+def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
+    """
+    Find modifications for `mass_shift` in Unimod.org database with a given `tolerance`.
+
+
+    Paramenters
+    -----------
+    mass_shift : float
+        Modification mass in Da.
+    tolerance : float
+        Tolerance for the search in Unimod db.
+    unimod_df : DataFrame
+        DF with all unimod mo9difications.
+
+    Returns
+    -------
+    List  of amino acids.
+
+    """
+    ind = abs(unimod_df['mono_mass'] - mass_shift) < tolerance
+    sites_set = set()
+    accessions = set()
+    for i, row in unimod_df.loc[ind].iterrows():
+        sites_set.update(s['site'] for s in row['specificity'])
+        accessions.add(row['record_id'])
+    return sites_set, accessions
+
+
+def find_mod_sum(x, index, sum_matrix, tolerance):
+    """
+    Finds mass shift that are sum of given mass shift and other mass shift results in already existing mass shift.
+
+    Parameters
+    ----------
+    x : float
+        Mass shift that considered as a component of a modification.
+    index : dict
+        Map for mass shift indexes and their values.
+    sum_matrix : numpy 2D array
+        Matrix of sums for all mass shifts.
+    tolerance: float
+        Matching tolerance in Da.
+
+    Returns
+    -------
+    List of tuples.
+    """
+    rows, cols = np.where(np.abs(sum_matrix - x) < tolerance)
+    i = rows <= cols
+    if rows.size:
+        return list(zip(index[rows[i]], index[cols[i]]))
+    return None
+
+
+def find_sums(ms, tolerance=0.005):
+    """
+    Finds the sums of mass shifts in Series, if it exists.
+
+    Parameters
+    ----------
+    ms : Series
+        Series with mass in str format as index and values float mass shift.
+    tolerance : float
+        Matching tolerance in Da.
+
+    Returns
+    -------
+    Series with pairs of mass shift for all mass shifts.
+
+    """
+    zero = mass_format(0.0)
+    if zero in ms.index:
+        col = ms.drop(zero)
+    else:
+        col = ms
+        logger.info('Zero mass shift not found in candidates.')
+    values = col.values
+    sum_matrix = values.reshape(-1, 1) + values.reshape(1, -1)
+    out = col.apply(find_mod_sum, args=(col.index, sum_matrix, tolerance))
+    return out
 
 
 def format_isoform(row):
@@ -859,7 +999,7 @@ def format_mod_list(items):
 
 
 def get_isotope_shift(label, locmod_df):
-    isotope = locmod_df[locmod_df['isotop_ind'] == label]
+    isotope = locmod_df[locmod_df['isotope index'] == label]
     if not isotope.shape[0]:
         return
     return isotope[isotope['# peptides in bin'] == isotope['# peptides in bin'].max()].index[0]

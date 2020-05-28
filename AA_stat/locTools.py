@@ -17,7 +17,7 @@ except ImportError:
     cmass = mass
 import string
 from . import utils
-DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
+
 # H = mass.nist_mass['H'][0][0]
 logger = logging.getLogger(__name__)
 
@@ -193,32 +193,6 @@ def peptide_isoforms(peptide, m, sites):
     return isoforms
 
 
-def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
-    """
-    Find modifications for `mass_shift` in Unimod.org database with a given `tolerance`.
-
-
-    Paramenters
-    -----------
-    mass_shift : float
-        Modification mass in Da.
-    tolerance : float
-        Tolerance for the search in Unimod db.
-    unimod_df : DataFrame
-        DF with all unimod mo9difications.
-
-    Returns
-    -------
-    List  of amino acids.
-
-    """
-    ind = abs(unimod_df['mono_mass'] - mass_shift) < tolerance
-    sites_set = set()
-    for i, row in unimod_df.loc[ind].iterrows():
-        sites_set.update(set(pd.DataFrame(row['specificity']).site))
-    return list(sites_set)
-
-
 def get_candidates_from_aastat(mass_shifts_table, labels, threshold=1.5):
     """
     Get localization candidates from amono acid statistics.
@@ -270,93 +244,7 @@ def get_full_set_of_candicates(locmod_df):
     return pd.Series(out)
 
 
-def find_isotopes(ms, peptides_in_bin, tolerance=0.01):
-    """
-    Find the isotopes between mass shifts using mass difference of C13 and C12, information of amino acids statistics as well.
-
-    Paramenters
-    -----------
-
-    ms : Series
-        Series with mass in str format as index and values float mass shift.
-    peptides_in_bin : Series
-        Series with # of peptides in each mass shift.
-    tolerance : float
-        Tolerance for isotop matching.
-
-    Returns
-    -------
-    DataFrame with 'isotop'(boolean) and 'monoisotop_index' columns.
-    """
-    out = pd.DataFrame({'isotope': False, 'monoisotop_index': False}, index=ms.index)
-    np_ms = ms.to_numpy()
-    difference_matrix = np.abs(np_ms.reshape(-1, 1) - np_ms.reshape(1, -1) - DIFF_C13)
-    isotop, monoisotop = np.where(difference_matrix < tolerance)
-    out.iloc[isotop, 0] = True
-    out.iloc[isotop, 1] = out.iloc[monoisotop, :].index
-    for row in out.iterrows():
-        if row[1]['isotope']:
-            if peptides_in_bin[row[0]] > peptides_in_bin[row[1]['monoisotop_index']]:
-                out.at[row[0], ['isotope']], out.at[row[0], ['monoisotop_index']] = False, False
-    return out
-
-
-def find_mod_sum(x, index, sum_matrix, tolerance):
-    """
-    Finds mass shift that are sum of given mass shift and other mass shift results in already existing mass shift.
-
-    Parameters
-    ----------
-    x : float
-        Mass shift that considered as a component of a modification.
-    index : dict
-        Map for mass shift indexes and their values.
-    sum_matrix : numpy 2D array
-        Matrix of sums for all mass shifts.
-    tolerance: float
-        Matching tolerance in Da.
-
-    Returns
-    -------
-    List of tuples.
-    """
-    rows, cols = np.where(np.abs(sum_matrix - x) < tolerance)
-    i = rows <= cols
-    if rows.size:
-        return list(zip(index[rows[i]], index[cols[i]]))
-    return np.nan
-
-
-def find_modifications(ms, tolerance=0.005):
-    """
-    Finds the sums of mass shifts in Series, if it exists.
-
-    Parameters
-    ----------
-    ms : Series
-        Series with mass in str format as index and values float mass shift.
-    tolerance : float
-        Matching tolerance in Da.
-
-    Returns
-    -------
-    Series with pairs of mass shift for all mass shifts.
-
-    """
-    zero = utils.mass_format(0.0)
-    if zero in ms.index:
-        col = ms.drop(zero)
-    else:
-        col = ms
-        logger.info('Zero mass shift not found in candidates.')
-    values = col.values
-    sum_matrix = values.reshape(-1, 1) + values.reshape(1, -1)
-    out = col.apply(find_mod_sum, args=(col.index, sum_matrix, tolerance))
-    return out
-
-
 def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict, spectra_dict, mass_shift_dict):
-
     """
     Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
 
@@ -500,7 +388,8 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     -------
     Counter of localizations.
     """
-    logger.info('Localizing %s at %s', ms_label, locations_ms)
+    logger.info('Localizing %s...', ms_label)
+    logger.debug('Localizations: %s', locations_ms)
     if len(locations_ms) < 2 and list(locations_ms[0].values())[0] == set():
         df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'] = None, None, None, None
     else:

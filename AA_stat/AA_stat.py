@@ -66,7 +66,7 @@ def get_aa_distribution(peptide_list, rule):
     return d
 
 
-def save_table(distributions, number_of_PSMs, mass_shifts, reference_label):
+def make_table(distributions, number_of_PSMs, mass_shifts, reference_label):
     '''
     Prepares amino acid statistis result table.
 
@@ -84,14 +84,11 @@ def save_table(distributions, number_of_PSMs, mass_shifts, reference_label):
 
     A table with mass shifts, psms, amino acid statistics columns.
     '''
-    unimod = pd.Series({i: utils.get_unimod_url(float(i)) for i in number_of_PSMs.index})
     df = pd.DataFrame({'mass shift': [mass_shifts[k] for k in distributions.columns],
                        '# peptides in bin': number_of_PSMs},
                       index=distributions.columns)
     df['# peptides in bin'] = df['# peptides in bin'].astype(np.int64)
     out = pd.concat([df, distributions.T], axis=1)
-    out['Unimod'] = unimod
-    out.reset_index(inplace=True, drop=True)
     out['is reference'] = df.index == reference_label
     return out
 
@@ -590,12 +587,25 @@ def AA_stat(params_dict, args, step=None):
 
     distributions, number_of_PSMs, figure_data = calculate_statistics(mass_shift_data_dict, reference_label, params_dict, args)
 
-    table = save_table(distributions, number_of_PSMs, ms_labels, reference_label)
-    table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
+    table = make_table(distributions, number_of_PSMs, ms_labels, reference_label)
 
     utils.summarizing_hist(table, save_directory)
     logger.info('Summary histogram saved.')
-    table.index = table['mass shift'].apply(utils.mass_format)
+    # table.index = table['mass shift'].apply(utils.mass_format)
+    table[['is isotope', 'isotope index']] = utils.find_isotopes(
+        table['mass shift'], table['# peptides in bin'], tolerance=params_dict['isotope mass tolerance'])
+    table.at[reference_label, 'is isotope'] = False
+    table.at[reference_label, 'isotope index'] = None
+    logger.debug('Isotopes:\n%s', table.loc[table['is isotope']])
+    u = utils.UNIMOD.mods
+    unimod_df = pd.DataFrame(u)
+    table['unimod candidates'], table['unimod accessions'] = zip(*table['mass shift'].apply(
+        lambda x: utils.get_candidates_from_unimod(x, params_dict['unimod mass tolerance'], unimod_df)))
+
+    table['sum of mass shifts'] = utils.find_sums(table.loc[~table['is isotope'], 'mass shift'],
+            tolerance=params_dict['shift_error'] * params_dict['bin_width'])
+    logger.debug('Sums of mass shifts:\n%s', table.loc[table['sum of mass shifts'].notna()])
+    table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
     spectra_dict = utils.read_spectra(args)
 
@@ -606,28 +616,17 @@ def AA_stat(params_dict, args, step=None):
             params_dict['mzml_files'] = True
         logger.info('Starting Localization using MS/MS spectra...')
         ms_labels = pd.Series(ms_labels)
-        locmod_df = pd.DataFrame({'mass shift': ms_labels})
-        locmod_df['# peptides in bin'] = table['# peptides in bin']
-        locmod_df[['is isotope', 'isotop_ind']] = locTools.find_isotopes(
-            locmod_df['mass shift'], locmod_df['# peptides in bin'], tolerance=params_dict['isotope mass tolerance'])
-        locmod_df.at[reference_label, 'is isotope'] = False
-        locmod_df.at[reference_label, 'isotop_ind'] = False
-        logger.debug('Isotopes:\n%s', locmod_df.loc[locmod_df['is isotope']])
-        locmod_df['sum of mass shifts'] = locTools.find_modifications(
-            locmod_df.loc[~locmod_df['is isotope'], 'mass shift'],
-            tolerance=params_dict['shift_error'] * params_dict['bin_width'])
+        locmod_df = table[['mass shift', '# peptides in bin', 'is isotope', 'isotope index', 'sum of mass shifts',
+            'unimod candidates', 'unimod accessions']].copy()
 
         locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(
             table, labels=params_dict['labels'], threshold=params_dict['candidate threshold'])
-        u = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml')).mods
-        unimod_df = pd.DataFrame(u)
-        locmod_df['unimod candidates'] = locmod_df['mass shift'].apply(
-            lambda x: locTools.get_candidates_from_unimod(x, params_dict['unimod mass tolerance'], unimod_df))
+
         locmod_df['all candidates'] = locmod_df.apply(
             lambda x: set(x['unimod candidates']) | (set(x['aa_stat candidates'])), axis=1)
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
-                locmod_df.at[locmod_df.at[i, 'isotop_ind'], 'all candidates'])
+                locmod_df.at[locmod_df.at[i, 'isotope index'], 'all candidates'])
         locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
