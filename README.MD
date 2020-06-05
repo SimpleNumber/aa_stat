@@ -116,12 +116,11 @@ This file has following parameters:
 | standard deviation threshold for sigma | 0.1 | Threshold value for the standard error of sigma, relative to sigma, as determined by the Gaussian fit algorithm. |
 | standard deviation threshold for height | 0.15 | Threshold value for the standard error of peak height, relative to peak height, as determined by the Gaussian fit algorithm. |
 | shift error                      | 10 | Minimal distance between fitted Gaussian peaks (in histogram bins). Closer peaks will be merged. |
-| batch              | 900 | Number of mass shifts to give to each worker process.
- |
-|                                  |**[localization]**                         |                                                                           |
-| spectrum column                  | spectrum                                  | Name of column with spectrum IDs.                                         |
-| charge column                    | assumed_charge                            | Name of column with assumed charges.                                      |
-| ion type                  | b, y                            | Ion types to be considered for theoretical peptide spectrum.                 |
+| batch              | 900 | Number of mass shifts to give to each worker process.|
+|                                  |**[localization]**                         |                                       |
+| spectrum column                  | spectrum                                  | Name of column with spectrum IDs.         |
+| charge column                    | assumed_charge                            | Name of column with assumed charges.   |
+| ion type                  | b, y                            | Ion types to be considered for theoretical peptide spectrum.|
 | fragmentation mass tolerance                 | 0.01                         | |  
 | frequency threshold| 1.5                         | Minimum normalized AA frequency to be considered as localization candidate.|  
 |isotope mass tolerance                | 0.015                      | Mass tolerance to apply when detecting isotopes.|  
