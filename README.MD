@@ -108,15 +108,30 @@ This file has following parameters:
 | use specific mass shift window   | no   | Focusing on specific mass shift (yes/no).                                                                      |
 | specific mass shift window       | 15.975, 16.005                           |Specifying mass range, in Da, which the User wants to focus on.             |
 | figure size in inches            | 5.0, 3.5 | Specifying the size of the output figures, in inches (L, H).                                               |
+| zero shift mass tolerance         | 0.05| Within this accuracy of zero mass shift all input files will be calibrated to 0.0.                                               |
+| zero shift minimum intensity      | 0.05| Criterion for selection as reference mass shift bin. Relative to the most abundant mass shift.                                           |
+| minimum peptides for mass calibration     | 100 | Minimum amount of unmodified peptides with 1% FDR to use them for mass calibration.                |
 |                                  | **[fit]**                                |                                                                            |
 | standard deviation threshold for center of peak | 15 | Threshold value for the standard error of peak center as determined by the Gaussian fit algorithm. This value is expressed in histogram bins (the bin width is configured in **[general]**). |
 | standard deviation threshold for sigma | 0.1 | Threshold value for the standard error of sigma, relative to sigma, as determined by the Gaussian fit algorithm. |
 | standard deviation threshold for height | 0.15 | Threshold value for the standard error of peak height, relative to peak height, as determined by the Gaussian fit algorithm. |
 | shift error                      | 10 | Minimal distance between fitted Gaussian peaks (in histogram bins). Closer peaks will be merged. |
+| batch              | 900 | Number of mass shifts to give to each worker process.
+ |
 |                                  |**[localization]**                         |                                                                           |
 | spectrum column                  | spectrum                                  | Name of column with spectrum IDs.                                         |
 | charge column                    | assumed_charge                            | Name of column with assumed charges.                                      |
-
+| ion type                  | b, y                            | Ion types to be considered for theoretical peptide spectrum.                 |
+| fragmentation mass tolerance                 | 0.01                         | |  
+| frequency threshold| 1.5                         | Minimum normalized AA frequency to be considered as localization candidate.|  
+|isotope mass tolerance                | 0.015                      | Mass tolerance to apply when detecting isotopes.|  
+|minimum matched peaks             | 4                   | Minimum peaks to be matched.|
+|   |**[modifications]**                         |   |
+|         recommend variable modifications |          5              |  Number of modifications recommended for closed search. |
+|  recommend multiple modifications on residue  |yes                        | Allows several modifications on one AA residue.  |
+| fixed modification intensity threshold  |3                       | Maximum % of peptides containing AA at zero shift to consider a fixed modification.  |
+|    isotope error abundance threshold       | 10                        |   Minimum % of isotope error to justify recommendation of isotope error.|
+|   minimum localization count    |10                        |   Minimum absolute localization count to recommend a variable modification.|
 
 ### Open search results
 
