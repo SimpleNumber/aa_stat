@@ -242,16 +242,37 @@ def read_input(args, params_dict):
         'csv': read_csv,
     }
     shifts = params_dict['mass_shifts_column']
-    pool = mp.Pool()
-    for ftype, reader in readers.items():
-        filenames = getattr(args, ftype)
-        logger.debug('Filenames [%s]: %s', ftype, filenames)
-        if filenames:
-            for filename in filenames:
-                # dfs.append(reader(filename, params_dict))
-                pool.apply_async(reader, args=(filename, params_dict), callback=update_dfs)
-    pool.close()
-    pool.join()
+    nproc = params_dict['processes']
+    if nproc == 1:
+        logger.debug('Reading files in one process.')
+        for ftype, reader in readers.items():
+            filenames = getattr(args, ftype)
+            logger.debug('Filenames [%s]: %s', ftype, filenames)
+            if filenames:
+                for filename in filenames:
+                    # dfs.append(reader(filename, params_dict))
+                    dfs.append(reader(filename, params_dict))
+    else:
+        nfiles = 0
+        for ftype, reader in readers.items():
+            filenames = getattr(args, ftype)
+            if filenames:
+                nfiles += len(filenames)
+        if nproc > 0:
+            nproc = min(nproc, nfiles)
+        else:
+            nproc = nfiles
+        logger.debug('Reading files using %s processes.', nproc)
+        pool = mp.Pool(nproc)
+        for ftype, reader in readers.items():
+            filenames = getattr(args, ftype)
+            logger.debug('Filenames [%s]: %s', ftype, filenames)
+            if filenames:
+                for filename in filenames:
+                    # dfs.append(reader(filename, params_dict))
+                    pool.apply_async(reader, args=(filename, params_dict), callback=update_dfs)
+        pool.close()
+        pool.join()
     logger.info('Starting analysis...')
     logger.debug('%d dfs collected.', len(dfs))
     data = pd.concat(dfs, axis=0)
@@ -302,8 +323,8 @@ def gauss_fitting(center_y, x, y):
     `y` numpy array of number of psms in this mass shifts
 
     """
-    mean = sum(x * y) / sum(y)
-    sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
+    mean = (x * y).sum() / y.sum()
+    sigma = np.sqrt((y * (x - mean) ** 2).sum() / y.sum())
     a = center_y * sigma * np.sqrt(2 * np.pi)
     try:
         popt, pcov = curve_fit(gauss, x, y, p0=(a, mean, sigma))
@@ -343,8 +364,7 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
                 label = 'FAILED'
         plt.plot(x, y, 'b+:', label=label)
         if label != 'NO FIT':
-            plt.scatter(x, gauss(x, *popt),
-                        label=r'Gaussian fit\n $\sigma$ = ' + "{0:.4f}".format(popt[2]))
+            plt.scatter(x, gauss(x, *popt), label=r'Gaussian fit\n $\sigma$ = {:.4f}'.format(popt[2]))
 
         plt.legend()
         plt.title("{0:.3f}".format(xs[center]))
@@ -386,6 +406,9 @@ def fit_peaks(data, args, params_dict):
     sigma_error = params_dict['max_deviation_sigma']
     logger.debug('Candidates for fit: %s', len(loc_max_candidates_ind))
     nproc = int(math.ceil(len(loc_max_candidates_ind) / fit_batch))
+    maxproc = params_dict['processes']
+    if maxproc > 0:
+        nproc = min(nproc, maxproc)
     if nproc > 1:
         arguments = []
         logger.debug('Splitting the fit into %s batches...', nproc)
@@ -483,6 +506,7 @@ def get_parameters(params):
     parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins')
     parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')
     parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
+    parameters_dict['processes'] = params.getint('general', 'processes')
 
     parameters_dict['zero bin tolerance'] = params.getfloat('general', 'zero shift mass tolerance')
     parameters_dict['zero min intensity'] = params.getfloat('general', 'zero shift minimum intensity')

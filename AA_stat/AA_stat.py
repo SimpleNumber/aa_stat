@@ -7,7 +7,7 @@ from scipy.stats import ttest_ind
 
 import logging
 import warnings
-from pyteomics import parser, mass
+from pyteomics import parser
 from . import utils, locTools
 
 logger = logging.getLogger(__name__)
