@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 import pylab as plt
 import ast
 import os
+import operator
 import logging
 from scipy.optimize import curve_fit
 from scipy.signal import argrelextrema, savgol_filter
@@ -179,7 +180,8 @@ def read_pepxml(fname, params_dict):
     DataFrame
     '''
     logger.debug('Reading %s', fname)
-    df = pepxml.DataFrame(fname, read_schema=False)
+    df = pepxml.DataFrame(fname, read_schema=False, columns=operator.itemgetter(
+        'peptides_column', 'proteins_column', 'spectrum_column', 'mass_shifts_column', 'charge_column')(params_dict))
     return preprocess_df(df, fname, params_dict)
 
 
