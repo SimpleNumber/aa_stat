@@ -261,7 +261,7 @@ def read_input(args, params_dict):
         if nproc > 0:
             nproc = min(nproc, nfiles)
         else:
-            nproc = nfiles
+            nproc = min(nfiles, mp.cpu_count())
         logger.debug('Reading files using %s processes.', nproc)
         pool = mp.Pool(nproc)
         for ftype, reader in readers.items():
