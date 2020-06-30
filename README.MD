@@ -152,11 +152,6 @@ Example of MSFragger usage:
 ```
 java -Xmx8G MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
 ```
-Examples of using AA_search:
-
-```
-AA_search --MSFragger /path/to/MSFragger/jar/file/MSFragger-2.4.jar  -x -db fasta_file.fasta --mzml mzml_files.mzML --dir ./save_dir
-```
 Example of using AA_stat:
 ```
 AA_stat --pepxml /path/to/pepxml/files.pepXML
@@ -170,7 +165,7 @@ AA_stat produces the following files:
 
 **B.** Summary histogram (summary.png).
 
-**C.** Charts (PNG and SVG files) of normalized frequencies for each significant mass shift interval.
+**C.** Charts (PNG and SVG files) of normalized frequencies for each significant mass shift interval. If MGF or mzML files are provided, tables with modifies peptide sequences and localization scores are generated. 
 
 **D.** Summary table (aa_statistics_table.csv) of amino acid frequencies for all mass shifts with Unimod.org links for possible modifications.
 
@@ -221,7 +216,8 @@ In the simplest case, this residue is modified:
 
 |![img3](manual_pic/ms.png)|
 |--------------------------|
-| **Figure 3.** Example of a normalized frequency chart for 15.991 mass shift.|
+| **Figure 3.** Example of a normalized frequency chart for 15.9943 mass shift (green). Orange -- the percentage of peptides that contain at least one AA residue of a certain kind. Blue -- successful localizations of mass shifts at each AA (only if MS/MS spectra are provided). The counts are not normalized.|
+
 
 **D.** Summary table (aa_statistics_table.csv) of amino acid frequencies for all mass shifts with PSMs counts and Unimod.org links for possible modifications.
 
@@ -232,3 +228,15 @@ In the simplest case, this residue is modified:
 **G.** A summary of localization shows the number of peptides in each bin for which a modification was successfully localized in MS/MS.
 Localization is done by generating theoretical spectra of possible isoforms and scoring them against the experimental spectrum.
 If there is a clear winner in terms of score, the spectrum is considered localized.
+
+### AA_search option
+
+If AA_stat used in "AA_search" mod, AA_stat optimizes fixed modifications that are used for open search, initializes open search runs.
+
+Example of using AA_search:
+
+```
+AA_search --MSFragger /path/to/MSFragger/jar/file/MSFragger-2.4.jar  -x -db fasta_file.fasta --mzml mzml_files.mzML --dir ./save_dir
+```
+
+All searches saved in separate folders: "step 1", "step 2", etc. User can see results of all optimization steps. In this folders pepXML files and open search parameters file (os.params) are saved. Joined report file for all steps is generated.
