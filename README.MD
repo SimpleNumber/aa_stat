@@ -152,8 +152,16 @@ Example of MSFragger usage:
 ```
 java -Xmx8G MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
 ```
+Examples of using AA_search:
 
+```
+AA_search --MSFragger /path/to/MSFragger/jar/file/MSFragger-2.4.jar  -x -db fasta_file.fasta --mzml mzml_files.mzML --dir ./save_dir
+```
+Example of using AA_stat:
+```
+AA_stat --pepxml /path/to/pepxml/files.pepXML
 
+```
 ### Output files
 
 AA_stat produces the following files:
