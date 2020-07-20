@@ -223,11 +223,23 @@ In the simplest case, this residue is modified:
 
 **E.** Summary table (p_values.csv) with p-values for all amino acid frequencies in all mass shifts that indicates the significant deviation amino acid frequency from zero mass shift peak.
 
-**F.** HTML file (report.html) aggregates and illustrates all results.
+**F.** HTML file (report.html) aggregates and illustrates all results.An example can be find [here](https://levitsky.github.io/aa_stat_report_example/).
 
 **G.** A summary of localization shows the number of peptides in each bin for which a modification was successfully localized in MS/MS.
 Localization is done by generating theoretical spectra of possible isoforms and scoring them against the experimental spectrum.
 If there is a clear winner in terms of score, the spectrum is considered localized.
+|Columns name|Description|
+|------------|-----------|
+|mass shift|Considering mass shift mass.|
+|# peptides in bin| Number of peptides passed all filtering procedures.|
+|is isotope| Boolean. True, if considering mass shift is an isotope of some other mass shift.|
+|isotope index| If 'is isotope' is True, this column contains the mass of monoisotopic peak.|
+|sum of mass shifts| Shows all possible pairs of mass shifts, that gives considering mass shift.|
+|unimod candidates|Amino acid localization candidates retrieved from Unimod.org database for considering mass shift.|
+|aa_stat candidates| Amino acid localization candidates from AA_stat statistics results.|
+|candicates for loc| Sum of amino acid candidates from all sources: Unimod.org database, AA_stat results, isotope clusters, sum of modifications, that considered for localization of mass shift using MS/MS spectra.|
+|localization| Localization statistics for considering mass shift using MS/MS spectra provided in a format "AminoAcid_MassShift:number-of-peptides-with-this-localization". If there are no clear leader for specific peptide mass shift localization, it counts as 'non-localized'. 
+
 
 ### AA_search option
 
