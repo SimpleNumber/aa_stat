@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Oct 24 11:44:50 2019
 
@@ -18,7 +17,6 @@ except ImportError:
 import string
 from . import utils
 
-# H = mass.nist_mass['H'][0][0]
 logger = logging.getLogger(__name__)
 
 
@@ -120,11 +118,11 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched, ion_types=('b', 'y')
 _preprocessing_cache = {}
 def preprocess_spectrum(reader, spec_id, kwargs, acc=0.01):
     """
-    Prepares experimental spectrum for matching, converts experimental spectrum to int format. Default settings for preprocessing : maximum peaks is 100,
-    dynamic range is 1000.
+    Prepares experimental spectrum for matching, converts experimental spectrum to int format.
+    Default settings for preprocessing : maximum peaks is 100, dynamic range is 1000.
 
-    Paramenters
-    -----------
+    Parameters
+    ----------
     reader : file reader
         Spectrum file reader
     spec_id : str
@@ -197,8 +195,8 @@ def get_candidates_from_aastat(mass_shifts_table, labels, threshold=1.5):
     """
     Get localization candidates from amono acid statistics.
 
-    Paramenters
-    -----------
+    Parameters
+    ----------
     mass_shifts_table : DataFrame
         DF with amino acid statistics for all mass shifts.
     labels : list
@@ -248,8 +246,8 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     """
     Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
 
-    Paramenters
-    -----------
+    Parameters
+    ----------
     ms: float
         mass shift
     ms_label : str
@@ -369,8 +367,8 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     Localizes modification or sum of modifications for mass shift and repeat localization if there are redundant candidates.
     If two peptide isoforms have the same max score, modification counts as 'non-localized'.
 
-    Paramenters
-    -----------
+    Parameters
+    ----------
     df : DataFrame
         DF with filtered peptides for considered mass shift.
     ms: float

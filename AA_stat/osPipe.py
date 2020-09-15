@@ -82,10 +82,8 @@ def main():
     logger.info("Starting MSFragger and AA_stat pipeline.")
     spectra = args.mgf or args.mzml
     spectra = [os.path.abspath(i) for i in spectra]
-    params = utils.read_config_file(args.params)
 
-    params_dict = utils.get_parameters(params)
-    utils.set_additional_params(params_dict)
+    params_dict = utils.get_params_dict(args.params)
 
     working_dir = args.dir
 
@@ -95,7 +93,7 @@ def main():
         fix_mod_dict = {}
         while True:
             logger.info('Starting step %d.', step)
-            fig_data, aastat_table, locmod, data_dict, new_fix_mod_dict = run_step_os(
+            fig_data, aastat_table, locmod, data_dict, new_fix_mod_dict, var_mod_dict = run_step_os(
                 spectra, 'os_step_{}'.format(step), working_dir, args, params_dict, change_dict=fix_mod_dict, step=step)
 
             if new_fix_mod_dict:

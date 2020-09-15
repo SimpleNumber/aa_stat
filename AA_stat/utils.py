@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 import pylab as plt
 import ast
 import os
+import sys
 import operator
 import logging
 from scipy.optimize import curve_fit
@@ -77,6 +78,7 @@ def make_0mc_peptides(pep_list, rule):
 def preprocess_df(df, filename, params_dict):
     '''
     Preprocesses DataFrame.
+
     Parameters
     ----------
     df: DataFrame
@@ -119,7 +121,7 @@ def fdr_filter_mass_shift(mass_shift, data, params_dict):
 
     mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
     internal('Mass shift %.3f - %.3f', mass_shift[1], mass_shift[2])
-    data_slice = data.loc[mask].sort_values(by='expect').drop_duplicates(subset=params_dict['peptides_column'])
+    data_slice = data.loc[mask].sort_values(by=['expect', 'spectrum']).drop_duplicates(subset=params_dict['peptides_column'])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         df = pepxml.filter_df(data_slice,
@@ -148,9 +150,8 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     -------
     Dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
     """
-    # shifts = params_dict['mass_shifts_column']
     logger.info('Performing group-wise FDR filtering...')
-    out_data = {}  # dict corresponds list
+    out_data = {}
     for ind, ms in enumerate(mass_shifts):
         if ind != len(mass_shifts) - 1:
             diff = abs(ms[1] - mass_shifts[ind + 1][1])
@@ -562,6 +563,13 @@ def set_additional_params(params_dict):
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
 
 
+def get_params_dict(fname):
+    params = read_config_file(fname)
+    params_dict = get_parameters(params)
+    set_additional_params(params_dict)
+    return params_dict
+
+
 _Mkstyle = matplotlib.markers.MarkerStyle
 _marker_styles = [_Mkstyle('o', fillstyle='full'), (_Mkstyle('o', fillstyle='left'), _Mkstyle('o', fillstyle='right')),
     (_Mkstyle('o', fillstyle='top'), _Mkstyle('o', fillstyle='bottom')), (_Mkstyle(8), _Mkstyle(9)),
@@ -824,10 +832,13 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
 
 
 def write_html(path, **template_vars):
-    templateloader = jinja2.PackageLoader('AA_stat', '')
-    templateenv = jinja2.Environment(loader=templateloader, autoescape=False)
-    template_file = 'report.template'
-    template = templateenv.get_template(template_file)
+    with warnings.catch_warnings():
+        if not sys.warnoptions:
+            warnings.simplefilter('ignore')
+        templateloader = jinja2.PackageLoader('AA_stat', '')
+        templateenv = jinja2.Environment(loader=templateloader, autoescape=False)
+        template_file = 'report.template'
+        template = templateenv.get_template(template_file)
 
     with open(path, 'w') as output:
         output.write(template.render(template_vars))
@@ -975,6 +986,7 @@ def get_fix_modifications(pepxml_file):
     mod_list = list(p.iterfind('aminoacid_modification'))
     p.reset()
     term_mods = list(p.iterfind('terminal_modification'))
+    p.close()
     for m in mod_list:
         out[m['aminoacid']] = m['mass']
     for m in term_mods:

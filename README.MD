@@ -121,9 +121,9 @@ This file has following parameters:
 | spectrum column                  | spectrum                                  | Name of column with spectrum IDs.         |
 | charge column                    | assumed_charge                            | Name of column with assumed charges.   |
 | ion type                  | b, y                            | Ion types to be considered for theoretical peptide spectrum.|
-| fragmentation mass tolerance                 | 0.01                         | |  
-| frequency threshold| 1.5                         | Minimum normalized AA frequency to be considered as localization candidate.|  
-|isotope mass tolerance                | 0.015                      | Mass tolerance to apply when detecting isotopes.|  
+| fragmentation mass tolerance                 | 0.01                         | |
+| frequency threshold| 1.5                         | Minimum normalized AA frequency to be considered as localization candidate.|
+|isotope mass tolerance                | 0.015                      | Mass tolerance to apply when detecting isotopes.|
 |minimum matched peaks             | 4                   | Minimum peaks to be matched.|
 |   |**[modifications]**                         |   |
 |         recommend variable modifications |          5              |  Number of modifications recommended for closed search. |
@@ -165,7 +165,7 @@ AA_stat produces the following files:
 
 **B.** Summary histogram (summary.png).
 
-**C.** Charts (PNG and SVG files) of normalized frequencies for each significant mass shift interval. If MGF or mzML files are provided, tables with modifies peptide sequences and localization scores are generated. 
+**C.** Charts (PNG and SVG files) of normalized frequencies for each significant mass shift interval. If MGF or mzML files are provided, tables with modifies peptide sequences and localization scores are generated.
 
 **D.** Summary table (aa_statistics_table.csv) of amino acid frequencies for all mass shifts with Unimod.org links for possible modifications.
 
@@ -243,12 +243,12 @@ If there is a clear winner in terms of score, the spectrum is considered localiz
 
 ### AA_search option
 
-If AA_stat used in "AA_search" mod, AA_stat optimizes fixed modifications that are used for open search, initializes open search runs.
+If AA_stat used in "AA_search" mode, AA_stat optimizes fixed modifications that are used for open search, initializes open search runs.
 
 Example of using AA_search:
 
 ```
-AA_search --MSFragger /path/to/MSFragger/jar/file/MSFragger-2.4.jar  -x -db fasta_file.fasta --mzml mzml_files.mzML --dir ./save_dir
+AA_search --MSFragger /path/to/MSFragger/MSFragger-2.4.jar -x -db fasta_file.fasta --mzml mzml_files.mzML --dir ./save_dir
 ```
 
-All searches saved in separate folders: "step 1", "step 2", etc. User can see results of all optimization steps. In this folders pepXML files and open search parameters file (os.params) are saved. Joined report file for all steps is generated.
+All searches saved in separate folders: "step 1", "step 2", etc. User can see results of all optimization steps. In these folders pepXML files and open search parameters file (os.params) are saved. Joint report file for all steps is generated.

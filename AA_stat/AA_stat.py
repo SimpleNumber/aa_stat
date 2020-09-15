@@ -643,6 +643,8 @@ def AA_stat(params_dict, args, step=None):
             logger.debug('Explicitly writing out peptide table for reference mass shift.')
             df = mass_shift_data_dict[reference_label][1]
             utils.save_df(reference_label, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
+        for reader in spectra_dict.values():
+            reader.close()
     else:
         locmod_df = None
         utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
@@ -671,4 +673,4 @@ def AA_stat(params_dict, args, step=None):
     else:
         logger.info('Variable modifications not recommended.')
     utils.render_html_report(table, params_dict, recommended_fix_mods, recommended_var_mods, save_directory, step=step)
-    return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods
+    return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods, recommended_var_mods

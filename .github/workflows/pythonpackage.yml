@@ -4,7 +4,9 @@
 name: Python package
 
 on:
-  [ push, pull_request ]
+  push, pull_request:
+    paths:
+      AA_stat/*.py
 
 jobs:
   build:
@@ -31,7 +33,9 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
+    - name: Test theor_spectrum
       run: |
-        pip install pytest
-        pytest AA_stat/tests.py
+        python -m unittest AA_stat.tests.AAstatTheorSpectrumTest
+    - name: Full run test
+      run: |
+        python -X tracemalloc=20 -m unittest AA_stat.tests.AAstatResultTest

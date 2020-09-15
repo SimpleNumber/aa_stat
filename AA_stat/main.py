@@ -32,17 +32,16 @@ def main():
     logging.logProcesses = 0
     logger = logging.getLogger(__name__)
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
-    test_prog = unittest.main(module=tests, argv=['ignored', '-v'], exit=False)
+    test_prog = unittest.main(module=tests, argv=['ignored', '-v'],
+        defaultTest='AAstatTheorSpectrumTest', exit=False)
     if (test_prog.result.failures != []) or (test_prog.result.errors != []):
         logger.critical('Tests did not pass, aborting. Please get a working version.')
         return
     logger.info('Starting...')
 
-    params = utils.read_config_file(args.params)
-    params_dict = utils.get_parameters(params)
+    params_dict = utils.get_params_dict(args.params)
     logger.debug(params_dict)
 
-    utils.set_additional_params(params_dict)
     os.makedirs(args.dir, exist_ok=True)
     AA_stat.AA_stat(params_dict, args)
     logger.info('Done.')
