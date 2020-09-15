@@ -228,17 +228,17 @@ In the simplest case, this residue is modified:
 **G.** A summary of localization shows the number of peptides in each bin for which a modification was successfully localized in MS/MS.
 Localization is done by generating theoretical spectra of possible isoforms and scoring them against the experimental spectrum.
 If there is a clear winner in terms of score, the spectrum is considered localized.
-|Columns name|Description|
+|Column name|Description|
 |------------|-----------|
-|mass shift|Considering mass shift mass.|
-|# peptides in bin| Number of peptides passed all filtering procedures.|
-|is isotope| Boolean. True, if considering mass shift is an isotope of some other mass shift.|
+|mass shift|Considered mass shift mass.|
+|# peptides in bin| Number of peptides that passed all filtering procedures.|
+|is isotope| Boolean. True if mass shift is a potential isotope of some other mass shift.|
 |isotope index| If 'is isotope' is True, this column contains the mass of monoisotopic peak.|
-|sum of mass shifts| Shows all possible pairs of mass shifts, that gives considering mass shift.|
-|unimod candidates|Amino acid localization candidates retrieved from Unimod.org database for considering mass shift.|
-|aa_stat candidates| Amino acid localization candidates from AA_stat statistics results.|
-|candicates for loc| Sum of amino acid candidates from all sources: Unimod.org database, AA_stat results, isotope clusters, sum of modifications, that considered for localization of mass shift using MS/MS spectra.|
-|localization| Localization statistics for considering mass shift using MS/MS spectra provided in a format "AminoAcid_MassShift:number-of-peptides-with-this-localization". If there are no clear leader for specific peptide mass shift localization, it counts as 'non-localized'. 
+|sum of mass shifts| Shows all possible pairs of mass shifts that produce the given mass shift.|
+|unimod candidates| Localization candidates retrieved from Unimod.org database for given mass shift.|
+|aa_stat candidates| Localization candidates from AA_stat statistics.|
+|candicates for loc| Combination of amino acid candidates from all sources: Unimod, AA_stat results, isotope clusters, sum of modifications, considered for localization of mass shift using MS/MS spectra.|
+|localization| Localization statistics for given mass shift using MS/MS spectra provided in a format "AminoAcid_MassShift:number-of-peptides-with-this-localization". If there is no clear leader for a specific peptide's mass shift localization, it counts as 'non-localized'.
 
 
 ### AA_search option
@@ -251,4 +251,4 @@ Example of using AA_search:
 AA_search --MSFragger /path/to/MSFragger/MSFragger-2.4.jar -x -db fasta_file.fasta --mzml mzml_files.mzML --dir ./save_dir
 ```
 
-All searches saved in separate folders: "step 1", "step 2", etc. User can see results of all optimization steps. In these folders pepXML files and open search parameters file (os.params) are saved. Joint report file for all steps is generated.
+All searches saved in separate folders: "step 1", "step 2", etc. User can see results of all optimization steps. In these folders, pepXML files and open search parameters file (os.params) are saved. Joint report file for all steps is also generated.
