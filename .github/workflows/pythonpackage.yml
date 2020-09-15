@@ -4,7 +4,10 @@
 name: Python package
 
 on:
-  push, pull_request:
+  push:
+    paths:
+      AA_stat/*.py
+  pull_request:
     paths:
       AA_stat/*.py
 
