@@ -18,6 +18,7 @@ The algorithm was implemented in Python as an open-source command-line tool avai
 [https://github.com/SimpleNumber/aa_stat](https://github.com/SimpleNumber/aa_stat).
 
 Project moved from [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/).
+
 An example of AA_stat output can be found [here](https://levitsky.github.io/aa_stat_report_example/).
 ## Installation
 
@@ -160,6 +161,7 @@ AA_stat --pepxml /path/to/pepxml/files.pepXML
 ### Output files
 
 An example of AA_stat output can be found [here](https://levitsky.github.io/aa_stat_report_example/).
+
 AA_stat produces the following files:
 
 **A.** Gaussian fit report (gauss_fit.pdf).
