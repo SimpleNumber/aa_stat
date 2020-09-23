@@ -583,6 +583,14 @@ def _generate_pair_markers():
             yield colors[i], ms
 
 
+def _get_max(arr):
+    values = [x for x in arr if x is not None]
+    if values:
+        return max(values)
+    return 0
+
+
+
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, localizations=None, sumof=None):
     """
     Plots amino acid spatistics.
@@ -659,22 +667,21 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
         ax3.spines['right'].set_color(colors[3])
         ax3.tick_params('y', colors=colors[3])
         # plot simple modifications (not sum) with the first style,
-        # then parts of sum as second and third style
+        # then parts of sum
         values = [localizations.get(key + '_' + ms_label) for key in labels]
+        maxcount = _get_max(values)
         label_prefix = 'Location of '
         ax3.scatter(x, values, marker=_marker_styles[0], color=colors[3], label=label_prefix + ms_label)
         if isinstance(sumof, list):
             for pair, (color, style) in zip(sumof, _generate_pair_markers()):
                 values_1 = [localizations.get(key + '_' + pair[0]) for key in labels]
+                maxcount = max(maxcount, _get_max(values_1))
                 ax3.scatter(x, values_1, marker=style[0], color=color, label=label_prefix + pair[0])
                 if pair[0] != pair[1]:
                     values_2 = [localizations.get(key + '_' + pair[1]) for key in labels]
                     if values_2:
+                        maxcount = max(maxcount, _get_max(values_2))
                         ax3.scatter(x, values_2, marker=style[1], color=color, label=label_prefix + pair[1])
-                else:
-                    values_2 = []
-        else:
-            values_1 = values_2 = []
         terms = {key for key in localizations if key[1:6] == '-term'}
         # logger.debug('Found terminal localizations: %s', terms)
         for t in terms:
@@ -682,10 +689,9 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
             p = ax3.plot([], [], label=label)[0]
             p.set_visible(False)
         pright.set_label(pright.get_label() + '\nNot localized: {}'.format(localizations.get('non-localized', 0)))
-        all_v = [x for x in values + values_1 + values_2 if x is not None]
-        if all_v:
+        if maxcount:
             ax3.legend(loc='upper left', ncol=2)
-        ax3.set_ylim(0, 1.4 * max(all_v + [1]))
+        ax3.set_ylim(0, 1.4 * max(maxcount, 1))
 
     ax_right.legend(handles=[pright], loc='upper right', edgecolor='dimgrey', fancybox=True, handlelength=0)
     fig.tight_layout()
