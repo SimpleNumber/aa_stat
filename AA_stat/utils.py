@@ -121,11 +121,13 @@ def fdr_filter_mass_shift(mass_shift, data, params_dict):
 
     mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
     internal('Mass shift %.3f - %.3f', mass_shift[1], mass_shift[2])
-    data_slice = data.loc[mask].sort_values(by=['expect', 'spectrum']).drop_duplicates(subset=params_dict['peptides_column'])
+    data_slice = data.loc[mask].sort_values(by=[params_dict['score_column'], 'spectrum'], 
+                                ascending=params_dict['score_ascending']).drop_duplicates(subset=params_dict['peptides_column'])
+    internal('%d peptide rows selected for filtering', data_slice.shape[0])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        df = pepxml.filter_df(data_slice,
-            fdr=params_dict['FDR'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
+        df = pepxml.filter_df(data_slice, key=params_dict['score_column'],
+            fdr=params_dict['FDR'], reverse= not params_dict['score_ascending'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
     internal('Filtered data for %s: %d rows', mass_shift, df.shape[0])
     return ms_shift, df
 
@@ -503,6 +505,8 @@ def get_parameters(params):
     parameters_dict['proteins_column'] = params.get('csv input', 'proteins column')
     parameters_dict['peptides_column'] = params.get('csv input', 'peptides column')
     parameters_dict['mass_shifts_column'] = params.get('csv input', 'mass shift column')
+    parameters_dict['score_column'] = params.get('csv input', 'score column')
+    parameters_dict['score_ascending'] = params.getboolean('csv input','score ascending')
     # general
     parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
     parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))

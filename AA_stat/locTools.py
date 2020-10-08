@@ -277,7 +277,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     charge = row[params_dict['charge_column']]
 
     if params_dict['mzml_files']:
-        scan = row[params_dict['spectrum_column']].split('.')[1]
+        scan = row[params_dict['spectrum_column']].split('.')[1].lstrip('0')
         spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
     else:
         spectrum_id = row[params_dict['spectrum_column']]
