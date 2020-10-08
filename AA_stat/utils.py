@@ -121,7 +121,7 @@ def fdr_filter_mass_shift(mass_shift, data, params_dict):
 
     mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
     internal('Mass shift %.3f - %.3f', mass_shift[1], mass_shift[2])
-    data_slice = data.loc[mask].sort_values(by=[params_dict['score_column'], 'spectrum'], 
+    data_slice = data.loc[mask].sort_values(by=[params_dict['score_column'], 'spectrum'],
                                 ascending=params_dict['score_ascending']).drop_duplicates(subset=params_dict['peptides_column'])
     internal('%d peptide rows selected for filtering', data_slice.shape[0])
     with warnings.catch_warnings():
@@ -369,7 +369,7 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
                 label = 'FAILED'
         plt.plot(x, y, 'b+:', label=label)
         if label != 'NO FIT':
-            plt.scatter(x, gauss(x, *popt), label=r'Gaussian fit\n $\sigma$ = {:.4f}'.format(popt[2]))
+            plt.scatter(x, gauss(x, *popt), label='Gaussian fit\n $\\sigma$ = {:.4f}'.format(popt[2]))
 
         plt.legend()
         plt.title("{0:.3f}".format(xs[center]))
@@ -510,7 +510,6 @@ def get_parameters(params):
     # general
     parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
     parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
-    parameters_dict['area_threshold'] = params.getint('general', 'threshold for bins')
     parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')
     parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
     parameters_dict['processes'] = params.getint('general', 'processes')
