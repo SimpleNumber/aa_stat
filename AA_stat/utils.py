@@ -396,7 +396,7 @@ def fit_peaks(data, args, params_dict):
     logger.info('Performing Gaussian fit...')
     fit_batch = params_dict['fit batch']
     half_window = int(params_dict['window'] / 2) + 1
-    hist = np.histogram(data[params_dict['mass_shifts_column']], bins=params_dict['bins'])
+    hist = np.histogram(data[data['is_decoy'] == False][params_dict['mass_shifts_column']], bins=params_dict['bins'])
     hist_y = smooth(hist[0], window_size=params_dict['window'], power=5)
     hist_x = 0.5 * (hist[1][:-1] + hist[1][1:])
     loc_max_candidates_ind = argrelextrema(hist_y, np.greater_equal)[0]
