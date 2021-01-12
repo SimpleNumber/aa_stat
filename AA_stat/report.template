@@ -150,7 +150,7 @@
 </div>
 
 <div id="meta">
-  <span class="note">Report created {{ date.strftime('%H:%M:%S %B %d, %Y') }} with AA_stat {{ version }}</span>
+  <span class="note">Report created {{ date.strftime('%H:%M:%S %B %d, %Y') }} with <a href="https://github.com/SimpleNumber/aa_stat">AA_stat</a> {{ version }}</span>
 </div>
 
 </body>
