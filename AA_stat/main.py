@@ -17,7 +17,7 @@ def main():
     input_spectra.add_argument('--mgf', nargs='+', help='MGF files to localize modifications')
     input_spectra.add_argument('--mzml', nargs='+', help='mzML files to localize modifications')
 
-    input_file = pars.add_mutually_exclusive_group()
+    input_file = pars.add_mutually_exclusive_group(required=True)
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format')
 
@@ -37,6 +37,7 @@ def main():
     if (test_prog.result.failures != []) or (test_prog.result.errors != []):
         logger.critical('Tests did not pass, aborting. Please get a working version.')
         return
+
     logger.info('Starting...')
 
     params_dict = utils.get_params_dict(args.params)
