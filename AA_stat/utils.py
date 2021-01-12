@@ -28,6 +28,7 @@ from pyteomics import parser, pepxml, mgf, mzml, mass
 
 logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').disabled = True
+logging.getLogger('matplotlib.category').disabled = True
 
 MASS_FORMAT = '{:+.4f}'
 UNIMOD = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml'))
@@ -710,7 +711,7 @@ def summarizing_hist(table, save_directory):
     ax.set_title('Peptides in mass shifts', fontsize=12)  # PSMs
     ax.set_xlabel('Mass shift', fontsize=10)
     ax.set_ylabel('Number of peptides')
-    ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply(lambda x: round(x, 2)))
+    ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply('{:.2f}'.format))
 
     total = sum(i.get_height() for i in ax.patches)
     max_height = 0
