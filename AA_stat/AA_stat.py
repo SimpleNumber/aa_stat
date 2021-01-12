@@ -540,7 +540,7 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
                 top_shift = aa_shifts[top_aa]
                 top_count = aa_counts[top_aa]
                 if top_count < params_dict['min_loc_count']:
-                    logger.debug('Localication count too small (%d), stopping.', top_count)
+                    logger.debug('Localization count too small (%d), stopping.', top_count)
                     break
                 recommended.add(top_aa)
                 var_mods.append((top_aa, top_shift))
