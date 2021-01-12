@@ -12,7 +12,7 @@ from scipy.signal import argrelextrema, savgol_filter
 import pandas as pd
 import numpy as np
 import warnings
-from collections import defaultdict
+from collections import defaultdict, Counter
 import re
 import seaborn as sb
 try:
@@ -24,6 +24,8 @@ import multiprocessing as mp
 import jinja2
 import pkg_resources
 from datetime import datetime
+import itertools as it
+import json
 from pyteomics import parser, pepxml, mgf, mzml, mass
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ logging.getLogger('matplotlib.font_manager').disabled = True
 logging.getLogger('matplotlib.category').disabled = True
 
 MASS_FORMAT = '{:+.4f}'
+COMBINATION_TOLERANCE = 1e-4
 UNIMOD = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml'))
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 INTERNAL = 5
@@ -750,6 +753,23 @@ def format_info(row, table):
     return ', '.join(options)
 
 
+def get_varmod_combinations(recommended_vmods):
+    logger.debug('Received recommended vmods: %s', recommended_vmods)
+    counter = Counter(aa for aa, shift in recommended_vmods)
+    eligible = {aa for aa, count in counter.items() if count >= 3}
+    out = {}
+    if eligible:
+        for i, (aa, shift) in enumerate(recommended_vmods):
+            if aa == 'isotope error' or aa not in eligible:
+                continue
+            candidates = [(aac, shiftc) for aac, shiftc in recommended_vmods if aac == aa and shiftc != shift]
+            for c1, c2 in it.combinations(candidates, 2):
+                if abs(float(c1[1]) + float(c2[1]) - float(shift)) <= COMBINATION_TOLERANCE:
+                    out[i] = (c1[1], c2[1])
+    logger.debug('Found combinations in recommended variable mods: %s', out)
+    return out
+
+
 def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods, save_directory, step=None):
     path = os.path.join(save_directory, 'report.html')
     if os.path.islink(path):
@@ -814,11 +834,17 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         recmod = "Recommended modifications: none."
 
     if recommended_vmods:
-        rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
-            'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(
-            [{'selector': 'th.col_heading', 'props': [('display', 'none')]},
+        combinations = get_varmod_combinations(recommended_vmods)
+        vmod_comb_i = json.dumps(list(combinations))
+        vmod_comb_val = json.dumps(['This modification is a combination of {} and {}.'.format(*v) for v in combinations.values()])
+        table_styles = [{'selector': 'th.col_heading', 'props': [('display', 'none')]},
             {'selector': 'th.blank', 'props': [('display', 'none')]},
-            {'selector': '.data.row0', 'props': [('font-weight', 'bold')]}]).render(uuid="rec_var_mod_table")
+            {'selector': '.data.row0', 'props': [('font-weight', 'bold')]}]
+        for i, (shift1, shift2) in combinations.items():
+            table_styles.append(
+                {'selector': '.data.col{}'.format(i), 'props': [('background-color', 'lightyellow')]})
+        rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
+            'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(table_styles).render(uuid="rec_var_mod_table")
     else:
         rec_var_mods = "Recommended variable modifications: none."
 
@@ -838,9 +864,12 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         else:
             next_a = ''
         steps = prev_a + '\n' + next_a
+
     version = pkg_resources.get_distribution('AA_stat').version
+
     write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, reference=reference,
-        recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now())
+        recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now(),
+        vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val)
 
 
 def write_html(path, **template_vars):

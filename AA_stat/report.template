@@ -220,6 +220,13 @@
       break;
     }
   }
+  var vmod_comb_i = {{ vmod_comb_i }};
+  var vmod_comb_val = {{ vmod_comb_val }};
+  var vmod_table = document.getElementById("T_rec_var_mod_table");
+  for (var i = 0, col; col = vmod_comb_i[i]; i++) {
+    var cell = vmod_table.querySelector('.data.row1.col' + col);
+    cell.title = vmod_comb_val[i];
+  }
 
 </script>
 </html>
