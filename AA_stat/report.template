@@ -91,6 +91,12 @@
           text-align: center;
           width: fit-content;
         }
+        #meta {
+          text-align: center;
+        }
+        .note {
+          font-size: 75%;
+        }
     </style>
 </head>
 <body>
@@ -142,6 +148,11 @@
       {{ table }}
   {% endfor %}
 </div>
+
+<div id="meta">
+  <span class="note">Report created {{ date.strftime('%H:%M:%S %B %d, %Y') }} with AA_stat {{ version }}</span>
+</div>
+
 </body>
 <script type="text/javascript">
   function getMassShift(elem) {

@@ -22,6 +22,8 @@ except ImportError:
 import math
 import multiprocessing as mp
 import jinja2
+import pkg_resources
+from datetime import datetime
 from pyteomics import parser, pepxml, mgf, mzml, mass
 
 logger = logging.getLogger(__name__)
@@ -593,7 +595,6 @@ def _get_max(arr):
     return 0
 
 
-
 def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, localizations=None, sumof=None):
     """
     Plots amino acid spatistics.
@@ -836,8 +837,9 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         else:
             next_a = ''
         steps = prev_a + '\n' + next_a
+    version = pkg_resources.get_distribution('AA_stat').version
     write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, reference=reference,
-        recmod=recmod, rec_var_mod=rec_var_mods, steps=steps)
+        recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now())
 
 
 def write_html(path, **template_vars):

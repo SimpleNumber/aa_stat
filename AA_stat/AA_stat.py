@@ -375,8 +375,7 @@ def determine_fixed_mods_zero(aastat_result, data_dict, params_dict):
             logger.debug('Peptides with %s: ~%d at %s, ~%d at %s. Estimated pct: %f',
                 i, count_ref, reference, count_cand, candidate_label, est_ratio)
             if aastat_result[candidate_label][2][i] > fix_mod_zero_thresh and (
-                    est_ratio * 100 > fix_mod_zero_thresh) and (
-                    count_cand > count_ref * min_fix_mod_pep_count_factor):
+                    est_ratio * 100 > fix_mod_zero_thresh * min_fix_mod_pep_count_factor):
                 fix_mod_dict[i] = candidate_label
             else:
                 logger.debug('Could not find %s anywhere. Can\'t fix.', i)

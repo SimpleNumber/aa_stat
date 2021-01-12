@@ -110,7 +110,6 @@ class AAstatResultTest(unittest.TestCase):
         logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
                         datefmt='[%H:%M:%S]', level=levels[verbosity], style='{')
 
-
     def test_aastat(self):
         if not os.path.isdir(self.data_dir):
             print('Test data not found, skipping integrative test.')
