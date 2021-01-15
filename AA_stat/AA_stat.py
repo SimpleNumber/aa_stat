@@ -560,7 +560,8 @@ def AA_stat(params_dict, args, step=None):
     save_directory = args.dir
     params_dict['out_dir'] = args.dir
     params_dict['fix_mod'] = utils.get_fix_modifications(args.pepxml[0])
-    logging.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
+    logger.debug('Fixed modifications: %s', params_dict['fix_mod'])
+    logger.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
     data = utils.read_input(args, params_dict)
 
     hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
@@ -661,15 +662,23 @@ def AA_stat(params_dict, args, step=None):
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
     utils.internal('Data dict: \n%s', mass_shift_data_dict)
     recommended_fix_mods = determine_fixed_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict)
+    logger.debug('Recommended fixed mods: %s', recommended_fix_mods)
     if recommended_fix_mods:
         logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict_str(recommended_fix_mods))
     else:
         logger.info('Fixed modifications not recommended.')
     recommended_var_mods = determine_var_mods(
         figure_data, table, locmod_df, mass_shift_data_dict, params_dict, recommended_fix_mods)
+    logger.debug('Recommended variable mods: %s', recommended_var_mods)
     if recommended_var_mods:
         logger.info('Recommended variable modifications: %s.', utils.format_mod_list(recommended_var_mods))
     else:
         logger.info('Variable modifications not recommended.')
-    utils.render_html_report(table, params_dict, recommended_fix_mods, recommended_var_mods, save_directory, step=step)
+    combinations = utils.get_varmod_combinations(recommended_var_mods, ms_labels)
+    logger.debug('Found combinations in recommended variable mods: %s', combinations)
+    opposite = utils.get_opposite_mods(
+        params_dict['fix_mod'], recommended_fix_mods, recommended_var_mods, ms_labels)
+    logger.debug('Opposite modifications: %s', utils.format_mod_list([recommended_var_mods[i] for i in opposite]))
+    utils.render_html_report(table, params_dict, recommended_fix_mods, recommended_var_mods, combinations, opposite,
+        save_directory, ms_labels, step=step)
     return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods, recommended_var_mods

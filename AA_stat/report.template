@@ -223,9 +223,15 @@
   var vmod_comb_i = {{ vmod_comb_i }};
   var vmod_comb_val = {{ vmod_comb_val }};
   var vmod_table = document.getElementById("T_rec_var_mod_table");
-  for (var i = 0, col; col = vmod_comb_i[i]; i++) {
-    var cell = vmod_table.querySelector('.data.row1.col' + col);
+  for (var i = 0; i < vmod_comb_i.length; i++) {
+    var cell = vmod_table.querySelector('.data.row1.col' + vmod_comb_i[i]);
     cell.title = vmod_comb_val[i];
+  }
+  var opp_mod_i = {{ opposite_i }};
+  var opp_mod_val = {{ opposite_v }};
+  for (var j = 0; j < opp_mod_i.length; j++) {
+    var ocell = vmod_table.querySelector('.data.row1.col' + opp_mod_i[j]);
+    ocell.title = opp_mod_val[j];
   }
 
 </script>

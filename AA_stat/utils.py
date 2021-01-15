@@ -359,8 +359,8 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
     poptpvar = []
     for i in range(batch_size):
         center = i * (2 * half_window + 1) + half_window
-        x = xs[center - half_window : center + half_window + 1]
-        y = ys[center - half_window : center + half_window + 1]
+        x = xs[center - half_window: center + half_window + 1]
+        y = ys[center - half_window: center + half_window + 1]
         popt, perr = gauss_fitting(ys[center], x, y)
         plt.subplot(shape, shape, i + 1)
         if popt is None:
@@ -429,10 +429,10 @@ def fit_peaks(data, args, params_dict):
         pool = mp.Pool(n)
         for proc in range(nproc):
             xlist = [hist_x[center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc * fit_batch : (proc + 1) * fit_batch]]
+                for center in loc_max_candidates_ind[proc * fit_batch: (proc + 1) * fit_batch]]
             xs = np.concatenate(xlist)
             ylist = [hist[0][center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc * fit_batch : (proc + 1) * fit_batch]]
+                for center in loc_max_candidates_ind[proc * fit_batch: (proc + 1) * fit_batch]]
             ys = np.concatenate(ylist)
             out = os.path.join(args.dir, 'gauss_fit_{}.pdf'.format(proc + 1))
             arguments.append((out, len(xlist), xs, ys, half_window, height_error, sigma_error))
@@ -480,9 +480,7 @@ def read_spectra(args):
 
 
 def read_config_file(fname):
-    params = ConfigParser(delimiters=('=', ':'),
-                          comment_prefixes=('#'),
-                          inline_comment_prefixes=('#'))
+    params = ConfigParser(delimiters=('=', ':'), comment_prefixes=('#'), inline_comment_prefixes=('#'))
 
     params.read(AA_STAT_PARAMS_DEFAULT)
     if fname:
@@ -513,7 +511,7 @@ def get_parameters(params):
     parameters_dict['peptides_column'] = params.get('csv input', 'peptides column')
     parameters_dict['mass_shifts_column'] = params.get('csv input', 'mass shift column')
     parameters_dict['score_column'] = params.get('csv input', 'score column')
-    parameters_dict['score_ascending'] = params.getboolean('csv input','score ascending')
+    parameters_dict['score_ascending'] = params.getboolean('csv input', 'score ascending')
     # general
     parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
     parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
@@ -754,7 +752,7 @@ def format_info(row, table):
     return ', '.join(options)
 
 
-def get_varmod_combinations(recommended_vmods):
+def get_varmod_combinations(recommended_vmods, values):
     logger.debug('Received recommended vmods: %s', recommended_vmods)
     counter = Counter(aa for aa, shift in recommended_vmods)
     eligible = {aa for aa, count in counter.items() if count >= 3}
@@ -765,13 +763,29 @@ def get_varmod_combinations(recommended_vmods):
                 continue
             candidates = [(aac, shiftc) for aac, shiftc in recommended_vmods if aac == aa and shiftc != shift]
             for c1, c2 in it.combinations(candidates, 2):
-                if abs(float(c1[1]) + float(c2[1]) - float(shift)) <= COMBINATION_TOLERANCE:
+                if abs(values[c1[1]] + values[c2[1]] - values[shift]) <= COMBINATION_TOLERANCE:
                     out[i] = (c1[1], c2[1])
-    logger.debug('Found combinations in recommended variable mods: %s', out)
     return out
 
 
-def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods, save_directory, step=None):
+def get_opposite_mods(fmods, rec_fmods, rec_vmods, values):
+    fmods = masses_to_mods(fmods)
+    for aa, mod in rec_fmods.items():
+        if aa in fmods:
+            fmods[aa] = fmods[aa] + values[mod]
+        else:
+            fmods[aa] = values[mod]
+    logger.debug('Calculating opposites using effective fixed mod dict: %s', fmods)
+    vmod_idx = []
+    for aaf, fmod in fmods.items():
+        for i, (aav, vmod) in enumerate(rec_vmods):
+            if aaf == aav and abs(fmod + values[vmod]) < COMBINATION_TOLERANCE:
+                vmod_idx.append(i)
+    return vmod_idx
+
+
+def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods, vmod_combinations, opposite,
+        save_directory, ms_labels, step=None):
     path = os.path.join(save_directory, 'report.html')
     if os.path.islink(path):
         logger.debug('Deleting link: %s.', path)
@@ -835,19 +849,24 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         recmod = "Recommended modifications: none."
 
     if recommended_vmods:
-        combinations = get_varmod_combinations(recommended_vmods)
-        vmod_comb_i = json.dumps(list(combinations))
-        vmod_comb_val = json.dumps(['This modification is a combination of {} and {}.'.format(*v) for v in combinations.values()])
+        vmod_comb_i = json.dumps(list(vmod_combinations))
+        vmod_comb_val = json.dumps(['This modification is a combination of {} and {}.'.format(*v) for v in vmod_combinations.values()])
+        opp_mod_i = json.dumps(opposite)
+        opp_mod_v = json.dumps(['This modification negates a fixed modification.\n'
+            'For closed search, it is equivalent to set {} @ {} as variable.'.format(
+                mass_format(-ms_labels[recommended_vmods[i][1]]), recommended_vmods[i][0]) for i in opposite])
         table_styles = [{'selector': 'th.col_heading', 'props': [('display', 'none')]},
             {'selector': 'th.blank', 'props': [('display', 'none')]},
             {'selector': '.data.row0', 'props': [('font-weight', 'bold')]}]
-        for i, (shift1, shift2) in combinations.items():
-            table_styles.append(
-                {'selector': '.data.col{}'.format(i), 'props': [('background-color', 'lightyellow')]})
+        for i in vmod_combinations:
+            table_styles.append({'selector': '.data.col{}'.format(i), 'props': [('background-color', 'lightyellow')]})
+        for i in opposite:
+            table_styles.append({'selector': '.data.col{}'.format(i), 'props': [('background-color', 'lightyellow')]})
         rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
             'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(table_styles).render(uuid="rec_var_mod_table")
     else:
         rec_var_mods = "Recommended variable modifications: none."
+        vmod_comb_i = vmod_comb_val = opp_mod_i = opp_mod_v = '[]'
 
     reference = table.loc[table['is reference']].index[0]
 
@@ -870,7 +889,7 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
 
     write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, reference=reference,
         recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now(),
-        vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val)
+        vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val, opposite_i=opp_mod_i, opposite_v=opp_mod_v)
 
 
 def write_html(path, **template_vars):
