@@ -1045,16 +1045,20 @@ def get_fix_modifications(pepxml_file):
     out = {}
     p = pepxml.PepXML(pepxml_file, use_index=False)
     mod_list = list(p.iterfind('aminoacid_modification'))
+    logger.debug('mod_list: %s', mod_list)
     p.reset()
     term_mods = list(p.iterfind('terminal_modification'))
+    logger.debug('term_mods: %s', term_mods)
     p.close()
     for m in mod_list:
-        out[m['aminoacid']] = m['mass']
+        if m['variable'] == 'N':
+            out[m['aminoacid']] = m['mass']
     for m in term_mods:
-        if m['terminus'] == 'N':
-            out['H-'] = m['mass']
-        else:
-            out['-OH'] = m['mass']
+        if m['variable'] == 'N':
+            if m['terminus'] == 'N':
+                out['H-'] = m['mass']
+            else:
+                out['-OH'] = m['mass']
     return out
 
 
