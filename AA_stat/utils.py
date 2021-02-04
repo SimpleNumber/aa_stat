@@ -11,6 +11,7 @@ from scipy.optimize import curve_fit
 from scipy.signal import argrelextrema, savgol_filter
 import pandas as pd
 import numpy as np
+from sklearn import cluster
 import warnings
 from collections import defaultdict, Counter
 import re
@@ -81,6 +82,165 @@ def make_0mc_peptides(pep_list, rule):
     return out_set
 
 
+def _gauss_fit_slice(to_fit, unit, filename, suffix, params_dict):
+    logger.debug('Fitting zero-shift peptides...')
+    plt.figure()
+    hist_0 = np.histogram(to_fit, bins=int(params_dict['zero_window'] / params_dict['bin_width']))
+    hist_y = hist_0[0]
+    hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
+    plt.plot(hist_x, hist_y, 'b+')
+    popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
+    plt.scatter(hist_x, gauss(hist_x, *popt), label='Gaussian fit')
+    plt.xlabel('massdiff, ' + unit)
+    plt.savefig(os.path.join(
+        params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + suffix + '_zerohist.png'))
+    plt.close()
+    logger.info('Systematic shift is %.4f %s for file %s', popt[1], unit, filename)
+    return popt
+
+
+def clusters(df, to_fit, unit, filename, params_dict):
+    if to_fit.shape[0] < 500:
+        logger.warning('Not enough data for cluster analysis. Need at least 500 peptides near zero, found %d.', to_fit.shape[0])
+        return None
+    X = np.empty((to_fit.shape[0], 2))
+    X[:, 0] = to_fit
+    X[:, 1] = df.loc[to_fit.index, params_dict['rt_column']]
+    logger.debug('Clustering a %s array.', X.shape)
+    logger.debug('Initial dimensions: %s to %s', X.min(axis=0), X.max(axis=0))
+    logger.debug('Converting to square...')
+    span_0 = X[:, 0].max() - X[:, 0].min()
+    span_1 = X[:, 1].max() - X[:, 1].min()
+    ratio = span_1 / span_0
+    X[:, 0] *= ratio
+    logger.debug('Transformed dimensions: %s to %s', X.min(axis=0), X.max(axis=0))
+
+    eps = span_1 * 0.02
+    logger.debug('Using eps=%f', eps)
+    clustering = cluster.DBSCAN(eps=eps, min_samples=5).fit(X)
+    plt.figure()
+    sc = plt.scatter(to_fit, X[:, 1], c=clustering.labels_)
+    plt.legend(*sc.legend_elements(), title='Clusters')
+    plt.xlabel(unit)
+    plt.ylabel(params_dict['rt_column'])
+    plt.savefig(os.path.join(
+        params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + '_clusters.png'))
+    plt.close()
+    plt.figure()
+    for c in np.unique(clustering.labels_):
+        plt.hist(X[clustering.labels_ == c, 1], label=c, alpha=0.5)
+    plt.xlabel(params_dict['rt_column'])
+    plt.legend()
+    plt.savefig(os.path.join(
+        params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + '_cluster_hist.png'))
+    plt.close()
+    return clustering
+
+
+def cluster_time_span(clustering, label, df, to_fit, params_dict):
+    times = df.loc[to_fit.index].loc[clustering.labels_ == label, params_dict['rt_column']]
+    return times.min(), times.max()
+
+def span_percentage(span, df, to_fit, params_dict):
+    start, end = span
+    all_rt = df[params_dict['rt_column']]
+    return (end - start) / (all_rt.max() - all_rt.min())
+
+
+def cluster_time_percentage(clustering, label, df, to_fit, params_dict):
+    span = cluster_time_span(clustering, label, df, to_fit, params_dict)
+    return span_percentage(span, df, to_fit, params_dict)
+
+
+def span_union(span_1, span_2):
+    if span_1 is None:
+        return span_2
+    if span_2 is None:
+        return span_1
+    return min(span_1[0], span_2[0]), max(span_1[1], span_2[1])
+
+
+def filter_clusters(clustering, df, to_fit, params_dict):
+    nclusters = clustering.labels_.max() + 1
+    logger.debug('Found %d clusters, %d labels assigned.', nclusters, clustering.labels_.size)
+    if not nclusters:
+        return []
+    sizes = {}
+    for i in np.unique(clustering.labels_):
+        percentage = cluster_time_percentage(clustering, i, df, to_fit, params_dict)
+        sizes[i] = percentage
+        logger.debug('Cluster %d spans %.0f%% of the run.', i, percentage * 100)
+    cum_pct_thresh = 0.9
+    cum_pct = 0.0
+    covered = None  # start with empty covered span
+    out = []
+    for i in sorted(sizes, key=sizes.get, reverse=True):
+        if i == -1:
+            continue
+        npep = (clustering.labels_ == i).sum()
+        if npep < params_dict['min_peptides_for_mass_calibration']:
+            logger.debug('Cluster %s is too small for calibration (%d), discarding.', i, npep)
+            continue
+        union = span_union(covered, cluster_time_span(clustering, i, df, to_fit, params_dict))
+        if union == covered:
+            logger.debug('Cluster %s is already fully covered. Ignoring.', i)
+            continue
+        covered = union
+        cum_pct = span_percentage(covered, df, to_fit, params_dict)
+        out.append(i)
+        logger.debug('Clusters %s cover %.1f%% of the run.', out, cum_pct * 100)
+        if cum_pct > cum_pct_thresh:
+            logger.debug('Threshold achieved at %d clusters.', len(out))
+            break
+    return out
+
+
+def get_fittable_series(df, params_dict, mask=None):
+    window = params_dict['zero_window']
+    shifts = params_dict['mass_shifts_column']
+    loc = df[shifts].abs() < window
+    # logger.debug('loc size for zero shift: %s', loc.size)
+    if params_dict['calibration'] == 'gauss':
+        to_fit = df.loc[loc, shifts]
+        unit = 'Da'
+    elif params_dict['calibration'] == 'gauss_relative':
+        to_fit = df.loc[loc, shifts] * 1e6 / df.loc[loc, params_dict['calculated_mass_column']]
+        unit = 'ppm'
+    elif params_dict['calibration'] == 'gauss_frequency':
+        freq_measured = 1e6 / np.sqrt(df[params_dict['measured_mass_column']])
+        freq_calculated = 1e6 / np.sqrt(df[params_dict['calculated_mass_column']])
+        to_fit = (freq_measured - freq_calculated).loc[loc]
+        unit = 'freq. units'
+    if mask is not None:
+        to_fit = to_fit.loc[mask]
+    logger.debug('Returning a %s fittable series for a %s dataframe with a %s mask.', to_fit.shape, df.shape,
+        mask.shape if mask is not None else None)
+    return to_fit, unit
+
+
+def get_cluster_masks(filtered_clusters, clustering, df, to_fit, params_dict):
+    all_rt = df[params_dict['rt_column']]
+    time_spans = {i: cluster_time_span(clustering, i, df, to_fit, params_dict) for i in filtered_clusters}
+    sorted_clusters = sorted(filtered_clusters, key=time_spans.get)  # sorts by span start
+    i = 0
+    prev = all_rt.min()
+    masks = {}
+    while i < len(sorted_clusters):
+        cur_end = time_spans[sorted_clusters[i]][1]
+        if i == len(sorted_clusters) - 1:
+            next_point = all_rt.max() + 1
+        else:
+            next_start = time_spans[sorted_clusters[i + 1]][0]
+            next_point = (cur_end + next_start) / 2
+        logger.debug('Time span %.1f - %.1f assigned to cluster %s', prev, next_point, sorted_clusters[i])
+        masks[sorted_clusters[i]] = (all_rt >= prev) & (all_rt < next_point)
+        i += 1
+        prev = next_point
+
+    assigned_masks = [masks[c] for c in filtered_clusters]
+    return assigned_masks
+
+
 def preprocess_df(df, filename, params_dict):
     '''
     Preprocesses DataFrame.
@@ -98,25 +258,97 @@ def preprocess_df(df, filename, params_dict):
     DataFrame
     '''
     logger.debug('Preprocessing %s', filename)
-    window = 0.3
+    window = params_dict['zero_window']
     zero_bin = 0
     shifts = params_dict['mass_shifts_column']
+
     df['is_decoy'] = df[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
-    ms, filtered = fdr_filter_mass_shift([None, zero_bin, window / 2], df, params_dict)
+    ms, filtered = fdr_filter_mass_shift([None, zero_bin, window], df, params_dict)
     n = filtered.shape[0]
     logger.debug('%d filtered peptides near zero.', n)
-    if n < params_dict['min_peptides_for_mass_calibration']:
-        logger.warning('Skipping mass calibration: not enough peptides near zero mass shift.')
-    else:
-        logger.debug('Fitting zero-shift peptides...')
-        hist_0 = np.histogram(df.loc[abs(df[shifts] - zero_bin) < window / 2, shifts], bins=10000)
-        hist_y = hist_0[0]
-        hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
-        popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
-        logger.info('Systematic shift is %.4f Da for file %s', popt[1], filename)
-        df[shifts] -= popt[1]
-    df['file'] = os.path.split(filename)[-1].split('.')[0]  # correct this
+    if params_dict['calibration'] == 'off':
+        logger.info('Mass calibration is disabled. Skipping.')
+    elif params_dict['calibration'] != 'simple':
+        if n < params_dict['min_peptides_for_mass_calibration']:
+            logger.warning('Skipping mass calibration: not enough peptides near zero mass shift.')
+        else:
+            to_fit, unit = get_fittable_series(df, params_dict)
+            shift_copy = df[shifts].copy()
+            old_shifts = shift_copy.copy()
+            if params_dict['clustering']:
+                clustering = clusters(df, to_fit, unit, filename, params_dict)
+                filtered_clusters = filter_clusters(clustering, df, to_fit, params_dict)
+                if len(filtered_clusters) == 1:
+                    logger.info('One large cluster found in %s. Calibrating masses in the whole file.', filename)
+                    filtered_clusters = None
+                else:
+                    logger.info('Splitting %s into %d pieces.', filename, len(filtered_clusters))
+                    plt.figure()
+                    for i in filtered_clusters:
+                        plt.hist(df.loc[to_fit.index].loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
+                    plt.xlabel(shifts)
+                    plt.legend()
+                    plt.savefig(os.path.join(
+                        params_dict['output directory'],
+                        os.path.splitext(os.path.basename(filename))[0] + '_massdiff_hist.png'))
+                    plt.close()
+            else:
+                filtered_clusters = None
+
+            if not filtered_clusters:
+                slices = [None]
+                suffixes = ['']
+                assigned_masks = [slice(None)]
+                filtered_clusters = ['<all>']
+            else:
+                slices, suffixes = [], []
+                for i in filtered_clusters:
+                    slices.append(clustering.labels_ == i)
+                    suffixes.append('_cluster_{}'.format(i))
+                assigned_masks = get_cluster_masks(filtered_clusters, clustering, df, to_fit, params_dict)
+            for c, slice_, suffix, mask in zip(filtered_clusters, slices, suffixes, assigned_masks):
+                # logger.debug('Slice size for cluster %s is: %s', c, slice_.size if slice_ is not None else None)
+                to_fit, unit = get_fittable_series(df, params_dict, slice_)
+                popt = _gauss_fit_slice(to_fit, unit, filename, suffix, params_dict)
+
+                if unit == 'Da':
+                    shift_copy.loc[mask] -= popt[1]
+                elif unit == 'ppm':
+                    shift_copy.loc[mask] -= popt[1] * df[params_dict['calculated_mass_column']] / 1e6
+                else:
+                    np.testing.assert_allclose(
+                        df[shifts],
+                        df[params_dict['measured_mass_column']] - df[params_dict['calculated_mass_column']],
+                        atol=1e-4)
+                    freq_measured = 1e6 / np.sqrt(df.loc[mask, params_dict['measured_mass_column']]) - popt[1]
+                    mass_corrected = (1e6 / freq_measured) ** 2
+                    correction = mass_corrected - df.loc[mask, params_dict['measured_mass_column']]
+                    logger.debug('Average systematic mass shift for cluster %s: %f', c, -correction.mean())
+                    shift_copy.loc[mask] += correction
+            df[shifts] = shift_copy
+            plt.figure()
+            dfloc = df.loc[old_shifts.abs() < params_dict['zero_window']]
+            sc = plt.scatter(dfloc[shifts], dfloc[params_dict['rt_column']],
+                c=clustering.labels_ if params_dict['clustering'] else None)
+            if params_dict['clustering']:
+                plt.legend(*sc.legend_elements(), title='Clusters')
+            plt.xlabel(shifts)
+            plt.ylabel(params_dict['rt_column'])
+            plt.savefig(os.path.join(
+                params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + '_massdiff_corrected.png'))
+            plt.close()
+            if filtered_clusters != ['<all>']:
+                plt.figure()
+                for i in filtered_clusters:
+                    plt.hist(dfloc.loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
+                plt.xlabel(shifts)
+                plt.legend()
+                plt.savefig(os.path.join(
+                    params_dict['output directory'],
+                    os.path.splitext(os.path.basename(filename))[0] + '_massdiff_corrected_hist.png'))
+                plt.close()
+    df['file'] = os.path.splitext(os.path.basename(filename))[0]
     df['check_composition'] = df[params_dict['peptides_column']].apply(lambda x: check_composition(x, params_dict['labels']))
     return df.loc[df['check_composition']]
 
@@ -292,12 +524,6 @@ def read_input(args, params_dict):
 
     data['bin'] = np.digitize(data[shifts], params_dict['bins'])
     return data
-
-
-def get_unimod_url(mass_shift):
-    return ('http://www.unimod.org/modifications_list.php'
-        '?a=search&value=1&SearchFor={:.0f}.&'
-        'SearchOption=Starts+with+...&SearchField=mono_mass'.format(mass_shift))
 
 
 def smooth(y, window_size=15, power=5):
@@ -511,22 +737,30 @@ def get_parameters(params):
     parameters_dict['peptides_column'] = params.get('csv input', 'peptides column')
     parameters_dict['mass_shifts_column'] = params.get('csv input', 'mass shift column')
     parameters_dict['score_column'] = params.get('csv input', 'score column')
+    parameters_dict['measured_mass_column'] = params.get('csv input', 'measured mass column')
+    parameters_dict['calculated_mass_column'] = params.get('csv input', 'calculated mass column')
+    parameters_dict['rt_column'] = params.get('csv input', 'retention time column')
     parameters_dict['score_ascending'] = params.getboolean('csv input', 'score ascending')
+
     # general
     parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
     parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
     parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')
     parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
     parameters_dict['processes'] = params.getint('general', 'processes')
+    parameters_dict['zero_window'] = params.getfloat('general', 'zero peak window')
 
     parameters_dict['zero bin tolerance'] = params.getfloat('general', 'zero shift mass tolerance')
     parameters_dict['zero min intensity'] = params.getfloat('general', 'zero shift minimum intensity')
     parameters_dict['min_peptides_for_mass_calibration'] = params.getint('general', 'minimum peptides for mass calibration')
 
-    parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')  # spec_window_flag
-    parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]  # spec_window
+    parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')
+    parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]
 
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
+    parameters_dict['calibration'] = params.get('general', 'mass calibration')
+    parameters_dict['clustering'] = params.getboolean('general', 'use clustering')
+
     # fit
     parameters_dict['shift_error'] = params.getint('fit', 'shift error')
     #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
@@ -571,10 +805,15 @@ def set_additional_params(params_dict):
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
 
 
-def get_params_dict(fname):
+def get_params_dict(args):
+    fname = args.params
+    outdir = args.dir
     params = read_config_file(fname)
     params_dict = get_parameters(params)
     set_additional_params(params_dict)
+    params_dict['output directory'] = outdir
+    if args.pepxml:
+        params_dict['fix_mod'] = get_fix_modifications(args.pepxml[0])
     return params_dict
 
 
@@ -824,14 +1063,12 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         if os.path.isfile(fname):
             df = pd.read_csv(fname, sep='\t')
             if 'localization score' in df:
-                out = df.sort_values(['localization score'], ascending=False)
-            else:
-                out = df
-            peptide_tables.append(out.to_html(
-                table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False,
+                df.sort_values(['localization score'], ascending=False, inplace=True)
+            peptide_tables.append(df.to_html(
+                table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False, na_rep='',
                 formatters={
                     'top isoform': lambda form: re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', form),
-                    'localization score': lambda v: '' if pd.isna(v) else '{:.2f}'.format(v)}))
+                    'localization score': '{:.2f}'.format}))
         else:
             logger.debug('File not found: %s', fname)
 

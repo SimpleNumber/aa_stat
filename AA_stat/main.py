@@ -40,7 +40,7 @@ def main():
 
     logger.info('Starting...')
 
-    params_dict = utils.get_params_dict(args.params)
+    params_dict = utils.get_params_dict(args)
     logger.debug(params_dict)
 
     os.makedirs(args.dir, exist_ok=True)

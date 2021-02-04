@@ -296,14 +296,15 @@ def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
 
     Parameters
     ----------
-    mass_shifts_dict : Dict
-        A dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
+    mass_shifts_dict : dict
+        A dict with in the format: `mass_shift_label`: `(mass_shift_value, filtered_peptide_dataframe)`.
     mass_correction: float
         Mass of reference (zero) mass shift, that should be moved to 0.0
 
     Returns
     -------
-    Updated `mass_shifts_dict`
+    out : dict
+        Updated `mass_shifts_dict`
     """
     out = {}
     for k, v in mass_shifts_dict.items():
@@ -558,8 +559,7 @@ def AA_stat(params_dict, args, step=None):
     Calculates all statistics, saves tables and pictures.
     """
     save_directory = args.dir
-    params_dict['out_dir'] = args.dir
-    params_dict['fix_mod'] = utils.get_fix_modifications(args.pepxml[0])
+
     logger.debug('Fixed modifications: %s', params_dict['fix_mod'])
     logger.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
     data = utils.read_input(args, params_dict)
@@ -571,15 +571,18 @@ def AA_stat(params_dict, args, step=None):
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     if not mass_shift_data_dict:
-        utils.render_html_report(None, params_dict, {}, {}, save_directory, step=step)
+        utils.render_html_report(None, params_dict, {}, {}, {}, [], save_directory, [], step=step)
         return None, None, None, mass_shift_data_dict, {}
 
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, params_dict)
     if abs(reference_mass_shift) < params_dict['zero bin tolerance']:
-        logger.info("Systematic mass shift equals to %s", reference_label)
-        mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, reference_mass_shift)
-        reference_mass_shift = 0.0
-        reference_label = utils.mass_format(0.0)
+        logger.info('Systematic mass shift equals to %s', reference_label)
+        if params_dict['calibration'] != 'off':
+            mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, reference_mass_shift)
+            reference_mass_shift = 0.0
+            reference_label = utils.mass_format(0.0)
+        else:
+            logger.info('Leaving systematic shift in place (calibration disabled).')
     else:
         logger.info('Reference mass shift is %s', reference_label)
     ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}

@@ -394,7 +394,7 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
         df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'] = zip(
             *df.apply(lambda x: localization_of_modification(
                     ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1))
-    fname = utils.table_path(params_dict['out_dir'], ms_label)
+    fname = utils.table_path(params_dict['output directory'], ms_label)
     peptide = params_dict['peptides_column']
 
     mod_aa = string.ascii_lowercase

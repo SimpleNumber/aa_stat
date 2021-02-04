@@ -119,9 +119,10 @@ class AAstatResultTest(unittest.TestCase):
             if not os.path.isfile(f):
                 print(f, 'not found, skipping integrative test.')
                 return
-        params_dict = utils.get_params_dict(None)
+
         args = argparse.Namespace(dir=self.data_dir, pepxml=self.pepxml, mzml=self.mzml,
             mgf=None, csv=None, params=None)
+        params_dict = utils.get_params_dict(args)
         self.figure_data, self.table, self.locmod_df, self.mass_shift_data_dict, self.fix_mods, self.var_mods = AA_stat(params_dict, args)
 
         self.assertEqual(self.table.index.tolist(),

@@ -83,7 +83,7 @@ def main():
     spectra = args.mgf or args.mzml
     spectra = [os.path.abspath(i) for i in spectra]
 
-    params_dict = utils.get_params_dict(args.params)
+    params_dict = utils.get_params_dict(args)
 
     working_dir = args.dir
 
