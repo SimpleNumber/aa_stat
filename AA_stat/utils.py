@@ -115,9 +115,9 @@ def clusters(df, to_fit, unit, filename, params_dict):
     X[:, 0] *= ratio
     logger.debug('Transformed dimensions: %s to %s', X.min(axis=0), X.max(axis=0))
 
-    eps = span_1 * 0.02
+    eps = span_1 * params_dict['zero_window'] * params_dict['eps_adjust']
     logger.debug('Using eps=%f', eps)
-    clustering = cluster.DBSCAN(eps=eps, min_samples=5).fit(X)
+    clustering = cluster.DBSCAN(eps=eps, min_samples=params_dict['min_samples']).fit(X)
     plt.figure()
     sc = plt.scatter(to_fit, X[:, 1], c=clustering.labels_)
     plt.legend(*sc.legend_elements(), title='Clusters')
@@ -169,7 +169,7 @@ def filter_clusters(clustering, df, to_fit, params_dict):
     for i in np.unique(clustering.labels_):
         percentage = cluster_time_percentage(clustering, i, df, to_fit, params_dict)
         sizes[i] = percentage
-        logger.debug('Cluster %d spans %.0f%% of the run.', i, percentage * 100)
+        logger.debug('Cluster %d spans %.1f%% of the run.', i, percentage * 100)
     cum_pct_thresh = 0.9
     cum_pct = 0.0
     covered = None  # start with empty covered span
@@ -759,7 +759,11 @@ def get_parameters(params):
 
     parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     parameters_dict['calibration'] = params.get('general', 'mass calibration')
-    parameters_dict['clustering'] = params.getboolean('general', 'use clustering')
+
+    #clustering
+    parameters_dict['clustering'] = params.getboolean('clustering', 'use clustering')
+    parameters_dict['eps_adjust'] = params.getfloat('clustering', 'dbscan eps factor')
+    parameters_dict['min_samples'] = params.getfloat('clustering', 'dbscan min_samples')
 
     # fit
     parameters_dict['shift_error'] = params.getint('fit', 'shift error')
