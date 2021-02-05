@@ -95,7 +95,7 @@ def _gauss_fit_slice(to_fit, unit, filename, suffix, params_dict):
     plt.savefig(os.path.join(
         params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + suffix + '_zerohist.png'))
     plt.close()
-    logger.info('Systematic shift is %.4f %s for file %s', popt[1], unit, filename)
+    logger.info('Systematic shift is %.4f %s for file %s [ %s ]', popt[1], unit, filename, suffix)
     return popt
 
 
@@ -273,12 +273,13 @@ def preprocess_df(df, filename, params_dict):
         if n < params_dict['min_peptides_for_mass_calibration']:
             logger.warning('Skipping mass calibration: not enough peptides near zero mass shift.')
         else:
-            to_fit, unit = get_fittable_series(df, params_dict)
+            to_fit, unit = get_fittable_series(filtered, params_dict)
+            # save copies of mass shift column, for use in boolean indexing
             shift_copy = df[shifts].copy()
-            old_shifts = shift_copy.copy()
+            old_shifts = filtered[shifts].copy()
             if params_dict['clustering']:
-                clustering = clusters(df, to_fit, unit, filename, params_dict)
-                filtered_clusters = filter_clusters(clustering, df, to_fit, params_dict)
+                clustering = clusters(filtered, to_fit, unit, filename, params_dict)
+                filtered_clusters = filter_clusters(clustering, filtered, to_fit, params_dict)
                 if len(filtered_clusters) == 1:
                     logger.info('One large cluster found in %s. Calibrating masses in the whole file.', filename)
                     filtered_clusters = None
@@ -286,7 +287,7 @@ def preprocess_df(df, filename, params_dict):
                     logger.info('Splitting %s into %d pieces.', filename, len(filtered_clusters))
                     plt.figure()
                     for i in filtered_clusters:
-                        plt.hist(df.loc[to_fit.index].loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
+                        plt.hist(filtered.loc[to_fit.index].loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
                     plt.xlabel(shifts)
                     plt.legend()
                     plt.savefig(os.path.join(
@@ -309,7 +310,7 @@ def preprocess_df(df, filename, params_dict):
                 assigned_masks = get_cluster_masks(filtered_clusters, clustering, df, to_fit, params_dict)
             for c, slice_, suffix, mask in zip(filtered_clusters, slices, suffixes, assigned_masks):
                 # logger.debug('Slice size for cluster %s is: %s', c, slice_.size if slice_ is not None else None)
-                to_fit, unit = get_fittable_series(df, params_dict, slice_)
+                to_fit, unit = get_fittable_series(filtered, params_dict, slice_)
                 popt = _gauss_fit_slice(to_fit, unit, filename, suffix, params_dict)
 
                 if unit == 'Da':
@@ -326,10 +327,14 @@ def preprocess_df(df, filename, params_dict):
                     correction = mass_corrected - df.loc[mask, params_dict['measured_mass_column']]
                     logger.debug('Average systematic mass shift for cluster %s: %f', c, -correction.mean())
                     shift_copy.loc[mask] += correction
+
+            # corrected mass shifts are written back here
             df[shifts] = shift_copy
+            filtered[shifts] = df.loc[filtered.index, shifts]
+
             plt.figure()
-            dfloc = df.loc[old_shifts.abs() < params_dict['zero_window']]
-            sc = plt.scatter(dfloc[shifts], dfloc[params_dict['rt_column']],
+            floc = filtered.loc[old_shifts.abs() < params_dict['zero_window']]
+            sc = plt.scatter(floc[shifts], floc[params_dict['rt_column']],
                 c=clustering.labels_ if params_dict['clustering'] else None)
             if params_dict['clustering']:
                 plt.legend(*sc.legend_elements(), title='Clusters')
@@ -341,7 +346,7 @@ def preprocess_df(df, filename, params_dict):
             if filtered_clusters != ['<all>']:
                 plt.figure()
                 for i in filtered_clusters:
-                    plt.hist(dfloc.loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
+                    plt.hist(floc.loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
                 plt.xlabel(shifts)
                 plt.legend()
                 plt.savefig(os.path.join(
