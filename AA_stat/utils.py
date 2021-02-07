@@ -1045,7 +1045,7 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         return
     table = table_.copy()
     labels = params_dict['labels']
-    table['info'] = table.apply(format_info, axis=1, args=(table,))
+    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table,))
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
