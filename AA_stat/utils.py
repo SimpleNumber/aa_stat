@@ -983,6 +983,34 @@ def format_unimod_repr(record_id):
     return '<a href="http://www.unimod.org/modifications_view.php?editid1={0[record_id]}">{0[title]}</a>'.format(record)
 
 
+def matches(row, ms, sites):
+    ldict = row['localization_count']
+    if 'non-localized' in ldict:
+        return False
+    for loc in ldict:
+        site, shift = loc.split('_')
+        if shift != ms:
+            continue
+        if site in sites:
+            return True
+    return False
+
+
+def format_unimod_info(row, df):
+    out = []
+    for record_id in row['unimod accessions']:
+        name = format_unimod_repr(record_id)
+        if 'top isoform' in df:
+            record = UNIMOD[record_id]
+            sites = {group['site'] for group in record['specificity']}
+            matching = df.apply(matches, args=(row.name, sites), axis=1).sum()
+            total = row['# peptides in bin']
+            out.append('{} ({:.0%} match)'.format(name, matching / total))
+        else:
+            out.append(name)
+    return out
+
+
 def get_label(table, ms, second=False):
     row = table.loc[ms]
     if row['isotope index'] is None and row['sum of mass shifts'] is None:
@@ -991,8 +1019,8 @@ def get_label(table, ms, second=False):
     return ms
 
 
-def format_info(row, table):
-    options = list(map(format_unimod_repr, row['unimod accessions']))
+def format_info(row, table, mass_shift_data_dict):
+    options = format_unimod_info(row, mass_shift_data_dict[row.name][1])
     if row['isotope index']:
         options.append('isotope of {}'.format(get_label(table, row['isotope index'])))
     if isinstance(row['sum of mass shifts'], list):
@@ -1032,7 +1060,7 @@ def get_opposite_mods(fmods, rec_fmods, rec_vmods, values):
     return vmod_idx
 
 
-def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods, vmod_combinations, opposite,
+def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fmods, recommended_vmods, vmod_combinations, opposite,
         save_directory, ms_labels, step=None):
     path = os.path.join(save_directory, 'report.html')
     if os.path.islink(path):
@@ -1045,7 +1073,7 @@ def render_html_report(table_, params_dict, recommended_fmods, recommended_vmods
         return
     table = table_.copy()
     labels = params_dict['labels']
-    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table,))
+    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table, mass_shift_data_dict))
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
