@@ -83,10 +83,6 @@ def main():
     spectra = args.mgf or args.mzml
     spectra = [os.path.abspath(i) for i in spectra]
 
-    params_dict = utils.get_params_dict(args)
-
-    working_dir = args.dir
-
     if args.optimize_fixed_mods:
         logger.debug('Skipping up to %d steps.', args.skip)
         step = 1
@@ -94,7 +90,7 @@ def main():
         while True:
             logger.info('Starting step %d.', step)
             fig_data, aastat_table, locmod, data_dict, new_fix_mod_dict, var_mod_dict = run_step_os(
-                spectra, 'os_step_{}'.format(step), working_dir, args, params_dict, change_dict=fix_mod_dict, step=step)
+                spectra, 'os_step_{}'.format(step), args, change_dict=fix_mod_dict, step=step)
 
             if new_fix_mod_dict:
                 for k, v in new_fix_mod_dict.items():
@@ -104,10 +100,10 @@ def main():
             else:
                 break
         try:
-            if os.path.isfile(os.path.join(working_dir, 'report.html')):
+            if os.path.isfile(os.path.join(args.dir, 'report.html')):
                 logger.debug('Removing existing report.html.')
-                os.remove(os.path.join(working_dir, 'report.html'))
-            os.symlink(os.path.join('os_step_1', 'report.html'), os.path.join(working_dir, 'report.html'))
+                os.remove(os.path.join(args.dir, 'report.html'))
+            os.symlink(os.path.join('os_step_1', 'report.html'), os.path.join(args.dir, 'report.html'))
         except Exception as e:
             logger.debug('Can\'t create symlink to report: %s', e)
         else:
@@ -116,7 +112,7 @@ def main():
     else:
         logger.info('Running one-shot search.')
         folder_name = ''
-        run_step_os(spectra, folder_name, args.dir, args, params_dict)
+        run_step_os(spectra, folder_name, args)
 
 
 def get_pepxml(input_file, d=None):
@@ -159,10 +155,10 @@ def create_os_params(output, original=None, mass_shifts=None, fastafile=None):
                 new_params.write(line)
 
 
-def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dict=None, step=None):
-    dir = os.path.abspath(os.path.join(working_dir, folder_name))
+def run_step_os(spectra, folder_name, args, change_dict=None, step=None):
+    dir = os.path.abspath(os.path.join(args.dir, folder_name))
     os.makedirs(dir, exist_ok=True)
-    os_params_path = os.path.abspath(os.path.join(working_dir, folder_name, 'os.params'))
+    os_params_path = os.path.abspath(os.path.join(args.dir, folder_name, 'os.params'))
     create_os_params(os_params_path, args.os_params, change_dict, args.fasta)
     pepxml_names = [get_pepxml(s, dir) for s in spectra]
     run = True
@@ -179,4 +175,5 @@ def run_step_os(spectra, folder_name, working_dir, args, params_dict, change_dic
     args.pepxml = pepxml_names
     args.csv = None
     args.dir = dir
+    params_dict = utils.get_params_dict(args)
     return AA_stat.AA_stat(params_dict, args, step=step)
