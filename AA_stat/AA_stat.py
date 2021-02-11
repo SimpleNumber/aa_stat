@@ -596,14 +596,14 @@ def AA_stat(params_dict, args, step=None):
     logger.info('Summary histogram saved.')
     # table.index = table['mass shift'].apply(utils.mass_format)
     table[['is isotope', 'isotope index']] = utils.find_isotopes(
-        table['mass shift'], table['# peptides in bin'], tolerance=params_dict['isotope mass tolerance'])
+        table['mass shift'], table['# peptides in bin'], tolerance=params_dict['frag_acc'])
     table.at[reference_label, 'is isotope'] = False
     table.at[reference_label, 'isotope index'] = None
     logger.debug('Isotopes:\n%s', table.loc[table['is isotope']])
     u = utils.UNIMOD.mods
     unimod_df = pd.DataFrame(u)
     table['unimod candidates'], table['unimod accessions'] = zip(*table['mass shift'].apply(
-        lambda x: utils.get_candidates_from_unimod(x, params_dict['unimod mass tolerance'], unimod_df)))
+        lambda x: utils.get_candidates_from_unimod(x, params_dict['frag_acc'], unimod_df)))
 
     table['sum of mass shifts'] = utils.find_sums(table.loc[~table['is isotope'], 'mass shift'],
             tolerance=params_dict['shift_error'] * params_dict['bin_width'])

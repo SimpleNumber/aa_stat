@@ -747,6 +747,8 @@ def get_parameters(params):
     parameters_dict['rt_column'] = params.get('csv input', 'retention time column')
     parameters_dict['next_aa_column'] = params.get('csv input', 'next aa column')
     parameters_dict['prev_aa_column'] = params.get('csv input', 'previous aa column')
+    parameters_dict['spectrum_column'] = params.get('csv input', 'spectrum column')
+    parameters_dict['charge_column'] = params.get('csv input', 'charge column')
     parameters_dict['score_ascending'] = params.getboolean('csv input', 'score ascending')
 
     # general
@@ -779,13 +781,9 @@ def get_parameters(params):
     parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     parameters_dict['fit batch'] = params.getint('fit', 'batch')
     # localization
-    parameters_dict['spectrum_column'] = params.get('localization', 'spectrum column')
-    parameters_dict['charge_column'] = params.get('localization', 'charge column')
     parameters_dict['ion_types'] = tuple(params.get('localization', 'ion type').replace(' ', '').split(','))
-    parameters_dict['frag_acc'] = params.getfloat('localization', 'fragmentation mass tolerance')
+    parameters_dict['frag_acc'] = params.getfloat('localization', 'fragment ion mass tolerance')
     parameters_dict['candidate threshold'] = params.getfloat('localization', 'frequency threshold')
-    parameters_dict['isotope mass tolerance'] = params.getfloat('localization', 'isotope mass tolerance')
-    parameters_dict['unimod mass tolerance'] = params.getfloat('localization', 'unimod mass tolerance')
     parameters_dict['min_spec_matched'] = params.getint('localization', 'minimum matched peaks')
 
     # modifications
