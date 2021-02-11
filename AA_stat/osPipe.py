@@ -102,10 +102,10 @@ def main():
             else:
                 break
         try:
-            if os.path.isfile(os.path.join(args.dir, 'report.html')):
+            if os.path.isfile(os.path.join(working_dir, 'report.html')):
                 logger.debug('Removing existing report.html.')
-                os.remove(os.path.join(args.dir, 'report.html'))
-            os.symlink(os.path.join('os_step_1', 'report.html'), os.path.join(args.dir, 'report.html'))
+                os.remove(os.path.join(working_dir, 'report.html'))
+            os.symlink(os.path.join('os_step_1', 'report.html'), os.path.join(working_dir, 'report.html'))
         except Exception as e:
             logger.debug('Can\'t create symlink to report: %s', e)
         else:

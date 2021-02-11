@@ -1005,7 +1005,6 @@ def matches(row, ms, sites, params_dict):
 def format_unimod_info(row, df, params_dict):
     out = []
     for record_id in row['unimod accessions']:
-        logger.debug('Processing record %s', record_id)
         name = format_unimod_repr(record_id)
         if 'top isoform' in df:
             record = UNIMOD[record_id]
