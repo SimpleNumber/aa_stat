@@ -745,6 +745,8 @@ def get_parameters(params):
     parameters_dict['measured_mass_column'] = params.get('csv input', 'measured mass column')
     parameters_dict['calculated_mass_column'] = params.get('csv input', 'calculated mass column')
     parameters_dict['rt_column'] = params.get('csv input', 'retention time column')
+    parameters_dict['next_aa_column'] = params.get('csv input', 'next aa column')
+    parameters_dict['prev_aa_column'] = params.get('csv input', 'previous aa column')
     parameters_dict['score_ascending'] = params.getboolean('csv input', 'score ascending')
 
     # general
@@ -983,7 +985,7 @@ def format_unimod_repr(record_id):
     return '<a href="http://www.unimod.org/modifications_view.php?editid1={0[record_id]}">{0[title]}</a>'.format(record)
 
 
-def matches(row, ms, sites):
+def matches(row, ms, sites, params_dict):
     ldict = row['localization_count']
     if 'non-localized' in ldict:
         return False
@@ -991,19 +993,27 @@ def matches(row, ms, sites):
         site, shift = loc.split('_')
         if shift != ms:
             continue
-        if site in sites:
-            return True
+        for possible_site, possible_position in sites:
+            if site == possible_site:
+                if possible_position[:3] == 'Any':  # Anywhere, Any C-term, Any N-term
+                    return True
+                if possible_position == 'Protein N-term' and row[params_dict['prev_aa_column']] == '-':
+                    return True
+                if possible_position == 'Protein C-term' and row[params_dict['next_aa_column']] == '-':
+                    return True
     return False
 
 
-def format_unimod_info(row, df):
+def format_unimod_info(row, df, params_dict):
     out = []
     for record_id in row['unimod accessions']:
+        logger.debug('Processing record %s', record_id)
         name = format_unimod_repr(record_id)
         if 'top isoform' in df:
             record = UNIMOD[record_id]
-            sites = {group['site'] for group in record['specificity']}
-            matching = df.apply(matches, args=(row.name, sites), axis=1).sum()
+            sites = {(group['site'], group['position']) for group in record['specificity']}
+            internal(sites)
+            matching = df.apply(matches, args=(row.name, sites, params_dict), axis=1).sum()
             total = row['# peptides in bin']
             out.append('{} ({:.0%} match)'.format(name, matching / total))
         else:
@@ -1019,8 +1029,8 @@ def get_label(table, ms, second=False):
     return ms
 
 
-def format_info(row, table, mass_shift_data_dict):
-    options = format_unimod_info(row, mass_shift_data_dict[row.name][1])
+def format_info(row, table, mass_shift_data_dict, params_dict):
+    options = format_unimod_info(row, mass_shift_data_dict[row.name][1], params_dict)
     if row['isotope index']:
         options.append('isotope of {}'.format(get_label(table, row['isotope index'])))
     if isinstance(row['sum of mass shifts'], list):
@@ -1073,7 +1083,7 @@ def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fm
         return
     table = table_.copy()
     labels = params_dict['labels']
-    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table, mass_shift_data_dict))
+    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table, mass_shift_data_dict, params_dict))
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
