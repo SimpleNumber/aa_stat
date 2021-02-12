@@ -141,6 +141,7 @@ def cluster_time_span(clustering, label, df, to_fit, params_dict):
     times = df.loc[to_fit.index].loc[clustering.labels_ == label, params_dict['rt_column']]
     return times.min(), times.max()
 
+
 def span_percentage(span, df, to_fit, params_dict):
     start, end = span
     all_rt = df[params_dict['rt_column']]
@@ -152,46 +153,35 @@ def cluster_time_percentage(clustering, label, df, to_fit, params_dict):
     return span_percentage(span, df, to_fit, params_dict)
 
 
-def span_union(span_1, span_2):
-    if span_1 is None:
-        return span_2
-    if span_2 is None:
-        return span_1
-    return min(span_1[0], span_2[0]), max(span_1[1], span_2[1])
-
-
 def filter_clusters(clustering, df, to_fit, params_dict):
     nclusters = clustering.labels_.max() + 1
     logger.debug('Found %d clusters, %d labels assigned.', nclusters, clustering.labels_.size)
     if not nclusters:
         return []
-    sizes = {}
-    for i in np.unique(clustering.labels_):
-        percentage = cluster_time_percentage(clustering, i, df, to_fit, params_dict)
-        sizes[i] = percentage
-        logger.debug('Cluster %d spans %.1f%% of the run.', i, percentage * 100)
-    cum_pct_thresh = 0.9
-    cum_pct = 0.0
-    covered = None  # start with empty covered span
+
     out = []
-    for i in sorted(sizes, key=sizes.get, reverse=True):
+    clustered_peps = 0
+    for i in np.unique(clustering.labels_):
         if i == -1:
             continue
         npep = (clustering.labels_ == i).sum()
         if npep < params_dict['min_peptides_for_mass_calibration']:
             logger.debug('Cluster %s is too small for calibration (%d), discarding.', i, npep)
             continue
-        union = span_union(covered, cluster_time_span(clustering, i, df, to_fit, params_dict))
-        if union == covered:
-            logger.debug('Cluster %s is already fully covered. Ignoring.', i)
+        span_pct = cluster_time_percentage(clustering, i, df, to_fit, params_dict)
+        if span_pct < params_dict['cluster_span_min']:
+            logger.debug('Cluster %s spans %.2f%% of the run (too small, thresh = %.2f%%). Discarding.',
+                i, span_pct * 100, params_dict['cluster_span_min'] * 100)
             continue
-        covered = union
-        cum_pct = span_percentage(covered, df, to_fit, params_dict)
         out.append(i)
-        logger.debug('Clusters %s cover %.1f%% of the run.', out, cum_pct * 100)
-        if cum_pct > cum_pct_thresh:
-            logger.debug('Threshold achieved at %d clusters.', len(out))
-            break
+        clustered_peps += npep
+
+    logger.debug('Pre-selected clusters: %s', out)
+    logger.debug('%.2f%% peptides in clusters, threshold is %.2f%%.',
+        clustered_peps / df.shape[0] * 100, params_dict['clustered_pct_min'] * 100)
+    if clustered_peps / df.shape[0] < params_dict['clustered_pct_min']:
+        logger.debug('Too few peptides in clusters, discarding clusters altogether.')
+        return []
     return out
 
 
@@ -280,7 +270,9 @@ def preprocess_df(df, filename, params_dict):
             if params_dict['clustering']:
                 clustering = clusters(filtered, to_fit, unit, filename, params_dict)
                 filtered_clusters = filter_clusters(clustering, filtered, to_fit, params_dict)
-                if len(filtered_clusters) == 1:
+                if not filtered_clusters:
+                    logger.info('Clustering was unsuccesful for %s. Calibrating masses in the whole file.', filename)
+                elif len(filtered_clusters) == 1:
                     logger.info('One large cluster found in %s. Calibrating masses in the whole file.', filename)
                     filtered_clusters = None
                 else:
@@ -729,71 +721,72 @@ def get_parameters(params):
     Reads paramenters from cfg file to one dict.
     Returns dict.
     """
-    parameters_dict = defaultdict()
+    params_dict = defaultdict()
     # data
-    parameters_dict['decoy_prefix'] = params.get('data', 'decoy prefix')
-    parameters_dict['FDR'] = params.getfloat('data', 'FDR')
-    parameters_dict['labels'] = params.get('data', 'labels').strip().split()
-    parameters_dict['rule'] = params.get('data', 'cleavage rule')
+    params_dict['decoy_prefix'] = params.get('data', 'decoy prefix')
+    params_dict['FDR'] = params.getfloat('data', 'FDR')
+    params_dict['labels'] = params.get('data', 'labels').strip().split()
+    params_dict['rule'] = params.get('data', 'cleavage rule')
     # csv input
-    parameters_dict['csv_delimiter'] = params.get('csv input', 'delimiter')
-    parameters_dict['proteins_delimeter'] = params.get('csv input', 'proteins delimiter')
-    parameters_dict['proteins_column'] = params.get('csv input', 'proteins column')
-    parameters_dict['peptides_column'] = params.get('csv input', 'peptides column')
-    parameters_dict['mass_shifts_column'] = params.get('csv input', 'mass shift column')
-    parameters_dict['score_column'] = params.get('csv input', 'score column')
-    parameters_dict['measured_mass_column'] = params.get('csv input', 'measured mass column')
-    parameters_dict['calculated_mass_column'] = params.get('csv input', 'calculated mass column')
-    parameters_dict['rt_column'] = params.get('csv input', 'retention time column')
-    parameters_dict['next_aa_column'] = params.get('csv input', 'next aa column')
-    parameters_dict['prev_aa_column'] = params.get('csv input', 'previous aa column')
-    parameters_dict['spectrum_column'] = params.get('csv input', 'spectrum column')
-    parameters_dict['charge_column'] = params.get('csv input', 'charge column')
-    parameters_dict['score_ascending'] = params.getboolean('csv input', 'score ascending')
+    params_dict['csv_delimiter'] = params.get('csv input', 'delimiter')
+    params_dict['proteins_delimeter'] = params.get('csv input', 'proteins delimiter')
+    params_dict['proteins_column'] = params.get('csv input', 'proteins column')
+    params_dict['peptides_column'] = params.get('csv input', 'peptides column')
+    params_dict['mass_shifts_column'] = params.get('csv input', 'mass shift column')
+    params_dict['score_column'] = params.get('csv input', 'score column')
+    params_dict['measured_mass_column'] = params.get('csv input', 'measured mass column')
+    params_dict['calculated_mass_column'] = params.get('csv input', 'calculated mass column')
+    params_dict['rt_column'] = params.get('csv input', 'retention time column')
+    params_dict['next_aa_column'] = params.get('csv input', 'next aa column')
+    params_dict['prev_aa_column'] = params.get('csv input', 'previous aa column')
+    params_dict['spectrum_column'] = params.get('csv input', 'spectrum column')
+    params_dict['charge_column'] = params.get('csv input', 'charge column')
+    params_dict['score_ascending'] = params.getboolean('csv input', 'score ascending')
 
     # general
-    parameters_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
-    parameters_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
-    parameters_dict['walking_window'] = params.getfloat('general', 'shifting window')
-    parameters_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
-    parameters_dict['processes'] = params.getint('general', 'processes')
-    parameters_dict['zero_window'] = params.getfloat('general', 'zero peak window')
+    params_dict['bin_width'] = params.getfloat('general', 'width of bin in histogram')
+    params_dict['so_range'] = tuple(float(x) for x in params.get('general', 'open search range').split(','))
+    params_dict['walking_window'] = params.getfloat('general', 'shifting window')
+    params_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
+    params_dict['processes'] = params.getint('general', 'processes')
+    params_dict['zero_window'] = params.getfloat('general', 'zero peak window')
 
-    parameters_dict['zero bin tolerance'] = params.getfloat('general', 'zero shift mass tolerance')
-    parameters_dict['zero min intensity'] = params.getfloat('general', 'zero shift minimum intensity')
-    parameters_dict['min_peptides_for_mass_calibration'] = params.getint('general', 'minimum peptides for mass calibration')
+    params_dict['zero bin tolerance'] = params.getfloat('general', 'zero shift mass tolerance')
+    params_dict['zero min intensity'] = params.getfloat('general', 'zero shift minimum intensity')
+    params_dict['min_peptides_for_mass_calibration'] = params.getint('general', 'minimum peptides for mass calibration')
 
-    parameters_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')
-    parameters_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]
+    params_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')
+    params_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]
 
-    parameters_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
-    parameters_dict['calibration'] = params.get('general', 'mass calibration')
+    params_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
+    params_dict['calibration'] = params.get('general', 'mass calibration')
 
     #clustering
-    parameters_dict['clustering'] = params.getboolean('clustering', 'use clustering')
-    parameters_dict['eps_adjust'] = params.getfloat('clustering', 'dbscan eps factor')
-    parameters_dict['min_samples'] = params.getfloat('clustering', 'dbscan min_samples')
+    params_dict['clustering'] = params.getboolean('clustering', 'use clustering')
+    params_dict['eps_adjust'] = params.getfloat('clustering', 'dbscan eps factor')
+    params_dict['min_samples'] = params.getfloat('clustering', 'dbscan min_samples')
+    params_dict['clustered_pct_min'] = params.getfloat('clustering', 'total clustered peptide percentage minimum')
+    params_dict['cluster_span_min'] = params.getfloat('clustering', 'cluster span percentage minimum')
 
     # fit
-    parameters_dict['shift_error'] = params.getint('fit', 'shift error')
-    #    parameters_dict['max_deviation_x'] = params.getfloat('fit', 'standard deviation threshold for center of peak')
-    parameters_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
-    parameters_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
-    parameters_dict['fit batch'] = params.getint('fit', 'batch')
+    params_dict['shift_error'] = params.getint('fit', 'shift error')
+    params_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
+    params_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
+    params_dict['fit batch'] = params.getint('fit', 'batch')
     # localization
-    parameters_dict['ion_types'] = tuple(params.get('localization', 'ion type').replace(' ', '').split(','))
-    parameters_dict['frag_acc'] = params.getfloat('localization', 'fragment ion mass tolerance')
-    parameters_dict['candidate threshold'] = params.getfloat('localization', 'frequency threshold')
-    parameters_dict['min_spec_matched'] = params.getint('localization', 'minimum matched peaks')
+    params_dict['ion_types'] = tuple(params.get('localization', 'ion type').replace(' ', '').split(','))
+    params_dict['frag_acc'] = params.getfloat('localization', 'fragment ion mass tolerance')
+    params_dict['candidate threshold'] = params.getfloat('localization', 'frequency threshold')
+    params_dict['min_spec_matched'] = params.getint('localization', 'minimum matched peaks')
 
     # modifications
-    parameters_dict['variable_mods'] = params.getint('modifications', 'recommend variable modifications')
-    parameters_dict['multiple_mods'] = params.getboolean('modifications', 'recommend multiple modifications on residue')
-    parameters_dict['fix_mod_zero_thresh'] = params.getfloat('modifications', 'fixed modification intensity threshold')
-    parameters_dict['min_fix_mod_pep_count_factor'] = params.getfloat('modifications', 'peptide count factor threshold')
-    parameters_dict['recommend isotope threshold'] = params.getfloat('modifications', 'isotope error abundance threshold')
-    parameters_dict['min_loc_count'] = params.getint('modifications', 'minimum localization count')
-    return parameters_dict
+    params_dict['variable_mods'] = params.getint('modifications', 'recommend variable modifications')
+    params_dict['multiple_mods'] = params.getboolean('modifications', 'recommend multiple modifications on residue')
+    params_dict['fix_mod_zero_thresh'] = params.getfloat('modifications', 'fixed modification intensity threshold')
+    params_dict['min_fix_mod_pep_count_factor'] = params.getfloat('modifications', 'peptide count factor threshold')
+    params_dict['recommend isotope threshold'] = params.getfloat('modifications', 'isotope error abundance threshold')
+    params_dict['min_loc_count'] = params.getint('modifications', 'minimum localization count')
+    return params_dict
 
 
 def set_additional_params(params_dict):

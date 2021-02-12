@@ -126,6 +126,8 @@ This file has following parameters:
 | use clustering                   | yes                                      | Apply clustering to unmodified peptides when doing Gauss fit calibration. This helps recover partial calibration errors, when measured masses are shifted for some part of the run. |
 | dbscan eps factor                | 0.2                                      | _eps_ parameter of DBSCAN will be proportional to zero peak window and this factor. |
 | dbscan min_samples               | 5                                        | Value of DBSCAN _min_samples_ parameter.                                   |
+| cluster span percentage minimum  | 0.1                                      | Minimum fraction of run duration that a single cluster should cover.       |
+| total clustered peptide percentage minimum | 0.5                            | Minimum fraction of all considered peptides that belong to large clusters. |
 |                                  | **[fit]**                                |                                                                            |
 | standard deviation threshold for center of peak | 15 | Threshold value for the standard error of peak center as determined by the Gaussian fit algorithm. This value is expressed in histogram bins (the bin width is configured in **[general]**). |
 | standard deviation threshold for sigma  | 0.1  | Threshold value for the standard error of sigma, relative to sigma, as determined by the Gaussian fit algorithm. |
