@@ -1296,10 +1296,13 @@ def find_sums(ms, tolerance=0.005):
     return out
 
 
-def format_isoform(row):
+def format_isoform(row, params_dict):
     ms = row['mod_dict']
     seq = row['top isoform']
-    return re.sub(r'([a-z])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), float(ms[m.group(1)])), seq)
+    pc, nc = operator.itemgetter('prev_aa_column', 'next_aa_column')(params_dict)
+    prev_aa, next_aa = operator.itemgetter(pc, nc)(row)
+    sequence = re.sub(r'([a-z])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), float(ms[m.group(1)])), seq)
+    return '{}.{}.{}'.format(prev_aa[0], sequence, next_aa[0])
 
 
 def table_path(dir, ms):

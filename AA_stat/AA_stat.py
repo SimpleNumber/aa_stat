@@ -429,7 +429,7 @@ def recommend_isotope_error(aastat_df, locmod_df, params_dict):
 def recalculate_counts(aa, ms, mods_and_counts, data_dict):
     mods_and_counts[aa].pop(ms, None)
     for i, row in data_dict[ms][1].iterrows():
-        seq = row['top isoform']
+        seq = row['top isoform'].split('.')[1]
         if row['top_terms'] is not None and ms in row['top_terms']:
             if aa == 'N-term' and seq[1] == '[':
                 utils.internal('Reducing count of %s for %s (%s)', seq[0], seq, aa)

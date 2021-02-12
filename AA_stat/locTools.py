@@ -410,7 +410,7 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
     df['top isoform'] = df['top isoform'].fillna(df[peptide])
     df.loc[df.top_terms.notna(), 'mod_dict'] = df.loc[df.top_terms.notna(), 'top_terms'].apply(lambda t: mod_dicts[tuple(sorted(t))])
-    df['top isoform'] = df.apply(utils.format_isoform, axis=1)
+    df['top isoform'] = df.apply(utils.format_isoform, axis=1, args=(params_dict,))
     df[columns].to_csv(fname, index=False, sep='\t')
     result = df['localization_count'].sum() or Counter()
     logger.debug('Localization result for %s: %s', ms_label, result)
