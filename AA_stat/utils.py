@@ -330,7 +330,7 @@ def preprocess_df(df, filename, params_dict):
             plt.figure()
             floc = filtered.loc[old_shifts.abs() < params_dict['zero_window']]
             sc = plt.scatter(floc[shifts], floc[params_dict['rt_column']],
-                c=clustering.labels_ if params_dict['clustering'] else None)
+                c=clustering.labels_ if (params_dict['clustering'] and clustering) else None)
             if params_dict['clustering']:
                 plt.legend(*sc.legend_elements(), title='Clusters')
             plt.xlabel(shifts)
