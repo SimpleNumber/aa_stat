@@ -1063,6 +1063,13 @@ def get_opposite_mods(fmods, rec_fmods, rec_vmods, values):
     return vmod_idx
 
 
+def html_format_isoform(isoform):
+    isoform = re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', isoform)
+    isoform = re.sub(r'^([A-Z])\.', r'<span class="nterm"><span class="prev_aa">\1</span>.</span>', isoform)
+    isoform = re.sub(r'\.([A-Z])$', r'<span class="cterm">.<span class="next_aa">\1</span></span>', isoform)
+    return isoform
+
+
 def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fmods, recommended_vmods, vmod_combinations, opposite,
         save_directory, ms_labels, step=None):
     path = os.path.join(save_directory, 'report.html')
@@ -1107,7 +1114,7 @@ def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fm
             peptide_tables.append(df.to_html(
                 table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False, na_rep='',
                 formatters={
-                    'top isoform': lambda form: re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', form),
+                    'top isoform': html_format_isoform,
                     'localization score': '{:.2f}'.format}))
         else:
             logger.debug('File not found: %s', fname)

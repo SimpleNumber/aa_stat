@@ -76,6 +76,9 @@
         .loc {
           color: #FF0000;
         }
+        .nterm, .cterm {
+          color: #808080;
+        }
         #legend p {
           max-width: 25vw;
           margin-left: 1vw;
