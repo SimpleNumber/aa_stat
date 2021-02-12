@@ -269,7 +269,10 @@ def preprocess_df(df, filename, params_dict):
             old_shifts = filtered[shifts].copy()
             if params_dict['clustering']:
                 clustering = clusters(filtered, to_fit, unit, filename, params_dict)
-                filtered_clusters = filter_clusters(clustering, filtered, to_fit, params_dict)
+                if clustering is None:
+                    filtered_clusters = None
+                else:
+                    filtered_clusters = filter_clusters(clustering, filtered, to_fit, params_dict)
                 if not filtered_clusters:
                     logger.info('Clustering was unsuccesful for %s. Calibrating masses in the whole file.', filename)
                 elif len(filtered_clusters) == 1:
