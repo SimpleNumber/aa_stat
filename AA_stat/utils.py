@@ -1025,6 +1025,7 @@ def get_label(table, ms, second=False):
 
 
 def _format_list(lst, sep1=', ', sep2=' or '):
+    lst = list(lst)
     if not lst:
         return ''
     if len(lst) == 1:
@@ -1048,7 +1049,7 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
         return []
 
     if enz:
-        cut = list(set(enz['cut']) & match_aa)
+        cut = set(enz['cut']) & match_aa
     else:
         cut = None
 
