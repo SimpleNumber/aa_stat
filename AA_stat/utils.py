@@ -1084,7 +1084,7 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
     else:
         # this may be a missed cleavage
         if cut:
-            keys = operator.itemgetter('prev_aa_column', 'next_aa_column')(params_dict)
+            keys = [params_dict['prev_aa_column'], params_dict['next_aa_column']]
             pct = df[keys].apply(
                 lambda row: bool(cut.intersection(row[keys[0]] + row[keys[1]]))).sum() / df.shape[0]
             logger.debug('%.1f%% of peptides in %s have %s as neighbor amino acid.',
