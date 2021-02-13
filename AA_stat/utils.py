@@ -1027,6 +1027,8 @@ def get_label(table, ms, second=False):
 def _format_list(lst, sep1=', ', sep2=' or '):
     if not lst:
         return ''
+    if len(lst) == 1:
+        return lst[0]
     *most, last = lst
     return sep1.join(most) + sep2 + last
 
@@ -1069,7 +1071,7 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
                 logger.debug('%.1f%% of peptides in %s %s with %s.',
                     pct * 100, row.name, ('start', 'end')[enz['sense'] == 'N'], _format_list(cut))
                 if pct > params_dict['artefact_thresh']:
-                    out.append('Search artefact: unmodified peptides with extra {} at {}-terminus ({:.0%} match).'.format(
+                    out.append('Search artefact: unmodified peptides with extra {} at {}-terminus ({:.0%} match)'.format(
                         _format_list(cut), 'CN'[enz['sense'] == 'C'], pct))
                     explained = True
                 else:
