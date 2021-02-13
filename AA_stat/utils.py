@@ -1086,13 +1086,11 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
         if cut:
             keys = [params_dict['prev_aa_column'], params_dict['next_aa_column']]
             pct = df[keys].apply(
-                lambda row: bool(cut.intersection(row[keys[0]] + row[keys[1]]))).sum() / df.shape[0]
+                lambda row: bool(cut.intersection(row[keys[0]] + row[keys[1]])), axis=1).sum() / df.shape[0]
             logger.debug('%.1f%% of peptides in %s have %s as neighbor amino acid.',
                 pct * 100, row.name, _format_list(cut))
             if pct > params_dict['artefact_thresh']:
-                out.append('Possible missed cleavage (extra {} at {}-terminus; {:.0%} match)'.format(
-                    _format_list(cut), enz['sense'], pct))
-                explained = True
+                out.append('Possible miscleavage (extra {} at terminus)'.format(_format_list(cut)))
             else:
                 logger.debug('Not enough peptide support search artefact interpretation.')
     return out
