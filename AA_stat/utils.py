@@ -1084,23 +1084,17 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
     else:
         # this may be a missed cleavage
         if cut:
-            if enz:
-                if enz['sense'] == 'C':
-                    key = 'next_aa_column'
-                elif enz['sense'] == 'N':
-                    key = 'prev_aa_column'
-                else:
-                    logger.critical('Unknown value of sense in specificity: %s', enz)
-                    sys.exit(1)
-                pct = df[params_dict[key]].apply(lambda values: bool(cut.intersection(values))).sum() / df.shape[0]
-                logger.debug('%.1f%% of peptides in %s have %s as %s amino acid.',
-                    pct * 100, row.name, _format_list(cut), key[:4])
-                if pct > params_dict['artefact_thresh']:
-                    out.append('Possible missed cleavage (extra {} at {}-terminus; {:.0%} match)'.format(
-                        _format_list(cut), enz['sense'], pct))
-                    explained = True
-                else:
-                    logger.debug('Not enough peptide support search artefact interpretation.')
+            keys = operator.itemgetter('prev_aa_column', 'next_aa_column')(params_dict)
+            pct = df[keys].apply(
+                lambda row: bool(cut.intersection(row[keys[0]] + row[keys[1]]))).sum() / df.shape[0]
+            logger.debug('%.1f%% of peptides in %s have %s as neighbor amino acid.',
+                pct * 100, row.name, _format_list(cut))
+            if pct > params_dict['artefact_thresh']:
+                out.append('Possible missed cleavage (extra {} at {}-terminus; {:.0%} match)'.format(
+                    _format_list(cut), enz['sense'], pct))
+                explained = True
+            else:
+                logger.debug('Not enough peptide support search artefact interpretation.')
     return out
 
 
@@ -1147,10 +1141,10 @@ def get_opposite_mods(fmods, rec_fmods, rec_vmods, values, tolerance):
 
 
 def html_format_isoform(isoform):
-    isoform = re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', isoform)
-    isoform = re.sub(r'^([A-Z])\.', r'<span class="nterm"><span class="prev_aa">\1</span>.</span>', isoform)
-    isoform = re.sub(r'\.([A-Z])$', r'<span class="cterm">.<span class="next_aa">\1</span></span>', isoform)
-    return isoform
+    out = re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', isoform)
+    out = re.sub(r'^([A-Z])\.', r'<span class="nterm"><span class="prev_aa">\1</span>.</span>', out)
+    out = re.sub(r'\.([A-Z])$', r'<span class="cterm">.<span class="next_aa">\1</span></span>', out)
+    return out
 
 
 def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fmods, recommended_vmods, vmod_combinations, opposite,
@@ -1189,18 +1183,22 @@ def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fm
 
     peptide_tables = []
     for ms in table.index:
-        fname = os.path.join(save_directory, ms + '.csv')
-        if os.path.isfile(fname):
-            df = pd.read_csv(fname, sep='\t')
-            if 'localization score' in df:
-                df.sort_values(['localization score'], ascending=False, inplace=True)
-            peptide_tables.append(df.to_html(
-                table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False, na_rep='',
-                formatters={
-                    'top isoform': html_format_isoform,
-                    'localization score': '{:.2f}'.format}))
+        df = mass_shift_data_dict[ms][1]
+        if 'localization score' in df and df['localization score'].notna().any():
+            df = df.sort_values(['localization score'], ascending=False).loc[:,
+                ['top isoform', 'localization score', params_dict['spectrum_column']]]
+            df['localization score'] = df['localization score'].astype(float)
         else:
-            logger.debug('File not found: %s', fname)
+            dfc = df[[params_dict['peptides_column'], params_dict['spectrum_column']]].copy()
+            dfc[params_dict['peptides_column']] = (
+                df[params_dict['prev_aa_column']].str[0] + '.' + df[params_dict['peptides_column']] + '.' + df[params_dict['next_aa_column']].str[0])
+            df = dfc
+        peptide_tables.append(df.to_html(
+            table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False, na_rep='',
+            formatters={
+                'top isoform': html_format_isoform,
+                params_dict['peptides_column']: html_format_isoform,
+                'localization score': '{:.2f}'.format}))
 
     if params_dict['fix_mod']:
         d = params_dict['fix_mod'].copy()

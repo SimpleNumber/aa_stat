@@ -645,7 +645,7 @@ def AA_stat(params_dict, args, step=None):
         if not locmod_df.at[reference_label, 'all candidates']:
             logger.debug('Explicitly writing out peptide table for reference mass shift.')
             df = mass_shift_data_dict[reference_label][1]
-            utils.save_df(reference_label, df, save_directory, params_dict['peptides_column'], params_dict['spectrum_column'])
+            utils.save_df(reference_label, df, save_directory, params_dict)
         for reader in spectra_dict.values():
             reader.close()
     else:
