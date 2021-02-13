@@ -1048,7 +1048,7 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
         return []
 
     if enz:
-        cut = set(enz['cut']) & match_aa
+        cut = list(set(enz['cut']) & match_aa)
     else:
         cut = None
 
@@ -1398,16 +1398,20 @@ def table_path(dir, ms):
     return os.path.join(dir, ms + '.csv')
 
 
-def save_df(ms, df, save_directory, peptide, spectrum):
+def save_df(ms, df, save_directory, params_dict):
+    peptide = params_dict['peptides_column']
+    spectrum = params_dict['spectrum_column']
+    prev_aa = params_dict['prev_aa_column']
+    next_aa = params_dict['next_aa_column']
+    table = df[[peptide, spectrum]].copy()
+    table[peptide] = df[prev_aa].str[0] + '.' + df[peptide] + '.' + df[next_aa].str[0]
     with open(table_path(save_directory, ms), 'w') as out:
-        df[[peptide, spectrum]].to_csv(out, index=False, sep='\t')
+        table.to_csv(out, index=False, sep='\t')
 
 
 def save_peptides(data, save_directory, params_dict):
-    peptide = params_dict['peptides_column']
-    spectrum = params_dict['spectrum_column']
     for ms_label, (ms, df) in data.items():
-        save_df(ms_label, df, save_directory, peptide, spectrum)
+        save_df(ms_label, df, save_directory, params_dict)
 
 
 def get_fix_modifications(pepxml_file):
