@@ -34,7 +34,6 @@ logging.getLogger('matplotlib.font_manager').disabled = True
 logging.getLogger('matplotlib.category').disabled = True
 
 MASS_FORMAT = '{:+.4f}'
-COMBINATION_TOLERANCE = 1e-4
 UNIMOD = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml'))
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'example.cfg')
 INTERNAL = 5
@@ -753,6 +752,7 @@ def get_parameters(params):
     params_dict['FDR_correction'] = params.getboolean('general', 'FDR correction')
     params_dict['processes'] = params.getint('general', 'processes')
     params_dict['zero_window'] = params.getfloat('general', 'zero peak window')
+    params_dict['prec_acc'] = params.getfloat('general', 'mass shift tolerance')
 
     params_dict['zero bin tolerance'] = params.getfloat('general', 'zero shift mass tolerance')
     params_dict['zero min intensity'] = params.getfloat('general', 'zero shift minimum intensity')
@@ -763,6 +763,7 @@ def get_parameters(params):
 
     params_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     params_dict['calibration'] = params.get('general', 'mass calibration')
+    params_dict['artefact_thresh'] = params.getfloat('general', 'artefact detection threshold')
 
     #clustering
     params_dict['clustering'] = params.getboolean('clustering', 'use clustering')
@@ -819,6 +820,7 @@ def get_params_dict(args):
     params_dict['output directory'] = outdir
     if args.pepxml:
         params_dict['fix_mod'] = get_fix_modifications(args.pepxml[0])
+        params_dict['enzyme'] = get_specificity(args.pepxml[0])
     return params_dict
 
 
@@ -1022,8 +1024,86 @@ def get_label(table, ms, second=False):
     return ms
 
 
+def _format_list(lst, sep1=', ', sep2=' or '):
+    if not lst:
+        return ''
+    *most, last = lst
+    return sep1.join(most) + sep2 + last
+
+
+def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
+    out = []
+    aa_mass = mass.std_aa_mass.copy()
+    aa_mass.update(params_dict['fix_mod'])
+    enz = params_dict.get('enzyme')
+    df = mass_shift_data_dict[row.name][1]
+    match_aa = set()
+
+    for aa, m in aa_mass.items():
+        if abs(abs(row['mass shift']) - m) < params_dict['frag_acc']:
+            match_aa.add(aa)
+    if not match_aa:
+        return []
+
+    if enz:
+        cut = set(enz['cut']) & match_aa
+    else:
+        cut = None
+
+    explained = False
+    if row['mass shift'] < 0:
+        # this can be a loss of any terminal amino acid, or ...
+        # an artefact of open search, where the peptide is actually unmodified.
+        # in the latter case the amino acid should be an enzyme cleavage site
+        if cut:
+            # possible artefact
+            if enz:
+                if enz['sense'] == 'C':
+                    pct = df[params_dict['peptides_column']].str[0].isin(cut).sum() / df.shape[0]
+                elif enz['sense'] == 'N':
+                    pct = df[params_dict['peptides_column']].str[-1].isin(cut).sum() / df.shape[0]
+                else:
+                    logger.critical('Unknown value of sense in specificity: %s', enz)
+                    sys.exit(1)
+
+                logger.debug('%.1f%% of peptides in %s %s with %s.',
+                    pct * 100, row.name, ('start', 'end')[enz['sense'] == 'N'], _format_list(cut))
+                if pct > params_dict['artefact_thresh']:
+                    out.append('Search artefact: unmodified peptides with extra {} at {}-terminus ({:.0%} match).'.format(
+                        _format_list(cut), 'CN'[enz['sense'] == 'C'], pct))
+                    explained = True
+                else:
+                    logger.debug('Not enough peptide support search artefact interpretation.')
+        if not explained:
+            out.append('Loss of ' + _format_list(match_aa))
+        if not enz:
+            out[-1] += ' or an open search artefact'
+    else:
+        # this may be a missed cleavage
+        if cut:
+            if enz:
+                if enz['sense'] == 'C':
+                    key = 'next_aa_column'
+                elif enz['sense'] == 'N':
+                    key = 'prev_aa_column'
+                else:
+                    logger.critical('Unknown value of sense in specificity: %s', enz)
+                    sys.exit(1)
+                pct = df[params_dict[key]].apply(lambda values: bool(cut.intersection(values))).sum() / df.shape[0]
+                logger.debug('%.1f%% of peptides in %s have %s as %s amino acid.',
+                    pct * 100, row.name, _format_list(cut), key[:4])
+                if pct > params_dict['artefact_thresh']:
+                    out.append('Possible missed cleavage (extra {} at {}-terminus; {:.0%} match)'.format(
+                        _format_list(cut), enz['sense'], pct))
+                    explained = True
+                else:
+                    logger.debug('Not enough peptide support search artefact interpretation.')
+    return out
+
+
 def format_info(row, table, mass_shift_data_dict, params_dict):
-    options = format_unimod_info(row, mass_shift_data_dict[row.name][1], params_dict)
+    options = get_artefact_interpretations(row, mass_shift_data_dict, params_dict)
+    options.extend(format_unimod_info(row, mass_shift_data_dict[row.name][1], params_dict))
     if row['isotope index']:
         options.append('isotope of {}'.format(get_label(table, row['isotope index'])))
     if isinstance(row['sum of mass shifts'], list):
@@ -1031,7 +1111,7 @@ def format_info(row, table, mass_shift_data_dict, params_dict):
     return ', '.join(options)
 
 
-def get_varmod_combinations(recommended_vmods, values):
+def get_varmod_combinations(recommended_vmods, values, tolerance):
     logger.debug('Received recommended vmods: %s', recommended_vmods)
     counter = Counter(aa for aa, shift in recommended_vmods)
     eligible = {aa for aa, count in counter.items() if count >= 3}
@@ -1042,12 +1122,12 @@ def get_varmod_combinations(recommended_vmods, values):
                 continue
             candidates = [(aac, shiftc) for aac, shiftc in recommended_vmods if aac == aa and shiftc != shift]
             for c1, c2 in it.combinations(candidates, 2):
-                if abs(values[c1[1]] + values[c2[1]] - values[shift]) <= COMBINATION_TOLERANCE:
+                if abs(values[c1[1]] + values[c2[1]] - values[shift]) <= tolerance:
                     out[i] = (c1[1], c2[1])
     return out
 
 
-def get_opposite_mods(fmods, rec_fmods, rec_vmods, values):
+def get_opposite_mods(fmods, rec_fmods, rec_vmods, values, tolerance):
     fmods = masses_to_mods(fmods)
     for aa, mod in rec_fmods.items():
         if aa in fmods:
@@ -1058,7 +1138,7 @@ def get_opposite_mods(fmods, rec_fmods, rec_vmods, values):
     vmod_idx = []
     for aaf, fmod in fmods.items():
         for i, (aav, vmod) in enumerate(rec_vmods):
-            if aaf == aav and abs(fmod + values[vmod]) < COMBINATION_TOLERANCE:
+            if aaf == aav and abs(fmod + values[vmod]) < tolerance:
                 vmod_idx.append(i)
     return vmod_idx
 
@@ -1099,7 +1179,7 @@ def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fm
                 {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
                 {'selector': 'td, th', 'props': [('text-align', 'center')]},
                 {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
-            ).format({  #'Unimod': '<a href="{}">search</a>'.format,
+            ).format({
                 mslabel: '<a href="#">{}</a>'.format(MASS_FORMAT).format,
                 '# peptides in bin': '<a href="#">{}</a>'.format}).bar(subset='# peptides in bin', color=cc[2]).render(
             uuid="aa_stat_table")
@@ -1347,6 +1427,13 @@ def get_fix_modifications(pepxml_file):
             else:
                 out['-OH'] = m['mass']
     return out
+
+
+def get_specificity(pepxml_file):
+    with pepxml.PepXML(pepxml_file, use_index=False) as p:
+        s = next(p.iterfind('specificity'))
+    logger.debug('Extracted enzyme specificity: %s', s)
+    return s
 
 
 def parse_l10n_site(site):

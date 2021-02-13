@@ -110,6 +110,7 @@ This file has following parameters:
 | score ascending                  | yes                                      | "Yes" means smaller scores are better.                                     |
 |                                  | **[general]**                            |                                                                            |
 | width of bin in histogram        | 0.001                                    | Bin width in Da that will be used to make mass shift distribution histogram. |
+| mass shift tolerance             | 0.005                                    | Tolerance used when comparing mass shifts. This may be smaller than "precursor mass tolerance" in searches, because mass shifts are determined by careful averaging and are more accurate than individual measurements. |
 | open search range                | -500, 500                                | Open search range, in Da.                                                  |
 | shifting window                  | 0.03 | Mass window, in Da, that will be used for Gaussian fit. At least one mass shift peak should be in this window. |
 | zero peak window                 | 0.05 | Mass window, in Da, for initial selection and fit of the zero-shift peak.                                      |
