@@ -242,7 +242,6 @@ def calculate_statistics(mass_shifts_dict, reference_label, params_dict, args):
     DF with amino acid statistics, Series with number of PSMs and dict of data
     for mass shift figures.
 
-
     """
     logger.info('Calculating distributions...')
     labels = params_dict['labels']

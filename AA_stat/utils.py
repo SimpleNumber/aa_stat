@@ -866,7 +866,6 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
          Localization counter using  ms/ms level.
     sumof : List
         List of str tuples for constituent mass shifts.
-
     """
     b = 0.1  # shift in bar plots
     width = 0.2  # for bar plots
@@ -1040,6 +1039,7 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
     aa_mass.update(params_dict['fix_mod'])
     enz = params_dict.get('enzyme')
     df = mass_shift_data_dict[row.name][1]
+    peps = df[params_dict['peptides_column']]
     match_aa = set()
 
     for aa, m in aa_mass.items():
@@ -1050,8 +1050,9 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
 
     if enz:
         cut = set(enz['cut']) & match_aa
+        nocut = set(enz.get('nocut', []))
     else:
-        cut = None
+        cut, nocut = None, set()
 
     explained = False
     if row['mass shift'] < 0:
@@ -1060,23 +1061,28 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
         # in the latter case the amino acid should be an enzyme cleavage site
         if cut:
             # possible artefact
-            if enz:
-                if enz['sense'] == 'C':
-                    pct = df[params_dict['peptides_column']].str[0].isin(cut).sum() / df.shape[0]
-                elif enz['sense'] == 'N':
-                    pct = df[params_dict['peptides_column']].str[-1].isin(cut).sum() / df.shape[0]
-                else:
-                    logger.critical('Unknown value of sense in specificity: %s', enz)
-                    sys.exit(1)
+            if enz['sense'] == 'C':
+                pct = (
+                    (peps.str[0].isin(cut) & ~peps.str[1].isin(nocut)) |  # extra amino acid at N-term
+                    peps.str[-2].isin(cut)   # extra amino acid at C-term
+                    ).sum() / df.shape[0]
+            elif enz['sense'] == 'N':
+                pct = (
+                    peps.str[1].isin(cut) |
+                    (peps.str[-1].isin(cut) & ~peps.str[-2].isin(nocut))
+                    ).sum() / df.shape[0]
+            else:
+                logger.critical('Unknown value of sense in specificity: %s', enz)
+                sys.exit(1)
 
-                logger.debug('%.1f%% of peptides in %s %s with %s.',
-                    pct * 100, row.name, ('start', 'end')[enz['sense'] == 'N'], _format_list(cut))
-                if pct > params_dict['artefact_thresh']:
-                    out.append('Search artefact: unmodified peptides with extra {} at {}-terminus ({:.0%} match)'.format(
-                        _format_list(cut), 'CN'[enz['sense'] == 'C'], pct))
-                    explained = True
-                else:
-                    logger.debug('Not enough peptide support search artefact interpretation.')
+            logger.debug('%.1f%% of peptides in %s %s with %s.',
+                pct * 100, row.name, ('start', 'end')[enz['sense'] == 'N'], _format_list(cut))
+            if pct > params_dict['artefact_thresh']:
+                out.append('Search artefact: unmodified peptides with extra {} at {}-terminus ({:.0%} match)'.format(
+                    _format_list(cut), 'CN'[enz['sense'] == 'C'], pct))
+                explained = True
+            else:
+                logger.debug('Not enough peptide support search artefact interpretation.')
         if not explained:
             out.append('Loss of ' + _format_list(match_aa))
         if not enz:
