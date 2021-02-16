@@ -625,7 +625,7 @@ def AA_stat(params_dict, args, step=None):
             table, labels=params_dict['labels'], threshold=params_dict['candidate threshold'])
 
         locmod_df['all candidates'] = locmod_df.apply(
-            lambda x: set(x['unimod candidates']) | (set(x['aa_stat candidates'])), axis=1)
+            lambda x: set(x['unimod candidates']) | set(x['aa_stat candidates']) | {'N-term', 'C-term'}, axis=1)
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotope index'], 'all candidates'])
