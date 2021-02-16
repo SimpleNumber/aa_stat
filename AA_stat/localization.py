@@ -15,7 +15,7 @@ try:
 except ImportError:
     cmass = mass
 import string
-from . import utils
+from . import utils, io
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +217,7 @@ def get_candidates_from_aastat(mass_shifts_table, labels, threshold=1.5):
     return pd.Series(out)
 
 
-def get_full_set_of_candicates(locmod_df):
+def get_full_set_of_candidates(locmod_df):
     """
     Build list of dicts from all_candidates column taking into account the sums of modification.
 
@@ -394,7 +394,7 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
         df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'] = zip(
             *df.apply(lambda x: localization_of_modification(
                     ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1))
-    fname = utils.table_path(params_dict['output directory'], ms_label)
+    fname = io.table_path(params_dict['output directory'], ms_label)
     peptide = params_dict['peptides_column']
 
     mod_aa = string.ascii_lowercase

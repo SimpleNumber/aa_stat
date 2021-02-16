@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
-from .locTools import get_theor_spectrum
+from .localization import get_theor_spectrum
 from .AA_stat import AA_stat
-from . import utils
+from . import utils, io
 import argparse
 import logging
 from pyteomics import mass
@@ -122,7 +122,7 @@ class AAstatResultTest(unittest.TestCase):
 
         args = argparse.Namespace(dir=self.data_dir, pepxml=self.pepxml, mzml=self.mzml,
             mgf=None, csv=None, params=None)
-        params_dict = utils.get_params_dict(args)
+        params_dict = io.get_params_dict(args)
         self.figure_data, self.table, self.locmod_df, self.mass_shift_data_dict, self.fix_mods, self.var_mods = AA_stat(params_dict, args)
 
         self.assertEqual(self.table.index.tolist(),

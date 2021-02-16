@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 import unittest
-from . import AA_stat, utils, tests
+from . import AA_stat, utils, tests, io
 
 
 def main():
@@ -40,7 +40,7 @@ def main():
 
     logger.info('Starting...')
 
-    params_dict = utils.get_params_dict(args)
+    params_dict = io.get_params_dict(args)
     logger.debug(params_dict)
 
     os.makedirs(args.dir, exist_ok=True)

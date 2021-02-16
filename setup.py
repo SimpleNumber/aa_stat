@@ -17,6 +17,6 @@ setup(
                             'Topic :: Scientific/Engineering :: Physics'],
     license              = 'License :: OSI Approved :: Apache Software License',
     packages             = find_packages(),
-    package_data         = {'AA_stat': ['report.template', 'open_search.params', 'example.cfg', 'unimod.xml']},
-    entry_points         = {'console_scripts': ['AA_stat=AA_stat.main:main', 'AA_search=AA_stat.osPipe:main']}
+    package_data         = {'AA_stat': ['report.template', 'open_search.params', 'default.cfg', 'unimod.xml']},
+    entry_points         = {'console_scripts': ['AA_stat=AA_stat.main:main', 'AA_search=AA_stat.aa_search:main']}
     )

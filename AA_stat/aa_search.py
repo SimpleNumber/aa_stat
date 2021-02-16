@@ -1,7 +1,7 @@
 import subprocess
 import os
 import shutil
-from . import AA_stat, utils
+from . import AA_stat, utils, io
 import argparse
 import logging
 import sys
@@ -177,5 +177,5 @@ def run_step_os(spectra, folder_name, working_dir, args, change_dict=None, step=
     args.pepxml = pepxml_names
     args.csv = None
     args.dir = dir
-    params_dict = utils.get_params_dict(args)
+    params_dict = io.get_params_dict(args)
     return AA_stat.AA_stat(params_dict, args, step=step)

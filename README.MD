@@ -83,7 +83,7 @@ optional arguments:
 
 The AA_stat tool needs a **config** file and at least one **data** file with open search results.
 
-The example of **config** file is included (**example.cfg**).
+An example of **config** file is included (**default.cfg**).
 
 This file has following parameters:
 

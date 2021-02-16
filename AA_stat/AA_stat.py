@@ -8,7 +8,7 @@ from scipy.stats import ttest_ind
 import logging
 import warnings
 from pyteomics import parser
-from . import utils, locTools
+from . import utils, localization, html, io, stats
 
 logger = logging.getLogger(__name__)
 
@@ -561,16 +561,16 @@ def AA_stat(params_dict, args, step=None):
 
     logger.debug('Fixed modifications: %s', params_dict['fix_mod'])
     logger.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
-    data = utils.read_input(args, params_dict)
+    data = io.read_input(args, params_dict)
 
-    hist, popt_pvar = utils.fit_peaks(data, args, params_dict)
+    hist, popt_pvar = stats.fit_peaks(data, args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error'] * params_dict['bin_width'])
     # logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     if not mass_shift_data_dict:
-        utils.render_html_report(None, mass_shift_data_dict, params_dict, {}, {}, {}, [], save_directory, [], step=step)
+        html.render_html_report(None, mass_shift_data_dict, params_dict, {}, {}, {}, [], save_directory, [], step=step)
         return None, None, None, mass_shift_data_dict, {}
 
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, params_dict)
@@ -591,7 +591,7 @@ def AA_stat(params_dict, args, step=None):
 
     table = make_table(distributions, number_of_PSMs, ms_labels, reference_label)
 
-    utils.summarizing_hist(table, save_directory)
+    stats.summarizing_hist(table, save_directory)
     logger.info('Summary histogram saved.')
     # table.index = table['mass shift'].apply(utils.mass_format)
     table[['is isotope', 'isotope index']] = utils.find_isotopes(
@@ -609,7 +609,7 @@ def AA_stat(params_dict, args, step=None):
     logger.debug('Sums of mass shifts:\n%s', table.loc[table['sum of mass shifts'].notna()])
     table.to_csv(os.path.join(save_directory, 'aa_statistics_table.csv'), index=False)
 
-    spectra_dict = utils.read_spectra(args)
+    spectra_dict = io.read_spectra(args)
 
     if spectra_dict:
         if args.mgf:
@@ -621,7 +621,7 @@ def AA_stat(params_dict, args, step=None):
         locmod_df = table[['mass shift', '# peptides in bin', 'is isotope', 'isotope index', 'sum of mass shifts',
             'unimod candidates', 'unimod accessions']].copy()
 
-        locmod_df['aa_stat candidates'] = locTools.get_candidates_from_aastat(
+        locmod_df['aa_stat candidates'] = localization.get_candidates_from_aastat(
             table, labels=params_dict['labels'], threshold=params_dict['candidate threshold'])
 
         locmod_df['all candidates'] = locmod_df.apply(
@@ -629,12 +629,12 @@ def AA_stat(params_dict, args, step=None):
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotope index'], 'all candidates'])
-        locmod_df['candidates for loc'] = locTools.get_full_set_of_candicates(locmod_df)
+        locmod_df['candidates for loc'] = localization.get_full_set_of_candidates(locmod_df)
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
 
         for ms_label, (ms, df) in mass_shift_data_dict.items():
-            localization_dict.update(locTools.localization(
+            localization_dict.update(localization.localization(
                 df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
                 params_dict, spectra_dict, {k: v[0] for k, v in mass_shift_data_dict.items()}))
 
@@ -644,12 +644,12 @@ def AA_stat(params_dict, args, step=None):
         if not locmod_df.at[reference_label, 'all candidates']:
             logger.debug('Explicitly writing out peptide table for reference mass shift.')
             df = mass_shift_data_dict[reference_label][1]
-            utils.save_df(reference_label, df, save_directory, params_dict)
+            io.save_df(reference_label, df, save_directory, params_dict)
         for reader in spectra_dict.values():
             reader.close()
     else:
         locmod_df = None
-        utils.save_peptides(mass_shift_data_dict, save_directory, params_dict)
+        io.save_peptides(mass_shift_data_dict, save_directory, params_dict)
         logger.info('No spectrum files. MS/MS localization is not performed.')
     logger.info('Plotting mass shift figures...')
     for ms_label, data in figure_data.items():
@@ -659,7 +659,7 @@ def AA_stat(params_dict, args, step=None):
         else:
             localizations = None
             sumof = None
-        utils.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
+        stats.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
 
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
     utils.internal('Data dict: \n%s', mass_shift_data_dict)
@@ -681,6 +681,6 @@ def AA_stat(params_dict, args, step=None):
     opposite = utils.get_opposite_mods(
         params_dict['fix_mod'], recommended_fix_mods, recommended_var_mods, ms_labels, params_dict['prec_acc'])
     logger.debug('Opposite modifications: %s', utils.format_mod_list([recommended_var_mods[i] for i in opposite]))
-    utils.render_html_report(table, mass_shift_data_dict, params_dict, recommended_fix_mods, recommended_var_mods, combinations, opposite,
+    html.render_html_report(table, mass_shift_data_dict, params_dict, recommended_fix_mods, recommended_var_mods, combinations, opposite,
         save_directory, ms_labels, step=step)
     return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods, recommended_var_mods
