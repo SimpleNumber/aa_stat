@@ -350,3 +350,13 @@ def get_isotope_shift(label, locmod_df):
     if not isotope.shape[0]:
         return
     return isotope[isotope['# peptides in bin'] == isotope['# peptides in bin'].max()].index[0]
+
+
+def format_localization_key(site, ms):
+    if not isinstance(ms, str):
+        ms = mass_format(ms)
+    return site + '_' + ms
+
+
+def parse_localization_key(key):
+    return key.split('_')

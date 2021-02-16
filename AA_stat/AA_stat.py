@@ -570,7 +570,7 @@ def AA_stat(params_dict, args, step=None):
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     if not mass_shift_data_dict:
-        html.render_html_report(None, mass_shift_data_dict, params_dict, {}, {}, {}, [], save_directory, [], step=step)
+        html.render_html_report(None, mass_shift_data_dict, None, params_dict, {}, {}, {}, [], save_directory, [], step=step)
         return None, None, None, mass_shift_data_dict, {}
 
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, params_dict)
@@ -681,6 +681,6 @@ def AA_stat(params_dict, args, step=None):
     opposite = utils.get_opposite_mods(
         params_dict['fix_mod'], recommended_fix_mods, recommended_var_mods, ms_labels, params_dict['prec_acc'])
     logger.debug('Opposite modifications: %s', utils.format_mod_list([recommended_var_mods[i] for i in opposite]))
-    html.render_html_report(table, mass_shift_data_dict, params_dict, recommended_fix_mods, recommended_var_mods, combinations, opposite,
-        save_directory, ms_labels, step=step)
+    html.render_html_report(table, mass_shift_data_dict, locmod_df, params_dict,
+        recommended_fix_mods, recommended_var_mods, combinations, opposite, save_directory, ms_labels, step=step)
     return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods, recommended_var_mods

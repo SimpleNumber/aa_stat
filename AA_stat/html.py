@@ -24,7 +24,7 @@ def matches(row, ms, sites, params_dict):
     if 'non-localized' in ldict:
         return False
     for loc in ldict:
-        site, shift = loc.split('_')
+        site, shift = utils.parse_localization_key(loc)
         if shift != ms:
             continue
         for possible_site, possible_position in sites:
@@ -71,7 +71,7 @@ def _format_list(lst, sep1=', ', sep2=' or '):
     return sep1.join(most) + sep2 + last
 
 
-def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
+def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_dict):
     out = []
     aa_mass = mass.std_aa_mass.copy()
     aa_mass.update(params_dict['fix_mod'])
@@ -122,9 +122,17 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
             else:
                 logger.debug('Not enough peptide support search artefact interpretation.')
         if not explained:
-            out.append('Loss of ' + _format_list(match_aa))
-        if not enz:
-            out[-1] += ' or an open search artefact'
+            if 'top isoform' in df:
+                lcount = locmod_df.at[row.name, 'localization']
+                pct = (
+                    lcount.get(utils.format_localization_key('N-term', row.name), 0) +
+                    lcount.get(utils.format_localization_key('C-term', row.name), 0)
+                ) / df.shape[0]
+                logger.debug('%.1f%% of peptides in %s have terminal localization.', pct * 100, row.name)
+                if pct > params_dict['artefact_thresh']:
+                    out.append('Loss of ' + _format_list(match_aa))
+                    if not enz:
+                        out[-1] += ' or an open search artefact'
     else:
         # this may be a missed cleavage
         if cut:
@@ -140,14 +148,15 @@ def get_artefact_interpretations(row, mass_shift_data_dict, params_dict):
     return out
 
 
-def format_info(row, table, mass_shift_data_dict, params_dict):
-    options = get_artefact_interpretations(row, mass_shift_data_dict, params_dict)
+def format_info(row, table, mass_shift_data_dict, locmod_df, params_dict):
+    options = get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_dict)
     options.extend(format_unimod_info(row, mass_shift_data_dict[row.name][1], params_dict))
     if row['isotope index']:
         options.append('isotope of {}'.format(get_label(table, row['isotope index'])))
     if isinstance(row['sum of mass shifts'], list):
         options.extend('{}{}'.format(get_label(table, s1), get_label(table, s2, True)) for s1, s2 in row['sum of mass shifts'])
     return ', '.join(options)
+
 
 def html_format_isoform(isoform):
     out = re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', isoform)
@@ -156,8 +165,8 @@ def html_format_isoform(isoform):
     return out
 
 
-def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fmods, recommended_vmods, vmod_combinations, opposite,
-        save_directory, ms_labels, step=None):
+def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
+    recommended_fmods, recommended_vmods, vmod_combinations, opposite, save_directory, ms_labels, step=None):
     path = os.path.join(save_directory, 'report.html')
     if os.path.islink(path):
         logger.debug('Deleting link: %s.', path)
@@ -169,7 +178,7 @@ def render_html_report(table_, mass_shift_data_dict, params_dict, recommended_fm
         return
     table = table_.copy()
     labels = params_dict['labels']
-    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table, mass_shift_data_dict, params_dict))
+    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table, mass_shift_data_dict, locmod_df, params_dict))
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)

@@ -352,10 +352,10 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     for ind, a in enumerate(top_isoform):
         if len(a) > 1:
             if ind == 0:
-                loc_stat_dict['N-term_' + utils.mass_format(mass_dict[a[0]])] += 1
+                loc_stat_dict[utils.format_localization_key('N-term', mass_dict[a[0]])] += 1
             elif ind == len(top_isoform) - 1:
-                loc_stat_dict['C-term_' + utils.mass_format(mass_dict[a[0]])] += 1
-            loc_stat_dict["_".join([a[1], utils.mass_format(mass_dict[a[0]])])] += 1
+                loc_stat_dict[utils.format_localization_key('C-term', mass_dict[a[0]])] += 1
+            loc_stat_dict[utils.format_localization_key(a[1], mass_dict[a[0]])] += 1
 
     scorediff = (top_score - second_score) / top_score
     # utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
