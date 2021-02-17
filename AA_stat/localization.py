@@ -337,7 +337,17 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     if top_isoform is None:
         return loc_stat_dict, None, None, None
 
-    if top_score == second_score:
+    if any(all(sites <= {'C-term', 'N-term'} for sites in terms.values())
+        for terms in loc_candidates):
+        # utils.internal('Injecting unmodified spectra for %s', ms)
+        unmod_spec = get_theor_spectrum(list(row[peptide]),
+                params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict_0, ion_types=params_dict['ion_types'])
+        unmod_score = RNHS_fast(exp_dict, unmod_spec[1], params_dict['min_spec_matched'], ion_types=params_dict['ion_types'])[1]
+    else:
+        unmod_score = 0
+
+    if top_score == second_score or top_score <= unmod_score:
+        utils.internal('top score = %f, second score = %f, unmod score = %f', top_score, second_score, unmod_score)
         loc_stat_dict['non-localized'] += 1
         return loc_stat_dict, None, None, None
 
