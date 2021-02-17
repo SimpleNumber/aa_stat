@@ -625,11 +625,17 @@ def AA_stat(params_dict, args, step=None):
             table, labels=params_dict['labels'], threshold=params_dict['candidate threshold'])
 
         locmod_df['all candidates'] = locmod_df.apply(
-            lambda x: set(x['unimod candidates']) | set(x['aa_stat candidates']) | {'N-term', 'C-term'}, axis=1)
+            lambda x: set(x['unimod candidates']) | set(x['aa_stat candidates']), axis=1)
+        if params_dict['force_term_loc']:
+            logger.debug('Adding terminal localizations for all mass shifts.')
+            locmod_df['all candidates'] = locmod_df['all candidates'].apply(lambda x: x | {'N-term', 'C-term'})
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotope index'], 'all candidates'])
+        if reference_mass_shift == 0.0:
+            locmod_df.at[reference_label, 'all candidates'] = set()
         locmod_df['candidates for loc'] = localization.get_full_set_of_candidates(locmod_df)
+
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
 

@@ -340,11 +340,13 @@ def get_parameters(params):
     params_dict['max_deviation_sigma'] = params.getfloat('fit', 'standard deviation threshold for sigma')
     params_dict['max_deviation_height'] = params.getfloat('fit', 'standard deviation threshold for height')
     params_dict['fit batch'] = params.getint('fit', 'batch')
+
     # localization
     params_dict['ion_types'] = tuple(params.get('localization', 'ion type').replace(' ', '').split(','))
     params_dict['frag_acc'] = params.getfloat('localization', 'fragment ion mass tolerance')
     params_dict['candidate threshold'] = params.getfloat('localization', 'frequency threshold')
     params_dict['min_spec_matched'] = params.getint('localization', 'minimum matched peaks')
+    params_dict['force_term_loc'] = params.getboolean('localization', 'always try terminal localization')
 
     # modifications
     params_dict['variable_mods'] = params.getint('modifications', 'recommend variable modifications')
