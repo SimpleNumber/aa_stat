@@ -140,6 +140,7 @@ This file has following parameters:
 | fragment ion mass tolerance      | 0.01                                     |                                                                            |
 | frequency threshold              | 1.5                                      | Minimum normalized AA frequency to be considered as localization candidate.|
 | minimum matched peaks            | 4                                        | Minimum peaks to be matched.                                               |
+| always try terminal localization | yes                                      | If enabled, terminal positions are tried for all mass shifts during localization. |
 |                                  |**[modifications]**                       |                                                                            |
 | recommend variable modifications |          5                               | Number of modifications recommended for closed search.                     |
 | recommend multiple modifications on residue  | yes                          | Allows several modifications on one AA residue.                            |
