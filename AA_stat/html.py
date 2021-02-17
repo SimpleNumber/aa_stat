@@ -24,7 +24,7 @@ def matches(row, ms, sites, params_dict):
     if 'non-localized' in ldict:
         return False
     for loc in ldict:
-        site, shift = utils.parse_localization_key(loc)
+        site, shift = utils.parse_l10n_site(loc)
         if shift != ms:
             continue
         for possible_site, possible_position in sites:

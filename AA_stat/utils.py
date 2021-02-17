@@ -356,7 +356,3 @@ def format_localization_key(site, ms):
     if not isinstance(ms, str):
         ms = mass_format(ms)
     return site + '_' + ms
-
-
-def parse_localization_key(key):
-    return key.split('_')
