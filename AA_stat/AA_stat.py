@@ -624,11 +624,15 @@ def AA_stat(params_dict, args, step=None):
         locmod_df['aa_stat candidates'] = localization.get_candidates_from_aastat(
             table, labels=params_dict['labels'], threshold=params_dict['candidate threshold'])
 
-        locmod_df['all candidates'] = locmod_df.apply(
-            lambda x: set(x['unimod candidates']) | set(x['aa_stat candidates']), axis=1)
-        if params_dict['force_term_loc']:
-            logger.debug('Adding terminal localizations for all mass shifts.')
-            locmod_df['all candidates'] = locmod_df['all candidates'].apply(lambda x: x | {'N-term', 'C-term'})
+        if params_dict['use_all_loc']:
+            logger.info('Localizaing all mass shifts on all amino acids. This may take some time.')
+            locmod_df['all candidates'] = [set(parser.std_amino_acids)] * locmod_df.shape[0]
+        else:
+            locmod_df['all candidates'] = locmod_df.apply(
+                lambda x: set(x['unimod candidates']) | set(x['aa_stat candidates']), axis=1)
+            if params_dict['force_term_loc']:
+                logger.debug('Adding terminal localizations for all mass shifts.')
+                locmod_df['all candidates'] = locmod_df['all candidates'].apply(lambda x: x | {'N-term', 'C-term'})
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotope index'], 'all candidates'])

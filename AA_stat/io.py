@@ -347,6 +347,7 @@ def get_parameters(params):
     params_dict['candidate threshold'] = params.getfloat('localization', 'frequency threshold')
     params_dict['min_spec_matched'] = params.getint('localization', 'minimum matched peaks')
     params_dict['force_term_loc'] = params.getboolean('localization', 'always try terminal localization')
+    params_dict['use_all_loc'] = params.getboolean('localization', 'try all localizations')
 
     # modifications
     params_dict['variable_mods'] = params.getint('modifications', 'recommend variable modifications')
