@@ -93,10 +93,12 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     for ind, ms in enumerate(mass_shifts):
         if ind != len(mass_shifts) - 1:
             diff = abs(ms[1] - mass_shifts[ind + 1][1])
-            if diff < 3 * ms[2]:
-                ms[2] = diff / 6
-                mass_shifts[ind + 1][2] = diff / 6
-                logger.debug('Mass shifts %.3f and %.3f are too close, setting their sigma to %.4f', ms[1], mass_shifts[ind + 1][1], diff / 6)
+            width_sum = 3 * (ms[2] + mass_shifts[ind + 1][2])
+            if diff < width_sum:
+                coef = width_sum / diff
+                ms[2] /= coef
+                mass_shifts[ind + 1][2] /= coef
+                logger.debug('Mass shifts %.3f and %.3f are too close, dividing their sigma by %.4f', ms[1], mass_shifts[ind + 1][1], coef)
         shift, df = fdr_filter_mass_shift(ms, data, params_dict)
 
         if len(df) > 0:
