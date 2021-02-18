@@ -229,7 +229,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         recmod = pd.DataFrame.from_dict(recommended_fmods, orient='index', columns=['value']).T.style.set_caption(
             'Recommended, fixed').render(uuid="rec_fix_mod_table")
     else:
-        recmod = "Recommended modifications: none."
+        recmod = "No fixed modifications recommended."
 
     if recommended_vmods:
         vmod_comb_i = json.dumps(list(vmod_combinations))
@@ -248,7 +248,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
             'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(table_styles).render(uuid="rec_var_mod_table")
     else:
-        rec_var_mods = "Recommended variable modifications: none."
+        rec_var_mods = "No variable modifications recommended."
         vmod_comb_i = vmod_comb_val = opp_mod_i = opp_mod_v = '[]'
 
     reference = table.loc[table['is reference']].index[0]
