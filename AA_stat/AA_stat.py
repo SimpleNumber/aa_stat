@@ -395,6 +395,12 @@ def AA_stat(params_dict, args, step=None):
         for i in locmod_df.loc[locmod_df['is isotope']].index:
             locmod_df.at[i, 'all candidates'] = locmod_df.at[i, 'all candidates'].union(
                 locmod_df.at[locmod_df.at[i, 'isotope index'], 'all candidates'])
+        for i in locmod_df.index:
+            ac = locmod_df.at[i, 'all candidates']
+            for term in ('N', 'C'):
+                if 'Protein {}-term'.format(term) in ac and '{}-term'.format(term) in ac:
+                    ac.remove('Protein {}-term'.format(term))
+                    logger.debug('Removing protein %s-term localization for %s as redundant.', term, i)
         if reference_mass_shift == 0.0:
             locmod_df.at[reference_label, 'all candidates'] = set()
         locmod_df['candidates for loc'] = localization.get_full_set_of_candidates(locmod_df)

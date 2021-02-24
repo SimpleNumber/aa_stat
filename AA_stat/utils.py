@@ -212,7 +212,7 @@ def get_candidates_from_unimod(mass_shift, tolerance, unimod_df):
     sites_set = set()
     accessions = set()
     for i, row in unimod_df.loc[ind].iterrows():
-        sites_set.update(s['site'] for s in row['specificity'])
+        sites_set.update(s['site'] if s['position'][:3] == 'Any' else s['position'] for s in row['specificity'])
         accessions.add(row['record_id'])
     return sites_set, accessions
 

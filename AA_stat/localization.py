@@ -165,7 +165,7 @@ def preprocess_spectrum(reader, spec_id, kwargs, acc=0.01):
     return spectrum
 
 
-def peptide_isoforms(peptide, m, sites):
+def peptide_isoforms(peptide, m, sites, prev_aa, next_aa):
     """
     Parameters
     ----------
@@ -181,9 +181,9 @@ def peptide_isoforms(peptide, m, sites):
 
     """
     isoforms = []
-    if 'N-term' in sites and len(peptide[0]) == 1 and peptide[0] not in sites:
+    if ('N-term' in sites or 'Protein N-term' in sites and prev_aa == '-') and len(peptide[0]) == 1 and peptide[0] not in sites:
         isoforms.append((m + peptide[0],) + tuple(peptide[1:]))
-    if 'C-term' in sites and len(peptide[-1]) == 1 and peptide[-1] not in sites:
+    if ('C-term' in sites or 'Protein C-term' in sites and next_aa == '-') and len(peptide[-1]) == 1 and peptide[-1] not in sites:
         isoforms.append(tuple(peptide[:-1]) + (m + peptide[-1],))
     for ind, a in enumerate(peptide):
         if a in sites:
@@ -252,7 +252,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
         mass shift
     ms_label : str
         Label for considered mass shift.
-    row : dict
+    row : DataFrame row
         Data Frame row for filtered PSMs data.
     loc_candidates : list
         List of dicts with candidates for localization. locmod_df['loc candidates']
@@ -270,6 +270,8 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     mass_dict_0 = mass.std_aa_mass.copy()
     mass_dict_0.update(params_dict['fix_mod'])
     peptide = params_dict['peptides_column']
+    prev_aa = params_dict['prev_aa_column']
+    next_aa = params_dict['next_aa_column']
     modif_labels = string.ascii_lowercase
 
     loc_stat_dict = Counter()
@@ -300,18 +302,18 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
             mass_dict[modif_labels[i]] = mass_shift_dict[_ms]
 
             if not isoform_part:  # first modification within this shift (or whole shift)
-                isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], terms[_ms])
+                isoform_part += peptide_isoforms(list(row[peptide]), modif_labels[i], terms[_ms], row[prev_aa], row[next_aa])
                 if _ms == ms_label:
                     # this is the whole-shift modification
                     isoforms += isoform_part
                 elif len(terms) == 1:
                     # two equal mass shifts form this mass shift. Apply the second half
                     for p in isoform_part:
-                        new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms])
+                        new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms], row[prev_aa], row[next_aa])
             else:
                 # second mass shift
                 for p in isoform_part:
-                    new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms])
+                    new_isoform_part += peptide_isoforms(p, modif_labels[i], terms[_ms], row[prev_aa], row[next_aa])
             i += 1
         isoforms += new_isoform_part
         sequences = [list(x) for x in isoforms]
