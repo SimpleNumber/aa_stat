@@ -100,6 +100,9 @@
         .note {
           font-size: 75%;
         }
+        .isotope_error {
+          background-color: #cccccc;
+        }
     </style>
 </head>
 <body>
@@ -214,6 +217,7 @@
       showTable(e.target);
     }
   }
+
   var reference = "{{ reference }}";
   var table = document.getElementById("T_aa_stat_table");
   for (var i = 0, row; row = table.rows[i]; i++) {
@@ -223,18 +227,28 @@
       break;
     }
   }
+
   var vmod_comb_i = {{ vmod_comb_i }};
   var vmod_comb_val = {{ vmod_comb_val }};
   var vmod_table = document.getElementById("T_rec_var_mod_table");
+
   for (var i = 0; i < vmod_comb_i.length; i++) {
     var cells = vmod_table.querySelectorAll('.data.col' + vmod_comb_i[i]);
     cells.forEach(function(c) {c.title = vmod_comb_val[i]; });
   }
+
   var opp_mod_i = {{ opposite_i }};
   var opp_mod_val = {{ opposite_v }};
   for (var j = 0; j < opp_mod_i.length; j++) {
     var ocells = vmod_table.querySelectorAll('.data.col' + opp_mod_i[j]);
     ocells.forEach(function(c) {c.title = opp_mod_val[j]; });
+  }
+
+  if (vmod_table.querySelector('.data.row0.col0').textContent == "isotope error") {
+    vmod_table.querySelectorAll('.data.col0').forEach(function(c) {
+      c.classList.add("isotope_error");
+      c.title = "This is the recommended value for search engine parameters such as 'isotope peak error', i.e. misassignment of monoisotopic peak."
+    })
   }
 
 </script>
