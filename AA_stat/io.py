@@ -105,8 +105,9 @@ def preprocess_df(df, filename, params_dict):
                         df[shifts],
                         df[params_dict['measured_mass_column']] - df[params_dict['calculated_mass_column']],
                         atol=1e-4)
-                    freq_measured = 1e6 / np.sqrt(df.loc[mask, params_dict['measured_mass_column']]) - popt[1]
-                    mass_corrected = (1e6 / freq_measured) ** 2
+                    freq_measured = 1e6 / np.sqrt(utils.measured_mz_series(df.loc[mask], params_dict)) - popt[1]
+                    mass_corrected = (((1e6 / freq_measured) ** 2) * df.loc[mask, params_dict['charge_column']] -
+                        utils.H * df.loc[mask, params_dict['charge_column']])
                     correction = mass_corrected - df.loc[mask, params_dict['measured_mass_column']]
                     logger.debug('Average systematic mass shift for cluster %s: %f', c, -correction.mean())
                     shift_copy.loc[mask] += correction

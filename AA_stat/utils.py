@@ -18,6 +18,7 @@ MASS_FORMAT = '{:+.4f}'
 UNIMOD = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml'))
 INTERNAL = 5
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
+H = mass.nist_mass['H+'][0][0]
 
 
 def internal(*args, **kwargs):
@@ -358,3 +359,13 @@ def format_localization_key(site, ms):
     if not isinstance(ms, str):
         ms = mass_format(ms)
     return site + '_' + ms
+
+
+def measured_mz_series(df, params_dict):
+    return (df[params_dict['measured_mass_column']] + df[params_dict['charge_column']] * H
+        ) / df[params_dict['charge_column']]
+
+
+def calculated_mz_series(df, params_dict):
+    return (df[params_dict['calculated_mass_column']] + df[params_dict['charge_column']] * H
+        ) / df[params_dict['charge_column']]

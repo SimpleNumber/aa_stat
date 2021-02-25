@@ -14,6 +14,9 @@ from scipy.optimize import curve_fit
 from scipy.signal import argrelextrema, savgol_filter
 import seaborn as sb
 
+from . import utils
+
+
 logger = logging.getLogger(__name__)
 logging.getLogger('matplotlib.font_manager').disabled = True
 logging.getLogger('matplotlib.category').disabled = True
@@ -144,8 +147,8 @@ def get_fittable_series(df, params_dict, mask=None):
         to_fit = df.loc[loc, shifts] * 1e6 / df.loc[loc, params_dict['calculated_mass_column']]
         unit = 'ppm'
     elif params_dict['calibration'] == 'gauss_frequency':
-        freq_measured = 1e6 / np.sqrt(df[params_dict['measured_mass_column']])
-        freq_calculated = 1e6 / np.sqrt(df[params_dict['calculated_mass_column']])
+        freq_measured = 1e6 / np.sqrt(utils.measured_mz_series(df, params_dict))
+        freq_calculated = 1e6 / np.sqrt(utils.calculated_mz_series(df, params_dict))
         to_fit = (freq_measured - freq_calculated).loc[loc]
         unit = 'freq. units'
     if mask is not None:
@@ -176,6 +179,7 @@ def get_cluster_masks(filtered_clusters, clustering, df, to_fit, params_dict):
 
     assigned_masks = [masks[c] for c in filtered_clusters]
     return assigned_masks
+
 
 def smooth(y, window_size=15, power=5):
     """
