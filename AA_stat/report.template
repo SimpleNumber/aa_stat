@@ -101,7 +101,7 @@
           font-size: 75%;
         }
         .isotope_error {
-          background-color: #cccccc;
+          background-color: #e0e0e0;
         }
     </style>
 </head>

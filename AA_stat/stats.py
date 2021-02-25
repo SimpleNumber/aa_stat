@@ -396,7 +396,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     ax_left.set_ylabel('Relative AA abundance', color=colors[2])
     ax_left.set_xticks(x)
     ax_left.set_xticklabels(labels)
-    ax_left.hlines(1, -1, x[-1] + 1, linestyles='dashed', color=colors[3])
+    ax_left.hlines(1, -1, x[-1] + 1, linestyles='dashed', color=colors[2])
     ax_right = ax_left.twinx()
 
     ax_right.bar(x + b, right, width=width, linewidth=0, color=colors[0])
@@ -465,23 +465,29 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 
 
 def summarizing_hist(table, save_directory):
-    ax = table.sort_values('mass shift').plot(
-        y='# peptides in bin', kind='bar', color=colors[2], figsize=(len(table), 5))
-    ax.set_title('Peptides in mass shifts', fontsize=12)  # PSMs
+    width = 0.8
+    fig, ax = plt.subplots(figsize=(len(table), 5))
+    ax.bar(range(len(table)), table.sort_values('mass shift')['# peptides in bin'],
+        color=colors[2], align='center', width=width)
+    ax.set_title('Peptides in mass shifts', fontsize=12)
     ax.set_xlabel('Mass shift', fontsize=10)
     ax.set_ylabel('Number of peptides')
+    ax.set_xticks(range(len(table)))
     ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply('{:.2f}'.format))
 
-    total = sum(i.get_height() for i in ax.patches)
+    total = table['# peptides in bin'].sum()
+    vdist = table['# peptides in bin'].max() * 0.01
     max_height = 0
-    for i in ax.patches:
-        current_height = i.get_height()
+    for i, patch in enumerate(ax.patches):
+        current_height = patch.get_height()
         if current_height > max_height:
             max_height = current_height
-        ax.text(i.get_x() - 0.03, current_height + 40,
-            '{:>6.2%}'.format(i.get_height() / total), fontsize=10, color='dimgrey')
+        ax.text(patch.get_x() + width / 2, current_height + vdist,
+            '{:>6.2%}'.format(table.at[table.index[i], '# peptides in bin'] / total),
+            fontsize=10, color='dimgrey', ha='center')
 
     plt.ylim(0, max_height * 1.2)
     plt.tight_layout()
     plt.savefig(os.path.join(save_directory, 'summary.png'))  # dpi=500
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
+    plt.close()
