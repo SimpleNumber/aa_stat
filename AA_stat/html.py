@@ -7,7 +7,8 @@ import warnings
 import json
 import pkg_resources
 from datetime import datetime
-
+import math
+import operator
 import pandas as pd
 from pyteomics import mass
 from . import utils, stats
@@ -47,17 +48,18 @@ def format_unimod_info(row, df, params_dict):
             sites = {(group['site'], group['position']) for group in record['specificity']}
             matching = df.apply(matches, args=(row.name, sites, params_dict), axis=1).sum()
             total = row['# peptides in bin']
-            out.append('{} ({:.0%} match)'.format(name, matching / total))
+            out.append({'label': '{} ({:.0%} match)'.format(name, matching / total),
+                'priority': 1 - matching / total, 'type': 'unimod', 'len': len(record['title']) + 11})
         else:
-            out.append(name)
+            out.append({'label': name, 'priority': 1, 'type': 'unimod', 'len': len(record['title'])})
     return out
 
 
 def get_label(table, ms, second=False):
     row = table.loc[ms]
-    if row['isotope index'] is None and row['sum of mass shifts'] is None:
+    if len(row['raw info']) == 1:
         if len(row['unimod accessions']) == 1:
-            return ('+' if second else '') + format_unimod_repr(next(iter(row['unimod accessions'])))
+            return ('+ ' if second else '') + format_unimod_repr(next(iter(row['unimod accessions'])))
     return ms
 
 
@@ -148,14 +150,42 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
     return out
 
 
-def format_info(row, table, mass_shift_data_dict, locmod_df, params_dict):
-    options = get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_dict)
+def collect_info(row, table, mass_shift_data_dict, locmod_df, params_dict):
+    # Each interpretation is a dict with keys: label, priority, type
+    options = [{'label': x, 'priority': 0, 'type': 'artefact'} for x in get_artefact_interpretations(
+        row, mass_shift_data_dict, locmod_df, params_dict)]
     options.extend(format_unimod_info(row, mass_shift_data_dict[row.name][1], params_dict))
     if row['isotope index']:
-        options.append('isotope of {}'.format(get_label(table, row['isotope index'])))
+        options.append({'label': 'isotope of {}', 'isotope index': row['isotope index'],
+            'priority': abs(math.log10(table.at[row['isotope index'], '# peptides in bin'] /
+                row['# peptides in bin'] / 10)), 'type': 'isotope'})
     if isinstance(row['sum of mass shifts'], list):
-        options.extend('{}{}'.format(get_label(table, s1), get_label(table, s2, True)) for s1, s2 in row['sum of mass shifts'])
-    return ', '.join(options)
+        for terms in row['sum of mass shifts']:
+            options.append({'label': '{} {}', 'sumof': terms, 'type': 'sum',
+                'priority': 1 - min(table.at[terms[0], '# peptides in bin'],
+                    table.at[terms[1], '# peptides in bin']) / table['# peptides in bin'].max()})
+    logger.debug('Raw options for row %s: %s', row.name, options)
+    return options
+
+
+def format_info(row, table, char_limit=120):
+    s = row['raw info']
+    for d in s:
+        if d['type'] == 'isotope':
+            d['label'] = d['label'].format(get_label(table, d['isotope index']))
+        if d['type'] == 'sum':
+            d['label'] = d['label'].format(get_label(table, d['sumof'][0]), get_label(table, d['sumof'][1], second=True))
+    out = []
+    total_len = 0
+    for info in sorted(s, key=operator.itemgetter('priority')):
+        out.append(info['label'])
+        total_len += info.get('len', len(info['label']))
+        if total_len > char_limit:
+            break
+    else:
+        return ', '.join(out)
+
+    return ', '.join(out[:1]) + '... <span class="expand_info">(<a class="expand_info_link">expand</a>)</span>'
 
 
 def html_format_isoform(isoform):
@@ -178,7 +208,9 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         return
     table = table_.copy()
     labels = params_dict['labels']
-    table['Possible interpretations'] = table.apply(format_info, axis=1, args=(table, mass_shift_data_dict, locmod_df, params_dict))
+    table['raw info'] = table.apply(collect_info, axis=1, args=(table, mass_shift_data_dict, locmod_df, params_dict))
+    table['Possible interpretations'] = table.apply(format_info, args=(table,), axis=1)
+    full_info = [', '.join(x['label'] for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']]
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
@@ -186,7 +218,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         columns[0] = mslabel
         table.columns = columns
         to_hide = list({'is reference', 'sum of mass shifts', 'isotope index', 'unimod accessions',
-            'is isotope', 'unimod candidates'}.intersection(columns))
+            'is isotope', 'unimod candidates', 'raw info'}.intersection(columns))
         table_html = table.style.hide_index().hide_columns(to_hide).applymap(
             lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
             ).set_precision(3).apply(
@@ -272,7 +304,8 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
 
     write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, reference=reference,
         recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now(),
-        vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val, opposite_i=opp_mod_i, opposite_v=opp_mod_v)
+        vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val, opposite_i=opp_mod_i, opposite_v=opp_mod_v,
+        full_info=full_info)
 
 
 def write_html(path, **template_vars):

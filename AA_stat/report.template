@@ -97,7 +97,7 @@
         #meta {
           text-align: center;
         }
-        .note {
+        .note, .expand_info {
           font-size: 75%;
         }
         .isotope_error {
@@ -249,6 +249,20 @@
       c.classList.add("isotope_error");
       c.title = "This is the recommended value for search engine parameters such as 'isotope peak error', i.e. misassignment of monoisotopic peak."
     })
+  }
+
+  var full_info = {{ full_info }};
+  var onclickCreator = function(i) {
+    return function(e) {
+      e.target.parentElement.parentElement.innerHTML = full_info[i];
+    };
+  };
+  for (var i = 0; i < full_info.length; i++) {
+    var info_cell = table.querySelector('.data.col29.row' + i);
+    var link = info_cell.querySelector('a.expand_info_link');
+    if (link) {
+      link.onclick = onclickCreator(i);
+    }
   }
 
 </script>
