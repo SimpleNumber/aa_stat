@@ -15,8 +15,7 @@ from . import utils, stats
 
 logger = logging.getLogger(__name__)
 
-def format_unimod_repr(record_id):
-    record = utils.UNIMOD[record_id]
+def format_unimod_repr(record):
     return '<a href="http://www.unimod.org/modifications_view.php?editid1={0[record_id]}">{0[title]}</a>'.format(record)
 
 
@@ -42,9 +41,9 @@ def matches(row, ms, sites, params_dict):
 def format_unimod_info(row, df, params_dict):
     out = []
     for record_id in row['unimod accessions']:
-        name = format_unimod_repr(record_id)
+        record = utils.UNIMOD[record_id]
+        name = format_unimod_repr(record)
         if 'top isoform' in df:
-            record = utils.UNIMOD[record_id]
             sites = {(group['site'], group['position']) for group in record['specificity']}
             matching = df.apply(matches, args=(row.name, sites, params_dict), axis=1).sum()
             total = row['# peptides in bin']
@@ -59,7 +58,8 @@ def get_label(table, ms, second=False):
     row = table.loc[ms]
     if len(row['raw info']) == 1:
         if len(row['unimod accessions']) == 1:
-            return ('+ ' if second else '') + format_unimod_repr(next(iter(row['unimod accessions'])))
+            record = utils.UNIMOD[next(iter(row['unimod accessions']))]
+            return ('+ ' if second else '') + format_unimod_repr(record)
     return ms
 
 
