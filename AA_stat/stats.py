@@ -472,6 +472,7 @@ def summarizing_hist(table, save_directory):
     ax.set_title('Peptides in mass shifts', fontsize=12)
     ax.set_xlabel('Mass shift', fontsize=10)
     ax.set_ylabel('Number of peptides')
+    ax.set_xlim((-1, len(table)))
     ax.set_xticks(range(len(table)))
     ax.set_xticklabels(table.sort_values('mass shift')['mass shift'].apply('{:.2f}'.format))
 
