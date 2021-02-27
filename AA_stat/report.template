@@ -12,7 +12,7 @@
         #mods_outer {
           text-align: center;
         }
-        #fixmod {
+        #mod_container {
           display: flex;
           margin-top: 1vh;
           margin-bottom: 1vh;
@@ -112,10 +112,15 @@
 <div id="steps">{{ steps }}</div>
 <div id="mods_outer">
   <h3>Modifications</h3>
-  <div id="fixmod">
-    <div id="set_mods" class="modtable">
+  <div id="mod_container">
+    <div id="set_fmods" class="modtable">
     {{ fixmod }}
     </div>
+    {% if varmod %}
+    <div id="set_vmods" class="modtable">
+    {{ varmod }}
+    </div>
+    {% endif %}
     <div id="rec_mods" class="modtable">
     {{ recmod }}
     </div>

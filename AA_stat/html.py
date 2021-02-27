@@ -262,6 +262,13 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
             'Configured, fixed').format(utils.MASS_FORMAT).render(uuid="set_fix_mod_table")
     else:
         fixmod = "Set modifications: none."
+    if params_dict['var_mod']:
+        d = params_dict['var_mod'].copy()
+        d = utils.masses_to_mods(d)
+        varmod = pd.DataFrame.from_dict(d, orient='index', columns=['value']).T.style.set_caption(
+            'Configured, variable').format(utils.MASS_FORMAT).render(uuid="set_var_mod_table")
+    else:
+        varmod = None
     if recommended_fmods:
         recmod = pd.DataFrame.from_dict(recommended_fmods, orient='index', columns=['value']).T.style.set_caption(
             'Recommended, fixed').render(uuid="rec_fix_mod_table")
@@ -307,8 +314,8 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
 
     version = pkg_resources.get_distribution('AA_stat').version
 
-    write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, reference=reference,
-        recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now(),
+    write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, varmod=varmod,
+        reference=reference, recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now(),
         vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val, opposite_i=opp_mod_i, opposite_v=opp_mod_v,
         full_info=full_info)
 

@@ -297,18 +297,18 @@ def get_column_with_mods(row, params_dict):
 def format_isoform(row, params_dict):
     ms = row['mod_dict']
     seq = row['top isoform']
-    
+
     pc, nc, mc = operator.itemgetter('prev_aa_column', 'next_aa_column', 'mods_column')(params_dict)
     prev_aa, next_aa = operator.itemgetter(pc, nc)(row)
     mods = get_var_mods(row, params_dict)
     seq = apply_var_mods(seq, mods)
-    
+
     sequence = re.sub(r'([a-z])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), float(ms[m.group(1)])), seq)
     return '{}.{}.{}'.format(prev_aa[0], sequence, next_aa[0])
 
 
-def get_fix_modifications(pepxml_file):
-    out = {}
+def get_fix_var_modifications(pepxml_file):
+    fout, vout = {}, {}
     p = pepxml.PepXML(pepxml_file, use_index=False)
     mod_list = list(p.iterfind('aminoacid_modification'))
     logger.debug('mod_list: %s', mod_list)
@@ -318,14 +318,21 @@ def get_fix_modifications(pepxml_file):
     p.close()
     for m in mod_list:
         if m['variable'] == 'N':
-            out[m['aminoacid']] = m['mass']
+            fout[m['aminoacid']] = m['mass']
+        else:
+            vout[m['aminoacid']] = m['mass']
     for m in term_mods:
         if m['variable'] == 'N':
             if m['terminus'] == 'N':
-                out['H-'] = m['mass']
+                fout['H-'] = m['mass']
             else:
-                out['-OH'] = m['mass']
-    return out
+                fout['-OH'] = m['mass']
+        else:
+            if m['terminus'] == 'N':
+                vout['H-'] = m['mass']
+            else:
+                vout['-OH'] = m['mass']
+    return fout, vout
 
 
 def get_specificity(pepxml_file):
