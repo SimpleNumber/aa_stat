@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
-        aa_mass=mass.std_aa_mass, **kwargs):
+        aa_mass=mass.std_aa_mass, modifications=None, **kwargs):
     """
     Calculates theoretical spectra in two ways: usual one and in integer format (mz / frag_acc).
 
@@ -33,11 +33,12 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
         Fragment mass accuracy in Da.
     ion_types : tuple
         Fragment ion types. ('b', 'y')
-
     maxcharge: int
         Maximum charge of fragment ion.
     aa_mass: dict
         Amino acid masses
+    modifications : dict or None
+        Dict of modifications applied to peptide (int position -> float mass)
 
     Returns
     -------
@@ -54,6 +55,8 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
     nterm_mod = aa_mass.pop('H-', H)
     OH = H + mass.nist_mass['O'][0][0]
     cterm_mod = aa_mass.pop('-OH', OH)
+    if modifications is None:
+        modifications = {}
     for ind, pep in enumerate(peptide[:-1]):
         for ion_type in ion_types:
             nterminal = ion_type[0] in 'abc'
@@ -61,18 +64,23 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
                 if ind == 0:
                     if nterminal:
                         mz = cmass.fast_mass2(
-                            pep, ion_type=ion_type, charge=charge, aa_mass=aa_mass, **kwargs) + (nterm_mod - H) / charge
+                            pep, ion_type=ion_type, charge=charge,
+                            aa_mass={pep: modifications.get(1, aa_mass[pep])}, **kwargs) + (nterm_mod - H) / charge
                     else:
                         mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,
-                                             aa_mass=aa_mass, **kwargs) + (cterm_mod - OH) / charge
+                                             aa_mass=aa_mass, **kwargs) + (cterm_mod - OH) / charge + sum(
+                                             val - aa_mass[peptide[key-1]] for key, val in modifications.items() if key > 1)
                 else:
                     if nterminal:
-                        mz = peaks[ion_type, charge][-1] + aa_mass[pep] / charge
+                        mz = peaks[ion_type, charge][-1] + modifications.get(ind+1, aa_mass[pep]) / charge
                     else:
-                        mz = peaks[ion_type, charge][-1] - aa_mass[pep] / charge
+                        mz = peaks[ion_type, charge][-1] - modifications.get(ind+1, aa_mass[pep]) / charge
                 peaks[ion_type, charge].append(mz)
                 theor_set[ion_type].append(int(mz / acc_frag))
     theor_set = {k: set(v) for k, v in theor_set.items()}
+    # if modifications:
+    #     utils.internal('aa_mass: %s', aa_mass)
+    #     utils.internal('Theoretical spectrum with modifications: %s, %s, %s', peptide, modifications, peaks)
     return peaks, theor_set
 
 
@@ -244,7 +252,8 @@ def get_full_set_of_candidates(locmod_df):
 
 def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict, spectra_dict, mass_shift_dict):
     """
-    Localizes modification for mass shift. If two peptides isoforms have the same max score, modification counts as 'non-localized'.
+    Localizes modification for mass shift in a peptide.
+    If two peptides isoforms have the same score, modification counts as 'non-localized'.
 
     Parameters
     ----------
@@ -273,6 +282,28 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     prev_aa = params_dict['prev_aa_column']
     next_aa = params_dict['next_aa_column']
     modif_labels = string.ascii_lowercase
+    modifications = row[params_dict['mods_column']]
+    mod_dict = {}
+    # if modifications:
+    #     utils.internal('Got modifications: %s', modifications)
+    for m in modifications:
+        mmass, pos = m.split('@')
+        mmass = float(mmass)
+        pos = int(pos)
+        if pos == 0:
+            key = 'H-'
+        elif pos == len(row[peptide]) + 1:
+            key = '-OH'
+        else:
+            key = row[peptide][pos-1]
+        if abs(mmass - mass_dict_0[key]) > params_dict['frag_acc']:
+            # utils.internal('%s modified in %s at position %s: %.3f -> %.3f', key, row[peptide], pos, mass_dict_0[key], mmass)
+            mod_dict[pos] = mmass
+    for k in ['H-', '-OH']:
+        if k in mod_dict:
+            mass_dict_0[k] = mod_dict.pop(k)
+    # if mod_dict:
+    #     utils.internal('Final mod dict: %s', mod_dict)
 
     loc_stat_dict = Counter()
 
@@ -321,7 +352,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
         for seq in sequences:
             # utils.internal('seq = %s', seq)
             theor_spec = get_theor_spectrum(seq,
-                params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict, ion_types=params_dict['ion_types'])
+                params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict, ion_types=params_dict['ion_types'], modifications=mod_dict)
             scores.append(RNHS_fast(exp_dict, theor_spec[1], params_dict['min_spec_matched'], ion_types=params_dict['ion_types'])[1])
         scores = np.array(scores)
         i = np.argsort(scores)[::-1]
@@ -342,8 +373,8 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     if any(all(sites <= {'C-term', 'N-term'} for sites in terms.values())
         for terms in loc_candidates):
         # utils.internal('Injecting unmodified spectra for %s', ms)
-        unmod_spec = get_theor_spectrum(list(row[peptide]),
-                params_dict['frag_acc'], maxcharge=charge, aa_mass=mass_dict_0, ion_types=params_dict['ion_types'])
+        unmod_spec = get_theor_spectrum(list(row[peptide]), params_dict['frag_acc'], maxcharge=charge,
+            aa_mass=mass_dict_0, ion_types=params_dict['ion_types'], modifications=mod_dict)
         unmod_score = RNHS_fast(exp_dict, unmod_spec[1], params_dict['min_spec_matched'], ion_types=params_dict['ion_types'])[1]
     else:
         unmod_score = 0

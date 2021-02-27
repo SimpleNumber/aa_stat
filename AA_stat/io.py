@@ -307,6 +307,7 @@ def get_parameters(params):
     params_dict['prev_aa_column'] = params.get('csv input', 'previous aa column')
     params_dict['spectrum_column'] = params.get('csv input', 'spectrum column')
     params_dict['charge_column'] = params.get('csv input', 'charge column')
+    params_dict['mods_column'] = params.get('csv input', 'modifications column')
     params_dict['score_ascending'] = params.getboolean('csv input', 'score ascending')
 
     # general
