@@ -10,6 +10,7 @@ from datetime import datetime
 import math
 import operator
 import pandas as pd
+import lxml.html
 from pyteomics import mass
 from . import utils, stats
 
@@ -48,9 +49,9 @@ def format_unimod_info(row, df, params_dict):
             matching = df.apply(matches, args=(row.name, sites, params_dict), axis=1).sum()
             total = row['# peptides in bin']
             out.append({'label': '{} ({:.0%} match)'.format(name, matching / total),
-                'priority': 1 - matching / total, 'type': 'unimod'})
+                'priority': 1 - matching / total, 'type': 'unimod', 'ref': []})
         else:
-            out.append({'label': name, 'priority': 1, 'type': 'unimod'})
+            out.append({'label': name, 'priority': 1, 'type': 'unimod', 'ref': []})
     return out
 
 
@@ -141,17 +142,17 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
 
 
 def collect_info(row, table, mass_shift_data_dict, locmod_df, params_dict):
-    # Each interpretation is a dict with keys: label, priority, type
-    options = [{'label': x, 'priority': 0, 'type': 'artefact'} for x in get_artefact_interpretations(
+    # Each interpretation is a dict with keys: label, priority, type, ref
+    options = [{'label': x, 'priority': 0, 'type': 'artefact', 'ref': []} for x in get_artefact_interpretations(
         row, mass_shift_data_dict, locmod_df, params_dict)]
     options.extend(format_unimod_info(row, mass_shift_data_dict[row.name][1], params_dict))
     if row['isotope index']:
-        options.append({'label': 'isotope of {}', 'isotope index': row['isotope index'],
+        options.append({'label': 'isotope of {}', 'ref': [row['isotope index']],
             'priority': abs(math.log10(table.at[row['isotope index'], '# peptides in bin'] /
-                row['# peptides in bin'] / 10)), 'type': 'isotope'})
+                row['# peptides in bin'] / 8)), 'type': 'isotope'})
     if isinstance(row['sum of mass shifts'], list):
         for terms in row['sum of mass shifts']:
-            options.append({'label': '{} {}', 'sumof': terms, 'type': 'sum',
+            options.append({'label': '{} {}', 'ref': list(terms), 'type': 'sum',
                 'priority': 1 - min(table.at[terms[0], '# peptides in bin'],
                     table.at[terms[1], '# peptides in bin']) / table['# peptides in bin'].max()})
     logger.debug('Raw options for row %s: %s', row.name, options)
@@ -162,14 +163,14 @@ def format_info(row, table, char_limit):
     s = row['raw info']
     for d in s:
         if d['type'] == 'isotope':
-            d['label'] = d['label'].format(get_label(table, d['isotope index']))
+            d['label'] = d['label'].format(get_label(table, d['ref'][0]))
         if d['type'] == 'sum':
-            d['label'] = d['label'].format(get_label(table, d['sumof'][0]), get_label(table, d['sumof'][1], second=True))
+            d['label'] = d['label'].format(get_label(table, d['ref'][0]), get_label(table, d['ref'][1], second=True))
     out = []
     total_len = 0
     for info in sorted(s, key=operator.itemgetter('priority')):
-        out.append(info['label'])
-        cur_len = len(re.sub(r'<a[^>]*>([^<]*)</a>', r'\1', info['label']))
+        out.append('<span class="info_item {0[type]}" data-ref="{0[ref]}">{0[label]}</span>'.format(info))
+        cur_len = len(lxml.html.document_fromstring(info['label']).text_content())
         total_len += cur_len
         utils.internal('Label %s assigned length %d (total %d)', info['label'], cur_len, total_len)
         if total_len > char_limit:

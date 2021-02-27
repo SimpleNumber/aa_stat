@@ -106,6 +106,9 @@
         .isotope_error {
           background-color: #e0e0e0;
         }
+        .highlighted {
+          background-color: lightyellow;
+        }
     </style>
 </head>
 <body>
@@ -270,6 +273,26 @@
     var link = info_cell.querySelector('a.expand_info_link');
     if (link) {
       link.onclick = onclickCreator(i);
+    }
+  }
+  var table_rows = new Array();
+  for(i = 0; i < shifts.length; i++) {
+    table_rows[shifts[i].textContent] = shifts[i].parentElement;
+  }
+
+  var info_spans = table.querySelectorAll('span.info_item');
+  for (var i = info_spans.length - 1; i >= 0; i--) {
+    info_spans[i].onmouseover = function(e) {
+      var refs = eval(e.target.dataset.ref);
+      for(j = 0; j < refs.length; j++) {
+        table_rows[refs[j]].classList.add("highlighted");
+      }
+    }
+    info_spans[i].onmouseout = function(e) {
+      var refs = eval(e.target.dataset.ref);
+      for(j = 0; j < refs.length; j++) {
+        table_rows[refs[j]].classList.remove("highlighted");
+      }
     }
   }
 
