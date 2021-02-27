@@ -272,11 +272,37 @@ def find_sums(ms, tolerance=0.005):
     return out
 
 
+def apply_var_mods(seq, mods):
+    parsed = parser.parse(seq)
+    offsets = [0] * len(parsed)
+    for i, a in enumerate(parsed):
+        if i == 0:
+            offsets[i] = len(a) > 1
+        else:
+            offsets[i] = offsets[i-1] + (len(a) > 1)
+    for pos, mmass in sorted(mods.items(), key=lambda i: -i[0]):
+        # internal('pos = %d, offset = %d, %s ->', pos, offsets[pos-1], seq)
+        seq = seq[:pos + offsets[pos-1]] + '{{{:+.0f}}}'.format(
+            mmass - mass.std_aa_mass[seq[pos - 1 + offsets[pos-1]]]) + seq[pos + offsets[pos-1]:]
+        # internal(seq)
+    return seq
+
+
+def get_column_with_mods(row, params_dict):
+    peptide = params_dict['peptides_column']
+    mods = get_var_mods(row, params_dict)
+    return apply_var_mods(row[peptide], mods)
+
+
 def format_isoform(row, params_dict):
     ms = row['mod_dict']
     seq = row['top isoform']
-    pc, nc = operator.itemgetter('prev_aa_column', 'next_aa_column')(params_dict)
+    
+    pc, nc, mc = operator.itemgetter('prev_aa_column', 'next_aa_column', 'mods_column')(params_dict)
     prev_aa, next_aa = operator.itemgetter(pc, nc)(row)
+    mods = get_var_mods(row, params_dict)
+    seq = apply_var_mods(seq, mods)
+    
     sequence = re.sub(r'([a-z])([A-Z])', lambda m: '{}[{:+.0f}]'.format(m.group(2), float(ms[m.group(1)])), seq)
     return '{}.{}.{}'.format(prev_aa[0], sequence, next_aa[0])
 
@@ -328,6 +354,35 @@ def masses_to_mods(d):
     if '-OH' in d:
         d['C-term'] = d.pop('-OH')
     return d
+
+
+def get_var_mods(row, params_dict):
+    modifications = row[params_dict['mods_column']]
+    peptide = params_dict['peptides_column']
+    mass_dict_0 = mass.std_aa_mass.copy()
+    mass_dict_0.update(params_dict['fix_mod'])
+    mod_dict = {}
+    # if modifications:
+    #     utils.internal('Got modifications: %s', modifications)
+    for m in modifications:
+        mmass, pos = m.split('@')
+        mmass = float(mmass)
+        pos = int(pos)
+        if pos == 0:
+            key = 'H-'
+        elif pos == len(row[peptide]) + 1:
+            key = '-OH'
+        else:
+            key = row[peptide][pos-1]
+        if abs(mmass - mass_dict_0[key]) > params_dict['frag_acc']:
+            # utils.internal('%s modified in %s at position %s: %.3f -> %.3f', key, row[peptide], pos, mass_dict_0[key], mmass)
+            mod_dict[pos] = mmass
+    for k in ['H-', '-OH']:
+        if k in mod_dict:
+            mass_dict_0[k] = mod_dict.pop(k)
+    # if mod_dict:
+    #     utils.internal('Final mod dict: %s', mod_dict)
+    return mod_dict
 
 
 def format_mod_dict_str(d):

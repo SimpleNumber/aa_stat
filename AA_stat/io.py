@@ -329,6 +329,7 @@ def get_parameters(params):
     params_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     params_dict['calibration'] = params.get('general', 'mass calibration')
     params_dict['artefact_thresh'] = params.getfloat('general', 'artefact detection threshold')
+    params_dict['html_truncate'] = params.getint('general', 'html info truncation length')
 
     #clustering
     params_dict['clustering'] = params.getboolean('clustering', 'use clustering')
@@ -402,7 +403,8 @@ def save_df(ms, df, save_directory, params_dict):
     prev_aa = params_dict['prev_aa_column']
     next_aa = params_dict['next_aa_column']
     table = df[[peptide, spectrum]].copy()
-    table[peptide] = df[prev_aa].str[0] + '.' + df[peptide] + '.' + df[next_aa].str[0]
+    peptide1 = df.apply(utils.get_column_with_mods, axis=1, args=(params_dict,))
+    table[peptide] = df[prev_aa].str[0] + '.' + peptide1 + '.' + df[next_aa].str[0]
     with open(table_path(save_directory, ms), 'w') as out:
         table.to_csv(out, index=False, sep='\t')
 

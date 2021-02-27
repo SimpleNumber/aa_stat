@@ -48,9 +48,9 @@ def format_unimod_info(row, df, params_dict):
             matching = df.apply(matches, args=(row.name, sites, params_dict), axis=1).sum()
             total = row['# peptides in bin']
             out.append({'label': '{} ({:.0%} match)'.format(name, matching / total),
-                'priority': 1 - matching / total, 'type': 'unimod', 'len': len(record['title']) + 11})
+                'priority': 1 - matching / total, 'type': 'unimod'})
         else:
-            out.append({'label': name, 'priority': 1, 'type': 'unimod', 'len': len(record['title'])})
+            out.append({'label': name, 'priority': 1, 'type': 'unimod'})
     return out
 
 
@@ -168,7 +168,7 @@ def collect_info(row, table, mass_shift_data_dict, locmod_df, params_dict):
     return options
 
 
-def format_info(row, table, char_limit=120):
+def format_info(row, table, char_limit):
     s = row['raw info']
     for d in s:
         if d['type'] == 'isotope':
@@ -179,7 +179,9 @@ def format_info(row, table, char_limit=120):
     total_len = 0
     for info in sorted(s, key=operator.itemgetter('priority')):
         out.append(info['label'])
-        total_len += info.get('len', len(info['label']))
+        cur_len = len(re.sub(r'<a[^>]*>([^<]*)</a>', r'\1', info['label']))
+        total_len += cur_len
+        utils.internal('Label %s assigned length %d (total %d)', info['label'], cur_len, total_len)
         if total_len > char_limit:
             break
     else:
@@ -190,6 +192,7 @@ def format_info(row, table, char_limit=120):
 
 def html_format_isoform(isoform):
     out = re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', isoform)
+    out = re.sub(r'([A-Z])\{([+-]?[0-9]+)\}', r'<span class="vmod_loc">\1[\2]</span>', out)
     out = re.sub(r'^([A-Z])\.', r'<span class="nterm"><span class="prev_aa">\1</span>.</span>', out)
     out = re.sub(r'\.([A-Z])$', r'<span class="cterm">.<span class="next_aa">\1</span></span>', out)
     return out
@@ -197,6 +200,7 @@ def html_format_isoform(isoform):
 
 def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     recommended_fmods, recommended_vmods, vmod_combinations, opposite, save_directory, ms_labels, step=None):
+    peptide = params_dict['peptides_column']
     path = os.path.join(save_directory, 'report.html')
     if os.path.islink(path):
         logger.debug('Deleting link: %s.', path)
@@ -209,7 +213,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     table = table_.copy()
     labels = params_dict['labels']
     table['raw info'] = table.apply(collect_info, axis=1, args=(table, mass_shift_data_dict, locmod_df, params_dict))
-    table['Possible interpretations'] = table.apply(format_info, args=(table,), axis=1)
+    table['Possible interpretations'] = table.apply(format_info, args=(table, params_dict['html_truncate']), axis=1)
     full_info = [', '.join(x['label'] for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']]
 
     with pd.option_context('display.max_colwidth', 250):
@@ -239,15 +243,16 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
                 ['top isoform', 'localization score', params_dict['spectrum_column']]]
             df['localization score'] = df['localization score'].astype(float)
         else:
-            dfc = df[[params_dict['peptides_column'], params_dict['spectrum_column']]].copy()
-            dfc[params_dict['peptides_column']] = (
-                df[params_dict['prev_aa_column']].str[0] + '.' + df[params_dict['peptides_column']] + '.' + df[params_dict['next_aa_column']].str[0])
-            df = dfc
+            dfc = df[[peptide, params_dict['spectrum_column'], params_dict['mods_column']]].copy()
+            dfc[peptide] = dfc.apply(utils.get_column_with_mods, axis=1, args=(params_dict,))
+            dfc[peptide] = (
+                df[params_dict['prev_aa_column']].str[0] + '.' + dfc[peptide] + '.' + df[params_dict['next_aa_column']].str[0])
+            df = dfc[[peptide, params_dict['spectrum_column']]]
         peptide_tables.append(df.to_html(
             table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False, na_rep='',
             formatters={
                 'top isoform': html_format_isoform,
-                params_dict['peptides_column']: html_format_isoform,
+                peptide: html_format_isoform,
                 'localization score': '{:.2f}'.format}))
 
     if params_dict['fix_mod']:

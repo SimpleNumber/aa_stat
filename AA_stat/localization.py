@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
-        aa_mass=mass.std_aa_mass, modifications=None, **kwargs):
+    aa_mass=mass.std_aa_mass, modifications=None, **kwargs):
     """
     Calculates theoretical spectra in two ways: usual one and in integer format (mz / frag_acc).
 
@@ -281,33 +281,11 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     peptide = params_dict['peptides_column']
     prev_aa = params_dict['prev_aa_column']
     next_aa = params_dict['next_aa_column']
-    modif_labels = string.ascii_lowercase
-    modifications = row[params_dict['mods_column']]
-    mod_dict = {}
-    # if modifications:
-    #     utils.internal('Got modifications: %s', modifications)
-    for m in modifications:
-        mmass, pos = m.split('@')
-        mmass = float(mmass)
-        pos = int(pos)
-        if pos == 0:
-            key = 'H-'
-        elif pos == len(row[peptide]) + 1:
-            key = '-OH'
-        else:
-            key = row[peptide][pos-1]
-        if abs(mmass - mass_dict_0[key]) > params_dict['frag_acc']:
-            # utils.internal('%s modified in %s at position %s: %.3f -> %.3f', key, row[peptide], pos, mass_dict_0[key], mmass)
-            mod_dict[pos] = mmass
-    for k in ['H-', '-OH']:
-        if k in mod_dict:
-            mass_dict_0[k] = mod_dict.pop(k)
-    # if mod_dict:
-    #     utils.internal('Final mod dict: %s', mod_dict)
-
-    loc_stat_dict = Counter()
-
     charge = row[params_dict['charge_column']]
+    modif_labels = string.ascii_lowercase
+    
+    mod_dict = utils.get_var_mods(row, params_dict)
+    loc_stat_dict = Counter()
 
     if params_dict['mzml_files']:
         scan = row[params_dict['spectrum_column']].split('.')[1].lstrip('0')
@@ -441,7 +419,6 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     peptide = params_dict['peptides_column']
 
     mod_aa = string.ascii_lowercase
-
     mod_dicts = {}
     for pair in locations_ms:
         labels_mod = {}

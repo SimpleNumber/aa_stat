@@ -76,6 +76,9 @@
         .loc {
           color: #FF0000;
         }
+        .vmod_loc {
+          color: #0000FF;
+        }
         .nterm, .cterm {
           color: #808080;
         }
