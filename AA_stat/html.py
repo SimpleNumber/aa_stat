@@ -63,16 +63,6 @@ def get_label(table, ms, second=False):
     return ms
 
 
-def _format_list(lst, sep1=', ', sep2=' or '):
-    lst = list(lst)
-    if not lst:
-        return ''
-    if len(lst) == 1:
-        return lst[0]
-    *most, last = lst
-    return sep1.join(most) + sep2 + last
-
-
 def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_dict):
     out = []
     aa_mass = mass.std_aa_mass.copy()
@@ -116,10 +106,10 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
                 sys.exit(1)
 
             logger.debug('%.1f%% of peptides in %s %s with %s.',
-                pct * 100, row.name, ('start', 'end')[enz['sense'] == 'N'], _format_list(cut))
+                pct * 100, row.name, ('start', 'end')[enz['sense'] == 'N'], utils.format_list(cut))
             if pct > params_dict['artefact_thresh']:
                 out.append('Search artefact: unmodified peptides with extra {} at {}-terminus ({:.0%} match)'.format(
-                    _format_list(cut), 'CN'[enz['sense'] == 'C'], pct))
+                    utils.format_list(cut), 'CN'[enz['sense'] == 'C'], pct))
                 explained = True
             else:
                 logger.debug('Not enough peptide support search artefact interpretation.')
@@ -132,7 +122,7 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
                 ) / df.shape[0]
                 logger.debug('%.1f%% of peptides in %s have terminal localization.', pct * 100, row.name)
                 if pct > params_dict['artefact_thresh']:
-                    out.append('Loss of ' + _format_list(match_aa))
+                    out.append('Loss of ' + utils.format_list(match_aa))
                     if not enz:
                         out[-1] += ' or an open search artefact'
     else:
@@ -142,9 +132,9 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
             pct = df[keys].apply(
                 lambda row: bool(cut.intersection(row[keys[0]] + row[keys[1]])), axis=1).sum() / df.shape[0]
             logger.debug('%.1f%% of peptides in %s have %s as neighbor amino acid.',
-                pct * 100, row.name, _format_list(cut))
+                pct * 100, row.name, utils.format_list(cut))
             if pct > params_dict['artefact_thresh']:
-                out.append('Possible miscleavage (extra {} at terminus)'.format(_format_list(cut)))
+                out.append('Possible miscleavage (extra {} at terminus)'.format(utils.format_list(cut)))
             else:
                 logger.debug('Not enough peptide support search artefact interpretation.')
     return out

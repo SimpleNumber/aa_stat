@@ -219,6 +219,14 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
         for aa, shift in recommended_fix_mods.items():
             recalculate_with_isotopes(aa, shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
 
+    if params_dict['var_mod'] and not multiple:
+        logger.info('Multiple variable modifications are disabled, not recommending {} for variable modifications.'.format(
+            utils.format_list(params_dict['var_mod'])))
+        for aa, shift in params_dict['var_mod'].items():
+            logger.debug('Removing all counts for %s.', aa)
+            for sh in mods_and_counts[aa]:
+                mods_and_counts[aa][sh] = 0
+
     for i in range(params_dict['variable_mods']):
         logger.debug('Choosing variable modification %d. Counts are:', i + 1)
         for k, d in mods_and_counts.items():

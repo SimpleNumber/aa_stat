@@ -431,3 +431,13 @@ def measured_mz_series(df, params_dict):
 def calculated_mz_series(df, params_dict):
     return (df[params_dict['calculated_mass_column']] + df[params_dict['charge_column']] * H
         ) / df[params_dict['charge_column']]
+
+
+def format_list(lst, sep1=', ', sep2=' or '):
+    lst = list(lst)
+    if not lst:
+        return ''
+    if len(lst) == 1:
+        return lst[0]
+    *most, last = lst
+    return sep1.join(most) + sep2 + last
