@@ -125,20 +125,21 @@ class AAstatResultTest(unittest.TestCase):
         params_dict = io.get_params_dict(args)
         self.figure_data, self.table, self.locmod_df, self.mass_shift_data_dict, self.fix_mods, self.var_mods = AA_stat(params_dict, args)
 
-        # print(self.table.index.tolist())
-        self.assertEqual(self.table.index.tolist(),
-            ['-246.1898', '-229.1630', '-203.1838', '-172.1413', '-171.1388', '-157.1416', '-147.1573', '-129.1469',
+        counts = [57, 179, 173, 540, 100, 82, 102, 279, 57, 67, 282, 52, 102, 66, 125, 60, 139, 145, 71, 2851, 341, 558, 103,
+             79, 148, 128, 71, 460, 171, 277, 54, 51, 106, 197, 61, 57, 341, 397, 108, 67, 158, 78]
+        # print(self.table['# peptides in bin'].tolist())
+        print(self.table['# peptides in bin'].sum(), 'peptides found. The test has', sum(counts))
+        shifts = ['-246.1898', '-229.1630', '-203.1838', '-172.1413', '-171.1388', '-157.1416', '-147.1573', '-129.1469',
              '-116.0580', '-115.1202', '-114.1359', '-113.1334', '-100.1205', '-91.0091', '-72.1252', '-25.0314',
              '-18.0105', '-9.0368', '-2.0156', '+0.0000', '+0.9842', '+1.0029', '+1.9874', '+2.0048', '+13.9786',
              '+14.9845', '+15.0114', '+15.9951', '+16.9976', '+17.0269', '+18.0103', '+18.0282', '+30.9811', '+31.9893',
              '+32.9926', '+47.9847', '+52.9219', '+57.0217', '+58.0243', '+100.0160', '+229.1628', '+230.1650']
-            )
+        print(self.table.shape[0], 'mass shifts found. The test has', len(shifts))
+        # print(self.table.index.tolist())
 
-        # print(self.table['# peptides in bin'].tolist())
-        self.assertEqual(self.table['# peptides in bin'].tolist(),
-            [57, 179, 173, 540, 100, 82, 102, 279, 57, 67, 282, 52, 102, 66, 125, 60, 139, 145, 71, 2851, 341, 558, 103,
-             79, 148, 128, 71, 460, 171, 277, 54, 51, 106, 197, 61, 57, 341, 397, 108, 67, 158, 78]
-            )
+        self.assertEqual(self.table['# peptides in bin'].tolist(), counts)
+
+        self.assertEqual(self.table.index.tolist(), shifts)
 
         self.assertEqual(self.fix_mods, {})
 
