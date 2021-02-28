@@ -159,6 +159,10 @@ def collect_info(row, table, mass_shift_data_dict, locmod_df, params_dict):
     return options
 
 
+def html_info_item(info):
+    return '<span class="info_item {0[type]}" data-ref="{0[ref]}">{0[label]}</span>'.format(info)
+
+
 def format_info(row, table, char_limit):
     s = row['raw info']
     for d in s:
@@ -169,7 +173,7 @@ def format_info(row, table, char_limit):
     out = []
     total_len = 0
     for info in sorted(s, key=operator.itemgetter('priority')):
-        out.append('<span class="info_item {0[type]}" data-ref="{0[ref]}">{0[label]}</span>'.format(info))
+        out.append(html_info_item(info))
         cur_len = len(lxml.html.document_fromstring(info['label']).text_content())
         total_len += cur_len
         utils.internal('Label %s assigned length %d (total %d)', info['label'], cur_len, total_len)
@@ -205,7 +209,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     labels = params_dict['labels']
     table['raw info'] = table.apply(collect_info, axis=1, args=(table, mass_shift_data_dict, locmod_df, params_dict))
     table['Possible interpretations'] = table.apply(format_info, args=(table, params_dict['html_truncate']), axis=1)
-    full_info = [', '.join(x['label'] for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']]
+    full_info = [', '.join(html_info_item(x) for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']]
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
