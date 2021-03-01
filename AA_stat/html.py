@@ -280,10 +280,6 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         table_styles = [{'selector': 'th.col_heading', 'props': [('display', 'none')]},
             {'selector': 'th.blank', 'props': [('display', 'none')]},
             {'selector': '.data.row0', 'props': [('font-weight', 'bold')]}]
-        for i in vmod_combinations:
-            table_styles.append({'selector': '.data.col{}'.format(i), 'props': [('background-color', 'lightyellow')]})
-        for i in opposite:
-            table_styles.append({'selector': '.data.col{}'.format(i), 'props': [('background-color', 'lightyellow')]})
         rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
             'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(table_styles).render(uuid="rec_var_mod_table")
     else:

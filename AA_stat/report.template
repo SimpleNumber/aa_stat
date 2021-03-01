@@ -109,6 +109,11 @@
         .highlighted {
           background-color: lightyellow;
         }
+        .has_tooltip::after {
+          content: "\01F6C8";
+          vertical-align: super;
+          font-size: 75%;
+        }
     </style>
 </head>
 <body>
@@ -245,20 +250,35 @@
 
   for (var i = 0; i < vmod_comb_i.length; i++) {
     var cells = vmod_table.querySelectorAll('.data.col' + vmod_comb_i[i]);
-    cells.forEach(function(c) {c.title = vmod_comb_val[i]; });
+    cells.forEach(function(c) {
+      c.title = vmod_comb_val[i];
+      c.classList.add("highlighted", "combine_mod");
+      if (c.classList.contains("row1")) {
+        c.classList.add("has_tooltip");
+      }
+    });
   }
 
   var opp_mod_i = {{ opposite_i }};
   var opp_mod_val = {{ opposite_v }};
   for (var j = 0; j < opp_mod_i.length; j++) {
     var ocells = vmod_table.querySelectorAll('.data.col' + opp_mod_i[j]);
-    ocells.forEach(function(c) {c.title = opp_mod_val[j]; });
+    ocells.forEach(function(c) {
+      c.title = opp_mod_val[j];
+      c.classList.add("opposite_mod", "highlighted");
+      if (c.classList.contains("row1")) {
+        c.classList.add("has_tooltip");
+      }
+    });
   }
 
   if (vmod_table.querySelector('.data.row0.col0').textContent == "isotope error") {
     vmod_table.querySelectorAll('.data.col0').forEach(function(c) {
       c.classList.add("isotope_error");
-      c.title = "This is the recommended value for search engine parameters such as 'isotope peak error', i.e. misassignment of monoisotopic peak."
+      c.title = "This is the recommended value for search engine parameters such as 'isotope peak error', i.e. misassignment of monoisotopic peak.";
+      if (c.classList.contains("row0")) {
+        c.classList.add("has_tooltip");
+      }
     })
   }
 
