@@ -38,7 +38,7 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
     aa_mass: dict
         Amino acid masses
     modifications : dict or None
-        Dict of modifications applied to peptide (int position -> float mass)
+        Dict of modifications applied to peptide (int position -> float mass shift)
 
     Returns
     -------
@@ -65,16 +65,16 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
                     if nterminal:
                         mz = cmass.fast_mass2(
                             pep, ion_type=ion_type, charge=charge,
-                            aa_mass={pep: modifications.get(1, aa_mass[pep])}, **kwargs) + (nterm_mod - H) / charge
+                            aa_mass=aa_mass, **kwargs) + (nterm_mod - H + modifications.get(1, 0.)) / charge
                     else:
                         mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,
                                              aa_mass=aa_mass, **kwargs) + (cterm_mod - OH) / charge + sum(
-                                             val - aa_mass[peptide[key-1]] for key, val in modifications.items() if key > 1)
+                                             val for key, val in modifications.items() if key > 1)
                 else:
                     if nterminal:
-                        mz = peaks[ion_type, charge][-1] + modifications.get(ind+1, aa_mass[pep]) / charge
+                        mz = peaks[ion_type, charge][-1] + (modifications.get(ind + 1, 0.) + aa_mass[pep]) / charge
                     else:
-                        mz = peaks[ion_type, charge][-1] - modifications.get(ind+1, aa_mass[pep]) / charge
+                        mz = peaks[ion_type, charge][-1] - (modifications.get(ind + 1, 0.) + aa_mass[pep]) / charge
                 peaks[ion_type, charge].append(mz)
                 theor_set[ion_type].append(int(mz / acc_frag))
     theor_set = {k: set(v) for k, v in theor_set.items()}

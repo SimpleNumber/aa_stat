@@ -282,8 +282,7 @@ def apply_var_mods(seq, mods):
             offsets[i] = offsets[i-1] + (len(a) > 1)
     for pos, mmass in sorted(mods.items(), key=lambda i: -i[0]):
         # internal('pos = %d, offset = %d, %s ->', pos, offsets[pos-1], seq)
-        seq = seq[:pos + offsets[pos-1]] + '{{{:+.0f}}}'.format(
-            mmass - mass.std_aa_mass[seq[pos - 1 + offsets[pos-1]]]) + seq[pos + offsets[pos-1]:]
+        seq = seq[:pos + offsets[pos-1]] + '{{{:+.0f}}}'.format(mmass) + seq[pos + offsets[pos-1]:]
         # internal(seq)
     return seq
 
@@ -364,6 +363,7 @@ def masses_to_mods(d):
 
 
 def get_var_mods(row, params_dict):
+    # produce a dict for specific PSM: position (int) -> mass shift (float)
     modifications = row[params_dict['mods_column']]
     peptide = params_dict['peptides_column']
     mass_dict_0 = mass.std_aa_mass.copy()
@@ -375,18 +375,23 @@ def get_var_mods(row, params_dict):
         mmass, pos = m.split('@')
         mmass = float(mmass)
         pos = int(pos)
-        if pos == 0:
-            key = 'H-'
-        elif pos == len(row[peptide]) + 1:
-            key = '-OH'
-        else:
-            key = row[peptide][pos-1]
+        # The code below should process the case of "true" terminal modifications.
+        # Instead of those, MSFragger seems to produce modifications on terminal residues.
+        # If the code below breaks, it's probably because true terminal modifications are found in pepXML input.
+        # Please report to developers with example input file.
+        # if pos == 0:
+        #     key = 'H-'
+        # elif pos == len(row[peptide]) + 1:
+        #     key = '-OH'
+        # else:
+        key = row[peptide][pos-1]
         if abs(mmass - mass_dict_0[key]) > params_dict['frag_acc']:
             # utils.internal('%s modified in %s at position %s: %.3f -> %.3f', key, row[peptide], pos, mass_dict_0[key], mmass)
-            mod_dict[pos] = mmass
-    for k in ['H-', '-OH']:
-        if k in mod_dict:
-            mass_dict_0[k] = mod_dict.pop(k)
+            mod_dict[pos] = mmass - mass_dict_0[key]
+    # See note above.
+    # for k in ['H-', '-OH']:
+    #     if k in mod_dict:
+    #         mass_dict_0[k] = mod_dict.pop(k) - 
     # if mod_dict:
     #     utils.internal('Final mod dict: %s', mod_dict)
     return mod_dict
