@@ -69,7 +69,7 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
                     else:
                         mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,
                                              aa_mass=aa_mass, **kwargs) + (cterm_mod - OH) / charge + sum(
-                                             val for key, val in modifications.items() if key > 1)
+                                             val for key, val in modifications.items() if key > 1) / charge
                 else:
                     if nterminal:
                         mz = peaks[ion_type, charge][-1] + (modifications.get(ind + 1, 0.) + aa_mass[pep]) / charge
