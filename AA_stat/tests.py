@@ -47,6 +47,9 @@ class AAstatTheorSpectrumTest(unittest.TestCase):
         self.assertEqual(spec.keys(), spec_true.keys())
         for k in spec:
             spec[k].sort()
+            # print(k)
+            # print(spec[k])
+            # print(spec_true[k])
             self.assertTrue(np.allclose(spec[k], spec_true[k], atol=eps))
 
         self.assertEqual(spec_int, spec_int_true)
@@ -55,10 +58,70 @@ class AAstatTheorSpectrumTest(unittest.TestCase):
         spec, spec_int = get_theor_spectrum(list('PEPTIDE'), 0.01, ion_types=('b', 'y'), maxcharge=2)
         self._compare_spectra(spec, spec_int, self.spec_PEPTIDE, self.spec_int_PEPTIDE)
 
+    def test_theor_spec_PEvPTIDE(self):
+        MOD = 15.994915
+        acc = 0.01
+        pos = 3
+        spec, spec_int = get_theor_spectrum(list('PEPTIDE'), acc, ion_types=('b', 'y'), maxcharge=2,
+            modifications={pos: MOD})
+        spec_true = self.spec_PEPTIDE.copy()
+        for k in spec_true:
+            if k[0] == 'b':
+                spec_true[k][pos - 1:] += MOD / k[1]
+            else:
+                spec_true[k][7 - pos:] += MOD / k[1]
+        spec_int_true = {}
+        for t in ('b', 'y'):
+            spec_int_true[t] = {int(x / acc) for x in np.concatenate((spec_true[(t, 1)], spec_true[(t, 2)]))}
+
+        self._compare_spectra(spec, spec_int, spec_true, spec_int_true)
+
+    def test_theor_spec_vPEPTIDE(self):
+        MOD = 15.994915
+        acc = 0.01
+        pos = 1
+        spec, spec_int = get_theor_spectrum(list('PEPTIDE'), acc, ion_types=('b', 'y'), maxcharge=2,
+            modifications={pos: MOD})
+        spec_true = self.spec_PEPTIDE.copy()
+        for k in spec_true:
+            if k[0] == 'b':
+                spec_true[k][pos - 1:] += MOD / k[1]
+            else:
+                spec_true[k][7 - pos:] += MOD / k[1]
+        spec_int_true = {}
+        for t in ('b', 'y'):
+            spec_int_true[t] = {int(x / acc) for x in np.concatenate((spec_true[(t, 1)], spec_true[(t, 2)]))}
+
+        self._compare_spectra(spec, spec_int, spec_true, spec_int_true)
+
+    def test_theor_spec_PEvaPTIDE(self):
+        MOD = 15.994915
+        acc = 0.01
+        pos = 3
+        aa_mass = mass.std_aa_mass.copy()
+        aa_mass['aP'] = aa_mass['P'] + MOD
+        peptide = list('PEPTIDE')
+        peptide[pos - 1] = 'aP'
+        spec, spec_int = get_theor_spectrum(peptide, acc, ion_types=('b', 'y'), maxcharge=2,
+            modifications={pos: MOD}, aa_mass=aa_mass)
+        spec_true = self.spec_PEPTIDE.copy()
+        for k in spec_true:
+            if k[0] == 'b':
+                spec_true[k][pos - 1:] += 2 * MOD / k[1]
+            else:
+                spec_true[k][7 - pos:] += 2 * MOD / k[1]
+        spec_int_true = {}
+        for t in ('b', 'y'):
+            spec_int_true[t] = {int(x / acc) for x in np.concatenate((spec_true[(t, 1)], spec_true[(t, 2)]))}
+
+        self._compare_spectra(spec, spec_int, spec_true, spec_int_true)
+
     def test_theor_spec_mPEPTIDE(self):
+        MOD = 15.994915
+        acc = 0.01
         custom_mass = mass.std_aa_mass.copy()
-        custom_mass['mP'] = mass.std_aa_mass['P'] + 15.994915
-        spec, spec_int = get_theor_spectrum(['mP'] + list('EPTIDE'), 0.01, ion_types=('b', 'y'), maxcharge=2,
+        custom_mass['mP'] = mass.std_aa_mass['P'] + MOD
+        spec, spec_int = get_theor_spectrum(['mP'] + list('EPTIDE'), acc, ion_types=('b', 'y'), maxcharge=2,
                                             aa_mass=custom_mass)
         self._compare_spectra(spec, spec_int, self.spec_mPEPTIDE, self.spec_int_mPEPTIDE)
 
