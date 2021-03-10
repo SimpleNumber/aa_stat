@@ -283,7 +283,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     next_aa = params_dict['next_aa_column']
     charge = row[params_dict['charge_column']]
     modif_labels = string.ascii_lowercase
-    
+
     mod_dict = utils.get_var_mods(row, params_dict)
     loc_stat_dict = Counter()
 
@@ -346,7 +346,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
                 second_score = scores[1]
 
     if top_isoform is None:
-        return loc_stat_dict, None, None, None
+        return loc_stat_dict, None, None, None, None
 
     if any(all(sites <= {'C-term', 'N-term'} for sites in terms.values())
         for terms in loc_candidates):
@@ -360,7 +360,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     if top_score == second_score or top_score <= unmod_score:
         utils.internal('top score = %f, second score = %f, unmod score = %f', top_score, second_score, unmod_score)
         loc_stat_dict['non-localized'] += 1
-        return loc_stat_dict, None, None, None
+        return loc_stat_dict, None, None, None, None
 
     mass_dict = mass_dict_0.copy()
     # utils.internal('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
@@ -380,7 +380,8 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
 
     scorediff = (top_score - second_score) / top_score
     # utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
-    return loc_stat_dict, ''.join(top_isoform), top_terms, scorediff
+    top_i = ''.join(top_isoform)
+    return loc_stat_dict, top_i, top_terms, scorediff, utils.loc_positions(top_isoform)
 
 
 def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass_shift_dict):
@@ -410,9 +411,9 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     logger.info('Localizing %s...', ms_label)
     logger.debug('Localizations: %s', locations_ms)
     if len(locations_ms) < 2 and list(locations_ms[0].values())[0] == set():
-        df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'] = None, None, None, None
+        df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'], df['loc_position'] = None, None, None, None, None
     else:
-        df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'] = zip(
+        df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'], df['loc_position'] = zip(
             *df.apply(lambda x: localization_of_modification(
                     ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1))
     fname = io.table_path(params_dict['output directory'], ms_label)

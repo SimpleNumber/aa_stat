@@ -306,7 +306,7 @@ def format_isoform(row, params_dict):
     return '{}.{}.{}'.format(prev_aa[0], sequence, next_aa[0])
 
 
-def get_fix_var_modifications(pepxml_file):
+def get_fix_var_modifications(pepxml_file, labels):
     fout, vout = {}, {}
     p = pepxml.PepXML(pepxml_file, use_index=False)
     mod_list = list(p.iterfind('aminoacid_modification'))
@@ -316,10 +316,16 @@ def get_fix_var_modifications(pepxml_file):
     logger.debug('term_mods: %s', term_mods)
     p.close()
     for m in mod_list:
-        if m['variable'] == 'N':
-            fout[m['aminoacid']] = m['mass']
+        if m['aminoacid'] not in labels:
+            continue
+        if 'peptide_terminus' in m:
+            key = '{}-term {}'.format(m['peptide_terminus'].upper(), m['aminoacid'])
         else:
-            vout[m['aminoacid']] = m['mass']
+            key = m['aminoacid']
+        if m['variable'] == 'N':
+            fout[key] = m['mass']
+        else:
+            vout[key] = m['mass']
     for m in term_mods:
         if m['variable'] == 'N':
             if m['terminus'] == 'N':
@@ -347,13 +353,19 @@ def parse_l10n_site(site):
 
 
 def mass_to_mod(label, value, aa_mass=mass.std_aa_mass):
+    words = label.split()
+    if len(words) > 1:
+        # terminal mod
+        label = words[-1]
     return value - aa_mass.get(label, 0)
 
 
-def masses_to_mods(d):
+def masses_to_mods(d, fix_mod=None):
     aa_mass = mass.std_aa_mass.copy()
     aa_mass['H-'] = 1.007825
     aa_mass['-OH'] = 17.00274
+    if fix_mod:
+        aa_mass.update(fix_mod)
     d = {k: mass_to_mod(k, v, aa_mass) for k, v in d.items()}
     if 'H-' in d:
         d['N-term'] = d.pop('H-')
@@ -384,12 +396,43 @@ def get_var_mods(row, params_dict):
         if abs(mmass - mass_dict_0[key]) > params_dict['frag_acc']:
             # utils.internal('%s modified in %s at position %s: %.3f -> %.3f', key, row[peptide], pos, mass_dict_0[key], mmass)
             mod_dict[pos] = mmass - mass_dict_0[key]
-    # for k in ['H-', '-OH']:
-    #     if k in mod_dict:
-    #         mass_dict_0[k] = mod_dict.pop(k) -
     if mod_dict:
         internal('Final mod dict: %s', mod_dict)
     return mod_dict
+
+
+def format_grouped_keys(d, params_dict):
+    out = d.copy()
+    for t in ('N', 'C'):
+        k = '{}-term'.format(t)
+        td = d.get(k)
+        if td:
+            diff = max(td.values()) - min(td.values())
+            label_condition = set(td.keys()) >= set(params_dict['labels'])
+            if diff < params_dict['prec_acc'] and label_condition:
+                out[k] = td['A']  # arbitrary amino acid, they all have the same modification
+                logger.debug('Collapsing %s-terminal mods.', t)
+            else:
+                logger.debug('Not collapsing %s-term dict: diff in values is %.3f, set of labels condition is %ssatisfied',
+                    t, diff, '' if label_condition else 'not ')
+                del out[k]
+                for aa, v in td.items():
+                    out[k + ' ' + aa] = v
+    logger.debug('Variable mods with grouped keys: %s', out)
+    return out
+
+
+def group_terminal(d):
+    grouped = {}
+    for k, v in d.items():
+        w = k.split()
+        if len(w) == 1:
+            grouped[k] = v
+        else:
+            term, aa = w
+            grouped.setdefault(term, {})[aa] = v
+    logger.debug('Variable mods after grouping: %s', grouped)
+    return grouped
 
 
 def format_mod_dict_str(d):
@@ -441,3 +484,13 @@ def format_list(lst, sep1=', ', sep2=' or '):
         return lst[0]
     *most, last = lst
     return sep1.join(most) + sep2 + last
+
+
+def find_mass_shift(value, data_dict, tolerance):
+    s = sorted(data_dict, key=lambda x: abs(value - data_dict[x][0]))
+    if abs(data_dict[s[0]][0] - value) <= tolerance:
+        return s[0]
+
+
+def loc_positions(top_isoform):
+    return [i for i, a in enumerate(top_isoform, 1) if len(a) > 1]

@@ -185,9 +185,9 @@ def format_info(row, table, char_limit):
     return ', '.join(out[:1]) + '... <span class="expand_info">(<a class="expand_info_link">expand</a>)</span>'
 
 
-def html_format_isoform(isoform):
+def format_isoform(isoform):
     out = re.sub(r'([A-Z]\[[+-]?[0-9]+\])', r'<span class="loc">\1</span>', isoform)
-    out = re.sub(r'([A-Z])\{([+-]?[0-9]+)\}', r'<span class="vmod_loc">\1[\2]</span>', out)
+    out = re.sub(r'([A-Z]?)\{([+-]?[0-9]+)\}', r'<span class="vmod_loc">\1[\2]</span>', out)
     out = re.sub(r'^([A-Z])\.', r'<span class="nterm"><span class="prev_aa">\1</span>.</span>', out)
     out = re.sub(r'\.([A-Z])$', r'<span class="cterm">.<span class="next_aa">\1</span></span>', out)
     return out
@@ -246,8 +246,8 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         peptide_tables.append(df.to_html(
             table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False, na_rep='',
             formatters={
-                'top isoform': html_format_isoform,
-                peptide: html_format_isoform,
+                'top isoform': format_isoform,
+                peptide: format_isoform,
                 'localization score': '{:.2f}'.format}))
 
     if params_dict['fix_mod']:
@@ -258,9 +258,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     else:
         fixmod = "Set modifications: none."
     if params_dict['var_mod']:
-        d = params_dict['var_mod'].copy()
-        d = utils.masses_to_mods(d)
-        varmod = pd.DataFrame.from_dict(d, orient='index', columns=['value']).T.style.set_caption(
+        varmod = pd.DataFrame.from_dict(params_dict['var_mod'], orient='index', columns=['value']).T.style.set_caption(
             'Configured, variable').format(utils.MASS_FORMAT).render(uuid="set_var_mod_table")
     else:
         varmod = None

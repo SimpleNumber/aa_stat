@@ -388,9 +388,9 @@ def get_params_dict(args):
     set_additional_params(params_dict)
     params_dict['output directory'] = outdir
     if args.pepxml:
-        fmod, vmod = utils.get_fix_var_modifications(args.pepxml[0])
+        fmod, vmod = utils.get_fix_var_modifications(args.pepxml[0], params_dict['labels'])
         params_dict['fix_mod'] = fmod
-        params_dict['var_mod'] = vmod
+        params_dict['var_mod'] = utils.format_grouped_keys(utils.group_terminal(utils.masses_to_mods(vmod, fmod)), params_dict)
         params_dict['enzyme'] = utils.get_specificity(args.pepxml[0])
     return params_dict
 

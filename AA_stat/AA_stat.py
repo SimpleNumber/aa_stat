@@ -321,8 +321,7 @@ def AA_stat(params_dict, args, step=None):
     logger.debug('Fixed modifications: %s', params_dict['fix_mod'])
     logger.debug('Variable modifications: %s', params_dict['var_mod'])
     logger.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
-    logger.info('Variable modifications in search results: %s.',
-        utils.format_mod_dict(utils.masses_to_mods(params_dict['var_mod'])))
+    logger.info('Variable modifications in search results: %s.', utils.format_mod_dict(params_dict['var_mod']))
     data = io.read_input(args, params_dict)
 
     hist, popt_pvar = stats.fit_peaks(data, args, params_dict)

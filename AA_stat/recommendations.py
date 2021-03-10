@@ -156,6 +156,47 @@ def recalculate_with_isotopes(aa, ms, isotope_rec, mods_and_counts, data_dict, l
             break
 
 
+def recalculate_varmods(data_dict, mods_and_counts, params_dict):
+    for ms in data_dict:
+        shift, df = data_dict[ms]
+        for i, row in df.iterrows():
+            if row['top_terms'] is not None and ms in row['top_terms']:
+                peptide = row[params_dict['peptides_column']]
+                if ']{' in row['top isoform']:  # localization and enabled variable modification on the same residue
+                    # this should count towards sum of these shifts, not the localized one
+                    pos = row['loc_position'][0]
+                    mods = utils.get_var_mods(row, params_dict)
+                    utils.internal('%s: extracting %d from %s', row['top isoform'], pos, mods)
+                    if pos in mods:
+                        vm = mods[pos]
+                    elif pos == 1:
+                        vm = mods[0]
+                    elif pos == len(peptide):
+                        vm = mods[pos + 1]
+                    else:
+                        raise KeyError()
+                    aa = peptide[pos - 1]
+                    if mods_and_counts[aa].get(ms, 0) > 0:
+                        utils.internal('Reducing count of %s at %s', aa, ms)
+                        mods_and_counts[aa][ms] -= 1
+                    if pos == 1 and mods_and_counts['N-term'].get(ms, 0) > 0:
+                        mods_and_counts['N-term'][ms] -= 1
+                        utils.internal('Reducing count of N-term at %s', ms)
+                    if pos == len(peptide) and mods_and_counts['C-term'].get(ms, 0) > 0:
+                        utils.internal('Reducing count of C-term at %s', ms)
+                        mods_and_counts['C-term'][ms] -= 1
+                    sum_ms = utils.find_mass_shift(vm + shift, data_dict, params_dict['prec_acc'])
+                    if sum_ms:
+                        mods_and_counts[aa][sum_ms] = mods_and_counts[aa].get(sum_ms, 0) + 1
+                        utils.internal('Increasing count of %s at %s', aa, sum_ms)
+                        if pos == 1:
+                            utils.internal('Increasing count of N-term at %s', sum_ms)
+                            mods_and_counts['N-term'][sum_ms] = mods_and_counts['N-term'].get(sum_ms, 0) + 1
+                        if pos == len(peptide):
+                            utils.internal('Increasing count of C-term at %s', sum_ms)
+                            mods_and_counts['C-term'][sum_ms] = mods_and_counts['C-term'].get(sum_ms, 0) + 1
+
+
 def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_dict, recommended_fix_mods=None):
     if locmod_df is None:
         logger.info('Cannot recommend variable modifications without localization.')
@@ -219,13 +260,17 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
         for aa, shift in recommended_fix_mods.items():
             recalculate_with_isotopes(aa, shift, isotope_rec, mods_and_counts, data_dict, locmod_df)
 
-    if params_dict['var_mod'] and not multiple:
-        logger.info('Multiple variable modifications are disabled, not recommending {} for variable modifications.'.format(
-            utils.format_list(params_dict['var_mod'])))
-        for aa, shift in params_dict['var_mod'].items():
-            logger.debug('Removing all counts for %s.', aa)
-            for sh in mods_and_counts[aa]:
-                mods_and_counts[aa][sh] = 0
+    if params_dict['var_mod']:
+        if not multiple:
+            logger.info('Multiple variable modifications are disabled, not recommending {} for variable modifications.'.format(
+                utils.format_list(params_dict['var_mod'])))
+            for aa, shift in params_dict['var_mod'].items():
+                logger.debug('Removing all counts for %s.', aa)
+                for sh in mods_and_counts[aa]:
+                    mods_and_counts[aa][sh] = 0
+
+        logger.debug('Subtracting counts for variable mods.')
+        recalculate_varmods(data_dict, mods_and_counts, params_dict)
 
     for i in range(params_dict['variable_mods']):
         logger.debug('Choosing variable modification %d. Counts are:', i + 1)
