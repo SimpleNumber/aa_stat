@@ -110,7 +110,7 @@
           background-color: lightyellow;
         }
         .has_tooltip::after {
-          content: "\01F6C8";
+          content: "\002060\01F6C8";
           vertical-align: super;
           font-size: 75%;
         }
@@ -271,6 +271,19 @@
       }
     });
   }
+
+  var artefact_i = {{ artefact_i }};
+  for (var j = 0; j < artefact_i.length; j++) {
+    var acells = vmod_table.querySelectorAll('.data.col' + artefact_i[j]);
+    acells.forEach(function(c) {
+      c.title = "This modification is potentially a search artefact.";
+      c.classList.add("artefact_mod", "highlighted");
+      if (c.classList.contains("row1")) {
+        c.classList.add("has_tooltip");
+      }
+    });
+  }
+
 
   if (vmod_table.querySelector('.data.row0.col0').textContent == "isotope error") {
     vmod_table.querySelectorAll('.data.col0').forEach(function(c) {

@@ -209,7 +209,10 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     labels = params_dict['labels']
     table['raw info'] = table.apply(collect_info, axis=1, args=(table, mass_shift_data_dict, locmod_df, params_dict))
     table['Possible interpretations'] = table.apply(format_info, args=(table, params_dict['html_truncate']), axis=1)
-    full_info = [', '.join(html_info_item(x) for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']]
+    full_info = json.dumps([', '.join(html_info_item(x)
+        for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']])
+    artefact_i = json.dumps([i
+        for i, (aa, ms) in enumerate(recommended_vmods) if any(x['type'] == 'artefact' for x in table.at[ms, 'raw info'])])
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)
@@ -306,7 +309,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, varmod=varmod,
         reference=reference, recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now(),
         vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val, opposite_i=opp_mod_i, opposite_v=opp_mod_v,
-        full_info=full_info)
+        full_info=full_info, artefact_i=artefact_i)
 
 
 def write_html(path, **template_vars):
