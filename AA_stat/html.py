@@ -212,7 +212,9 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     full_info = json.dumps([', '.join(html_info_item(x)
         for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']])
     artefact_i = json.dumps([i
-        for i, (aa, ms) in enumerate(recommended_vmods) if any(x['type'] == 'artefact' for x in table.at[ms, 'raw info'])])
+            for i, (aa, ms) in enumerate(recommended_vmods)
+            if aa != 'isotope error' and any(x['type'] == 'artefact' for x in table.at[ms, 'raw info'])
+        ])
 
     with pd.option_context('display.max_colwidth', 250):
         columns = list(table.columns)

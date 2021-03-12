@@ -325,7 +325,7 @@ def get_fix_var_modifications(pepxml_file, labels):
         if m['variable'] == 'N':
             fout[key] = m['mass']
         else:
-            vout[key] = m['mass']
+            vout[key] = m['massdiff']
     for m in term_mods:
         if m['variable'] == 'N':
             if m['terminus'] == 'N':
@@ -334,9 +334,9 @@ def get_fix_var_modifications(pepxml_file, labels):
                 fout['-OH'] = m['mass']
         else:
             if m['terminus'] == 'N':
-                vout['H-'] = m['mass']
+                vout['N-term'] = m['massdiff']
             else:
-                vout['-OH'] = m['mass']
+                vout['C-term'] = m['massdiff']
     return fout, vout
 
 
@@ -406,7 +406,7 @@ def format_grouped_keys(d, params_dict):
     for t in ('N', 'C'):
         k = '{}-term'.format(t)
         td = d.get(k)
-        if td:
+        if isinstance(td, dict):
             diff = max(td.values()) - min(td.values())
             label_condition = set(td.keys()) >= set(params_dict['labels'])
             if diff < params_dict['prec_acc'] and label_condition:
