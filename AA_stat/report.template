@@ -248,51 +248,53 @@
   var vmod_comb_val = {{ vmod_comb_val }};
   var vmod_table = document.getElementById("T_rec_var_mod_table");
 
-  for (var i = 0; i < vmod_comb_i.length; i++) {
-    var cells = vmod_table.querySelectorAll('.data.col' + vmod_comb_i[i]);
-    cells.forEach(function(c) {
-      c.title = vmod_comb_val[i];
-      c.classList.add("highlighted", "combine_mod");
-      if (c.classList.contains("row1")) {
-        c.classList.add("has_tooltip");
-      }
-    });
-  }
+  if (vmod_table !== null) {
 
-  var opp_mod_i = {{ opposite_i }};
-  var opp_mod_val = {{ opposite_v }};
-  for (var j = 0; j < opp_mod_i.length; j++) {
-    var ocells = vmod_table.querySelectorAll('.data.col' + opp_mod_i[j]);
-    ocells.forEach(function(c) {
-      c.title = opp_mod_val[j];
-      c.classList.add("opposite_mod", "highlighted");
-      if (c.classList.contains("row1")) {
-        c.classList.add("has_tooltip");
-      }
-    });
-  }
+    for (var i = 0; i < vmod_comb_i.length; i++) {
+      var cells = vmod_table.querySelectorAll('.data.col' + vmod_comb_i[i]);
+      cells.forEach(function(c) {
+        c.title = vmod_comb_val[i];
+        c.classList.add("highlighted", "combine_mod");
+        if (c.classList.contains("row1")) {
+          c.classList.add("has_tooltip");
+        }
+      });
+    }
 
-  var artefact_i = {{ artefact_i }};
-  for (var j = 0; j < artefact_i.length; j++) {
-    var acells = vmod_table.querySelectorAll('.data.col' + artefact_i[j]);
-    acells.forEach(function(c) {
-      c.title = "This modification is potentially a search artefact.";
-      c.classList.add("artefact_mod", "highlighted");
-      if (c.classList.contains("row1")) {
-        c.classList.add("has_tooltip");
-      }
-    });
-  }
+    var opp_mod_i = {{ opposite_i }};
+    var opp_mod_val = {{ opposite_v }};
+    for (var j = 0; j < opp_mod_i.length; j++) {
+      var ocells = vmod_table.querySelectorAll('.data.col' + opp_mod_i[j]);
+      ocells.forEach(function(c) {
+        c.title = opp_mod_val[j];
+        c.classList.add("opposite_mod", "highlighted");
+        if (c.classList.contains("row1")) {
+          c.classList.add("has_tooltip");
+        }
+      });
+    }
 
+    var artefact_i = {{ artefact_i }};
+    for (var j = 0; j < artefact_i.length; j++) {
+      var acells = vmod_table.querySelectorAll('.data.col' + artefact_i[j]);
+      acells.forEach(function(c) {
+        c.title = "This modification is potentially a search artefact.";
+        c.classList.add("artefact_mod", "highlighted");
+        if (c.classList.contains("row1")) {
+          c.classList.add("has_tooltip");
+        }
+      });
+    }
 
-  if (vmod_table.querySelector('.data.row0.col0').textContent == "isotope error") {
-    vmod_table.querySelectorAll('.data.col0').forEach(function(c) {
-      c.classList.add("isotope_error");
-      c.title = "This is the recommended value for search engine parameters such as 'isotope peak error', i.e. misassignment of monoisotopic peak.";
-      if (c.classList.contains("row0")) {
-        c.classList.add("has_tooltip");
-      }
-    })
+    if (vmod_table.querySelector('.data.row0.col0').textContent == "isotope error") {
+      vmod_table.querySelectorAll('.data.col0').forEach(function(c) {
+        c.classList.add("isotope_error");
+        c.title = "This is the recommended value for search engine parameters such as 'isotope peak error', i.e. misassignment of monoisotopic peak.";
+        if (c.classList.contains("row0")) {
+          c.classList.add("has_tooltip");
+        }
+      });
+    };
   }
 
   var full_info = {{ full_info }};
@@ -307,14 +309,18 @@
     for (var i = info_spans.length - 1; i >= 0; i--) {
       info_spans[i].onmouseover = function(e) {
         var refs = eval(e.target.dataset.ref);
-        for(j = 0; j < refs.length; j++) {
-          table_rows[refs[j]].classList.add("highlighted");
+        if(refs !== undefined) {
+          for(j = 0; j < refs.length; j++) {
+            table_rows[refs[j]].classList.add("highlighted");
+          }
         }
       }
       info_spans[i].onmouseout = function(e) {
         var refs = eval(e.target.dataset.ref);
-        for(j = 0; j < refs.length; j++) {
-          table_rows[refs[j]].classList.remove("highlighted");
+        if(refs !== undefined) {
+          for(j = 0; j < refs.length; j++) {
+            table_rows[refs[j]].classList.remove("highlighted");
+          }
         }
       }
     }
