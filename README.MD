@@ -228,7 +228,7 @@ The normalized frequency is calculated by:
        by the occurrence frequency of the same residue for the zero mass shift interval.
 
 If the normalized frequency of a residue significantly exceeds 1,
-that means that this residue is “enriched” in the peptides identified with the corresponding mass shift,
+that means that this residue is "enriched" in the peptides identified with the corresponding mass shift,
 suggesting that there is a connection between this residue and the cause of the mass shift.
 In the simplest case, this residue is modified:
 
