@@ -1,6 +1,7 @@
 import os
 import operator
 import logging
+import sys
 
 import pandas as pd
 import numpy as np
@@ -15,7 +16,10 @@ from pyteomics import parser, pepxml, mass
 logger = logging.getLogger(__name__)
 
 MASS_FORMAT = '{:+.4f}'
-UNIMOD = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml'))
+if sys.platform =='linux' or sys.platform =='linux2' :
+    UNIMOD = mass.Unimod('file://' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'unimod.xml'))
+elif sys.platform =='win32' or sys.platform =='cygwin' or sys.platform =='msys':
+    UNIMOD = mass.Unimod('file:\\\\' + os.path.join(os.path.abspath(os.path.dirname(__file__)).replace(':','|'), 'unimod.xml'))
 INTERNAL = 5
 DIFF_C13 = mass.calculate_mass(formula='C[13]') - mass.calculate_mass(formula='C')
 H = mass.nist_mass['H+'][0][0]
