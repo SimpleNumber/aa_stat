@@ -40,6 +40,8 @@ jobs:
     - name: Test theor_spectrum
       run: |
         python -m unittest AA_stat.tests.AAstatTheorSpectrumTest
+    - name: Call command-line help
+      run: AA_stat -h
     - name: Full run test
       run: |
         python -X tracemalloc=20 -m unittest AA_stat.tests.AAstatResultTest
