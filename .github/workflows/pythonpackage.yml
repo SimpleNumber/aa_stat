@@ -6,10 +6,12 @@ name: Run unittest
 on:
   push:
     paths:
-      AA_stat/*.py
+      - 'AA_stat/*.py'
+      - setup.py
   pull_request:
     paths:
-      AA_stat/*.py
+      - 'AA_stat/*.py'
+      - setup.py
 
 jobs:
   build:
