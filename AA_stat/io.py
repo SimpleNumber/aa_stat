@@ -45,6 +45,9 @@ def preprocess_df(df, filename, params_dict):
     ms, filtered = utils.fdr_filter_mass_shift([None, zero_bin, window], df, params_dict)
     n = filtered.shape[0]
     logger.debug('%d filtered peptides near zero.', n)
+    df[shifts] = utils.choose_correct_massdiff(
+        df[shifts],
+        df[params_dict['measured_mass_column']] - df[params_dict['calculated_mass_column']], params_dict)
     if params_dict['calibration'] == 'off':
         logger.info('Mass calibration is disabled. Skipping.')
     elif params_dict['calibration'] != 'simple':
@@ -101,10 +104,6 @@ def preprocess_df(df, filename, params_dict):
                 elif unit == 'ppm':
                     shift_copy.loc[mask] -= popt[1] * df[params_dict['calculated_mass_column']] / 1e6
                 else:
-                    np.testing.assert_allclose(
-                        df[shifts],
-                        df[params_dict['measured_mass_column']] - df[params_dict['calculated_mass_column']],
-                        atol=1e-4)
                     freq_measured = 1e6 / np.sqrt(utils.measured_mz_series(df.loc[mask], params_dict)) - popt[1]
                     mass_corrected = (((1e6 / freq_measured) ** 2) * df.loc[mask, params_dict['charge_column']] -
                         utils.H * df.loc[mask, params_dict['charge_column']])

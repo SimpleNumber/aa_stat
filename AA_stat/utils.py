@@ -498,3 +498,17 @@ def find_mass_shift(value, data_dict, tolerance):
 
 def loc_positions(top_isoform):
     return [i for i, a in enumerate(top_isoform, 1) if len(a) > 1]
+
+
+def choose_correct_massdiff(reported, calculated, params_dict):
+    maxdiff = np.abs(reported - calculated).max()
+    if maxdiff < params_dict['bin_width'] / 2:
+        return reported
+    elif maxdiff < params_dict['prec_acc']:
+        logger.warning('Reported mass shifts have a high calculation error (%.4f).'
+        ' Using own calculations', maxdiff)
+        return calculated
+    else:
+        logger.warning('Reported mass shifts differ from calculated values (up to %.4f).'
+        ' Using the reported values. Consider reporting this to the developers.', maxdiff)
+        return reported
