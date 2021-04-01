@@ -503,6 +503,7 @@ def loc_positions(top_isoform):
 def choose_correct_massdiff(reported, calculated, params_dict):
     maxdiff = np.abs(reported - calculated).max()
     if maxdiff < params_dict['bin_width'] / 2:
+        logger.debug('Maximum mass diff is within bounds: %.4f', maxdiff)
         return reported
     elif maxdiff < params_dict['prec_acc']:
         logger.warning('Reported mass shifts have a high calculation error (%.4f).'
