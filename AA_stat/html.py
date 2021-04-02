@@ -255,6 +255,10 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
                 peptide: format_isoform,
                 'localization score': '{:.2f}'.format}))
 
+    varmod_table_styles = [{'selector': 'th.col_heading', 'props': [('display', 'none')]},
+            {'selector': 'th.blank', 'props': [('display', 'none')]},
+            {'selector': '.data.row0', 'props': [('font-weight', 'bold')]}]
+
     if params_dict['fix_mod']:
         d = params_dict['fix_mod'].copy()
         d = utils.masses_to_mods(d)
@@ -263,8 +267,10 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
     else:
         fixmod = "Set modifications: none."
     if params_dict['var_mod']:
-        varmod = pd.DataFrame.from_dict(params_dict['var_mod'], orient='index', columns=['value']).T.style.set_caption(
-            'Configured, variable').format(utils.MASS_FORMAT).render(uuid="set_var_mod_table")
+        varmod = pd.DataFrame.from_records(params_dict['var_mod'], columns=['', 'value']).T.style.set_caption(
+            'Configured, variable').format(
+            lambda x: utils.mass_format(x) if isinstance(x, float) else x).set_table_styles(
+            varmod_table_styles).render(uuid="set_var_mod_table")
     else:
         varmod = None
     if recommended_fmods:
@@ -280,11 +286,8 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         opp_mod_v = json.dumps(['This modification negates a fixed modification.\n'
             'For closed search, it is equivalent to set {} @ {} as variable.'.format(
                 utils.mass_format(-ms_labels[recommended_vmods[i][1]]), recommended_vmods[i][0]) for i in opposite])
-        table_styles = [{'selector': 'th.col_heading', 'props': [('display', 'none')]},
-            {'selector': 'th.blank', 'props': [('display', 'none')]},
-            {'selector': '.data.row0', 'props': [('font-weight', 'bold')]}]
         rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
-            'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(table_styles).render(uuid="rec_var_mod_table")
+            'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(varmod_table_styles).render(uuid="rec_var_mod_table")
     else:
         rec_var_mods = "No variable modifications recommended."
         vmod_comb_i = vmod_comb_val = opp_mod_i = opp_mod_v = '[]'

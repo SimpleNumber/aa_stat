@@ -305,7 +305,7 @@ def format_isoform(row, params_dict):
 
 
 def get_fix_var_modifications(pepxml_file, labels):
-    fout, vout = {}, {}
+    fout, vout = {}, []
     p = pepxml.PepXML(pepxml_file, use_index=False)
     mod_list = list(p.iterfind('aminoacid_modification'))
     logger.debug('mod_list: %s', mod_list)
@@ -323,7 +323,7 @@ def get_fix_var_modifications(pepxml_file, labels):
         if m['variable'] == 'N':
             fout[key] = m['mass']
         else:
-            vout[key] = m['massdiff']
+            vout.append((key, m['massdiff']))
     for m in term_mods:
         if m['variable'] == 'N':
             if m['terminus'] == 'N':
@@ -332,9 +332,9 @@ def get_fix_var_modifications(pepxml_file, labels):
                 fout['-OH'] = m['mass']
         else:
             if m['terminus'] == 'N':
-                vout['N-term'] = m['massdiff']
+                vout.append(('N-term', m['massdiff']))
             else:
-                vout['C-term'] = m['massdiff']
+                vout.append(('C-term', m['massdiff']))
     return fout, vout
 
 
@@ -399,36 +399,42 @@ def get_var_mods(row, params_dict):
     return mod_dict
 
 
-def format_grouped_keys(d, params_dict):
-    out = d.copy()
-    for t in ('N', 'C'):
-        k = '{}-term'.format(t)
-        td = d.get(k)
-        if isinstance(td, dict):
-            diff = max(td.values()) - min(td.values())
-            label_condition = set(td.keys()) >= set(params_dict['labels'])
-            if diff < params_dict['prec_acc'] and label_condition:
-                out[k] = td['A']  # arbitrary amino acid, they all have the same modification
-                logger.debug('Collapsing %s-terminal mods.', t)
+def format_grouped_keys(items, params_dict):
+    out = []
+    for k, td in items:
+        if k[1:] == '-term':
+            t = k[0]
+            if isinstance(td, list):
+                keys, values = zip(*td)
+                diff = max(values) - min(values)
+                label_condition = set(keys) >= set(params_dict['labels'])
+                if diff < params_dict['prec_acc'] and label_condition:
+                    out.append((k, values[0]))  # arbitrary amino acid, they all have the same modification
+                    logger.debug('Collapsing %s-terminal mods.', t)
+                else:
+                    logger.debug('Not collapsing %s-term dict: diff in values is %.3f, set of labels condition is %ssatisfied',
+                        t, diff, '' if label_condition else 'not ')
+                    for aa, v in td:
+                        out.append((k + ' ' + aa, v))
             else:
-                logger.debug('Not collapsing %s-term dict: diff in values is %.3f, set of labels condition is %ssatisfied',
-                    t, diff, '' if label_condition else 'not ')
-                del out[k]
-                for aa, v in td.items():
-                    out[k + ' ' + aa] = v
+                out.append((k, td))
+        else:
+            out.append((k, td))
     logger.debug('Variable mods with grouped keys: %s', out)
     return out
 
 
-def group_terminal(d):
-    grouped = {}
-    for k, v in d.items():
+def group_terminal(items):
+    grouped = []
+    tg = {}
+    for k, v in items:
         w = k.split()
         if len(w) == 1:
-            grouped[k] = v
+            grouped.append((k, v))
         else:
             term, aa = w
-            grouped.setdefault(term, {})[aa] = v
+            tg.setdefault(term, []).append((aa, v))
+    grouped.extend(tg.items())
     logger.debug('Variable mods after grouping: %s', grouped)
     return grouped
 

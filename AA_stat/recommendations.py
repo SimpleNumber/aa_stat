@@ -263,8 +263,8 @@ def determine_var_mods(aastat_result, aastat_df, locmod_df, data_dict, params_di
     if params_dict['var_mod']:
         if not multiple:
             logger.info('Multiple variable modifications are disabled, not recommending {} for variable modifications.'.format(
-                utils.format_list(params_dict['var_mod'])))
-            for aa, shift in params_dict['var_mod'].items():
+                utils.format_list(set(x[0] for x in params_dict['var_mod']))))
+            for aa, shift in params_dict['var_mod']:
                 logger.debug('Removing all counts for %s.', aa)
                 for sh in mods_and_counts[aa]:
                     mods_and_counts[aa][sh] = 0
