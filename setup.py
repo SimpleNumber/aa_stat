@@ -7,6 +7,7 @@ setup(
     version              = '2.2.4',
     description          = '''A utility for validation of peptide identification results in proteomics using amino acid counting.''',
     long_description     = (''.join(open('README.MD').readlines())),
+    long_description_content_type="text/markdown",
     author               = 'Julia Bubis & Lev Levitsky',
     author_email         = 'julia.bubis@gmail.com',
     install_requires     = ['pyteomics>4.4.1', 'pandas', 'seaborn', 'scipy', 'numpy', 'lxml', 'jinja2', 'scikit-learn'],
