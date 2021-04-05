@@ -42,6 +42,10 @@ def preprocess_df(df, filename, params_dict):
 
     df['is_decoy'] = df[params_dict['proteins_column']].apply(
         lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
+    if not df['is_decoy'].sum():
+        logger.error('No decoy IDs found in %s. Decoy prefix is set to %s, is that correct?',
+            filename, params_dict['decoy_prefix'])
+        return
     ms, filtered = utils.fdr_filter_mass_shift([None, zero_bin, window], df, params_dict)
     n = filtered.shape[0]
     logger.debug('%d filtered peptides near zero.', n)
@@ -215,12 +219,6 @@ def read_input(args, params_dict):
     Reads open search output, assembles all data in one DataFrame.
 
     """
-    dfs = []
-
-    def update_dfs(result):
-        dfs.append(result)
-
-    data = pd.DataFrame()
     logger.info('Reading input files...')
     readers = {
         'pepxml': read_pepxml,
@@ -229,6 +227,7 @@ def read_input(args, params_dict):
     shifts = params_dict['mass_shifts_column']
     nproc = params_dict['processes']
     if nproc == 1:
+        dfs = []
         logger.debug('Reading files in one process.')
         for ftype, reader in readers.items():
             filenames = getattr(args, ftype)
@@ -249,15 +248,19 @@ def read_input(args, params_dict):
             nproc = min(nfiles, mp.cpu_count())
         logger.debug('Reading files using %s processes.', nproc)
         pool = mp.Pool(nproc)
+        results = []
         for ftype, reader in readers.items():
             filenames = getattr(args, ftype)
             logger.debug('Filenames [%s]: %s', ftype, filenames)
             if filenames:
                 for filename in filenames:
-                    # dfs.append(reader(filename, params_dict))
-                    pool.apply_async(reader, args=(filename, params_dict), callback=update_dfs)
+                    results.append(pool.apply_async(reader, args=(filename, params_dict)))
+        dfs = [r.get() for r in results]
         pool.close()
         pool.join()
+    if any(x is None for x in dfs):
+        logger.critical('There were errors when reading input.')
+        return
     logger.info('Starting analysis...')
     logger.debug('%d dfs collected.', len(dfs))
     data = pd.concat(dfs, axis=0)

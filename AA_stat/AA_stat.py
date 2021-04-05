@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import sys
 
 from collections import defaultdict
 from scipy.stats import ttest_ind
@@ -323,6 +324,8 @@ def AA_stat(params_dict, args, step=None):
     logger.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
     logger.info('Variable modifications in search results: %s.', utils.format_mod_list(params_dict['var_mod']))
     data = io.read_input(args, params_dict)
+    if data is None:
+        sys.exit(1)
 
     hist, popt_pvar = stats.fit_peaks(data, args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
