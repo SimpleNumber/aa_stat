@@ -1,3 +1,5 @@
+![pypi_badge](https://img.shields.io/pypi/v/aa-stat.svg)
+
 AA_stat
 ========
 An open source software for amino acid residue modification analyses in proteomics
@@ -19,14 +21,19 @@ The algorithm was implemented in Python as an open-source command-line tool avai
 
 Project moved from [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/).
 
-An example of AA_stat output can be found [here](https://levitsky.github.io/aa_stat_report_example/).
+An example of AA_stat output can be found [here](https://gorshkovlab.github.io/aa_stat_report_example/).
 ## Installation
 
-Download from Github repository [https://github.com/SimpleNumber/aa_stat](https://github.com/SimpleNumber/aa_stat).
-In the directory containing **setup.py** file run the following command:
+Install from PyPI:
 
 ```
-pip install .
+pip install AA_stat
+```
+
+Alternatively, you can install directly from GitHub:
+
+```
+pip install git+https://github.com/SimpleNumber/aa_stat
 ```
 
 ## Usage
