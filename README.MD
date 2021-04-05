@@ -247,6 +247,7 @@ In the simplest case, this residue is modified:
 **G.** A summary of localization shows the number of peptides in each bin for which a modification was successfully localized in MS/MS.
 Localization is done by generating theoretical spectra of possible isoforms and scoring them against the experimental spectrum.
 If there is a clear winner in terms of score, the spectrum is considered localized.
+
 |Column name|Description|
 |------------|-----------|
 |mass shift|Considered mass shift mass.|
