@@ -377,10 +377,12 @@ def get_var_mods(row, params_dict):
     modifications = row[params_dict['mods_column']]
     peptide = params_dict['peptides_column']
     mass_dict_0 = mass.std_aa_mass.copy()
+    mass_dict_0['H-'] = 1.007825
+    mass_dict_0['-OH'] = 17.00274
     mass_dict_0.update(params_dict['fix_mod'])
     mod_dict = {}
-    # if modifications:
-    #     utils.internal('Got modifications: %s', modifications)
+    if modifications:
+        internal('Got modifications: %s', modifications)
     for m in modifications:
         mmass, pos = m.split('@')
         mmass = float(mmass)
