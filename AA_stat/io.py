@@ -4,6 +4,7 @@ import pylab as plt
 
 import ast
 import os
+import glob
 from configparser import ConfigParser
 import multiprocessing as mp
 from collections import defaultdict
@@ -383,6 +384,7 @@ def set_additional_params(params_dict):
 
 
 def get_params_dict(args):
+    logger.debug('Received args: %s', args)
     fname = args.params
     outdir = args.dir
     params = read_config_file(fname)
@@ -395,6 +397,31 @@ def get_params_dict(args):
         params_dict['var_mod'] = utils.format_grouped_keys(utils.group_terminal(vmod), params_dict)
         params_dict['enzyme'] = utils.get_specificity(args.pepxml[0])
     return params_dict
+
+
+_format_globs = {
+    'pepxml': ['*.pepXML', '*.pep.xml'],
+    'csv': ['*.csv'],
+    'mzml': ['*.mzML'],
+    'mgf': ['*.mgf'],
+}
+
+def resolve_filenames(args):
+    for fformat, gs in _format_globs.items():
+        value = getattr(args, fformat)
+        if value:
+            logger.debug('Received %s list: %s', fformat, value)
+            out = []
+            for val in value:
+                if os.path.isdir(val):
+                    for g in gs:
+                        files = glob.glob(os.path.join(val, g))
+                        logger.debug('Found %d files for glob %s', len(files), g)
+                        out.extend(files)
+                else:
+                    out.append(val)
+            logger.debug('Final %s list: %s', fformat, out)
+            setattr(args, fformat, out)
 
 
 def table_path(dir, ms):

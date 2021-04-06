@@ -40,6 +40,7 @@ def main():
 
     logger.info('Starting...')
 
+    io.resolve_filenames(args)
     params_dict = io.get_params_dict(args)
     logger.debug(params_dict)
 
