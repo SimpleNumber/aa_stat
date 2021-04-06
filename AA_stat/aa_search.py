@@ -54,7 +54,8 @@ def main():
     input_spectra.add_argument('--mgf', nargs='+', help='MGF files to search.', default=None)
     input_spectra.add_argument('--mzml', nargs='+', help='mzML files to search.', default=None)
 
-    pars.add_argument('-db', '--fasta', help='Fasta file with decoys for open search. Default decoy prefix is "DECOY_".'
+    pars.add_argument('-db', '--fasta', help='FASTA file with decoys for open search. None: with included MSFragger parameters, '
+                      'the database is expected to contain decoys. Default decoy prefix is "rev_".'
                       ' If it differs, do not forget to specify it in AA_stat params file.')
     pars.add_argument('--os-params', help='Custom open search parameters.')
     pars.add_argument('-x', '--optimize-fixed-mods',

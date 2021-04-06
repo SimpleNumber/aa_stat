@@ -41,19 +41,22 @@ pip install git+https://github.com/SimpleNumber/aa_stat
 Regular usage:
 
 ```
-AA_stat [-h] [--params PARAMS] [--dir DIR] [-v {0,1,2,3}] [--mgf MGF [MGF ...] | --mzml MZML [MZML ...]] [--pepxml PEPXML [PEPXML ...] | --csv CSV [CSV ...]]
+usage: AA_stat [-h] [--params PARAMS] [--dir DIR] [-v {0,1,2,3}] [--mgf MGF [MGF ...] | --mzml MZML [MZML ...]] (--pepxml PEPXML [PEPXML ...] | --csv CSV [CSV ...])
 
 optional arguments:
--h, --help              show this help message and exit
---params PARAMS         CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
---dir DIR               Directory to store the results. Default value is current directory.
--v {0,1,2,3}, --verbosity {0,1,2,3}
-                        Output verbosity
---mgf MGF [MGF ...]     MGF files to localize modifications
---mzml MZML [MZML ...]  mzML files to localize modifications
---pepxml PEPXML [PEPXML ...]
-                        List of input files in pepXML format
---csv CSV [CSV ...]     List of input files in CSV format
+  -h, --help            show this help message and exit
+  --params PARAMS       CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
+  --dir DIR             Directory to store the results. Default value is current directory.
+  -v {0,1,2,3}, --verbosity {0,1,2,3}
+                        Output verbosity.
+  --mgf MGF [MGF ...]   MGF files to localize modifications.
+  --mzml MZML [MZML ...]
+                        mzML files to localize modifications.
+  --pepxml PEPXML [PEPXML ...]
+                        List of input files in pepXML format.
+  --csv CSV [CSV ...]   List of input files in CSV format.
+
+Instead of file lists, you can pass directory names. This will process all files in the directory.
 ```
 
 Combine with open search:
@@ -62,26 +65,28 @@ Combine with open search:
 AA_search [-h] [--params PARAMS] [--MSFragger MSFRAGGER] [--dir DIR] [-v {0,1,2,3}] (--mgf MGF [MGF ...] | --mzml MZML [MZML ...]) [-db FASTA] [--os-params OS_PARAMS] [-x] [-s [SKIP]] [-je JAVA_EXECUTABLE] [-ja JAVA_ARGS]
 
 optional arguments:
--h, --help            show this help message and exit
---params PARAMS       CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
---MSFragger MSFRAGGER
-                      Path to MSFragger .jar file. If not specified, MSFRAGGER environment variable is used.
---dir DIR             Directory to store the results. Default value is current directory.
--v {0,1,2,3}, --verbosity {0,1,2,3}
-                      Output verbosity.
---mgf MGF [MGF ...]   MGF files to search.
---mzml MZML [MZML ...]
-                      mzML files to search.
--db FASTA, --fasta FASTA
-                      Fasta file with decoys for open search. Default decoy prefix is "DECOY_". If it differs, do not forget to specify it in AA_stat params file.
---os-params OS_PARAMS
-                      Custom open search parameters.
--x, --optimize-fixed-mods
-                      Run multiple searches, automatically determine which fixed modifications to apply.
--s [SKIP], --skip [SKIP]
-                      Skip search if pepXML files exist already. If not specified, no steps are skipped. If specified without value, first step may be skipped. Value is number of steps to skip. Only works with "-x".
--je JAVA_EXECUTABLE, --java-executable JAVA_EXECUTABLE
--ja JAVA_ARGS, --java-args JAVA_ARGS
+  -h, --help            show this help message and exit
+  --params PARAMS       CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
+  --MSFragger MSFRAGGER
+                        Path to MSFragger .jar file. If not specified, MSFRAGGER environment variable is used.
+  --dir DIR             Directory to store the results. Default value is current directory.
+  -v {0,1,2,3}, --verbosity {0,1,2,3}
+                        Output verbosity.
+  --mgf MGF [MGF ...]   MGF files to search.
+  --mzml MZML [MZML ...]
+                        mzML files to search.
+  -db FASTA, --fasta FASTA
+                        FASTA file with decoys for open search. None: with included MSFragger parameters, the database is expected to contain decoys. Default decoy prefix is "rev_". If it differs, do not forget to specify it in
+                        AA_stat params file.
+  --os-params OS_PARAMS
+                        Custom open search parameters.
+  -x, --optimize-fixed-mods
+                        Run multiple searches, automatically determine which fixed modifications to apply.
+  -s [SKIP], --skip [SKIP]
+                        Skip search if pepXML files exist already. If not specified, no steps are skipped. If specified without value, first step may be skipped. Value is number of steps to skip. Only works with "-x".
+  -je JAVA_EXECUTABLE, --java-executable JAVA_EXECUTABLE
+  -ja JAVA_ARGS, --java-args JAVA_ARGS
+
 ```
 
 
@@ -98,7 +103,7 @@ This file has following parameters:
 | Name                             | Default value                            | Description                                                                |
 | ---------------------------------|------------------------------------------|----------------------------------------------------------------------------|
 |                                  | **[data]**                               |                                                                            |
-| decoy prefix                     | DECOY_                                   | Prefix that is used to indicate decoy sequences in database.               |
+| decoy prefix                     | rev_                                     | Prefix that is used to indicate decoy sequences in database.               |
 | FDR                              | 0.02                                     | PSM false discovery rate, that will be used for each mass shift interval.  |
 | labels                           | M D Q C L H S R A W Y P F V N T E G I K  | All amino acid residues. It may be helpful if your data contains unusual amino acid residues. |
 | cleavage rule                    | trypsin                                  | Most common rules taken from pyteomics.parser.expasy_rules at [https://pyteomics.readthedocs.io/en/latest/api/parser.html](https://pyteomics.readthedocs.io/en/latest/api/parser.html) Also, a cleavage rule can be a Python regex. |
