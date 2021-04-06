@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
 import pylab as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 import ast
 import os
@@ -37,6 +38,7 @@ def preprocess_df(df, filename, params_dict):
     DataFrame
     '''
     logger.debug('Preprocessing %s', filename)
+    pp = PdfPages(os.path.join(params_dict['output directory'], filename + '.clustering.pdf'))
     window = params_dict['zero_window']
     zero_bin = 0
     shifts = params_dict['mass_shifts_column']
@@ -64,7 +66,7 @@ def preprocess_df(df, filename, params_dict):
             shift_copy = df[shifts].copy()
             old_shifts = filtered[shifts].copy()
             if params_dict['clustering']:
-                clustering = stats.clusters(filtered, to_fit, unit, filename, params_dict)
+                clustering = stats.clusters(filtered, to_fit, unit, filename, params_dict, pp)
                 if clustering is None:
                     filtered_clusters = None
                 else:
@@ -76,33 +78,32 @@ def preprocess_df(df, filename, params_dict):
                     filtered_clusters = None
                 else:
                     logger.info('Splitting %s into %d pieces.', filename, len(filtered_clusters))
-                    plt.figure()
+                    f = plt.figure()
                     for i in filtered_clusters:
                         plt.hist(filtered.loc[to_fit.index].loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
                     plt.xlabel(shifts)
+                    plt.title('Before correction')
                     plt.legend()
-                    plt.savefig(os.path.join(
-                        params_dict['output directory'],
-                        os.path.splitext(os.path.basename(filename))[0] + '_massdiff_hist.png'))
+                    pp.savefig(f)
                     plt.close()
             else:
                 filtered_clusters = None
 
             if not filtered_clusters:
                 slices = [None]
-                suffixes = ['']
+                titles = ['Whole file']
                 assigned_masks = [slice(None)]
                 filtered_clusters = ['<all>']
             else:
-                slices, suffixes = [], []
+                slices, titles = [], []
                 for i in filtered_clusters:
                     slices.append(clustering.labels_ == i)
-                    suffixes.append('_cluster_{}'.format(i))
+                    titles.append('Cluster {}'.format(i))
                 assigned_masks = stats.get_cluster_masks(filtered_clusters, clustering, df, to_fit, params_dict)
-            for c, slice_, suffix, mask in zip(filtered_clusters, slices, suffixes, assigned_masks):
+            for c, slice_, title, mask in zip(filtered_clusters, slices, titles, assigned_masks):
                 # logger.debug('Slice size for cluster %s is: %s', c, slice_.size if slice_ is not None else None)
                 to_fit, unit = stats.get_fittable_series(filtered, params_dict, slice_)
-                popt = stats._gauss_fit_slice(to_fit, unit, filename, suffix, params_dict)
+                popt = stats._gauss_fit_slice(to_fit, unit, filename, title, params_dict, pp)
 
                 if unit == 'Da':
                     shift_copy.loc[mask] -= popt[1]
@@ -120,27 +121,26 @@ def preprocess_df(df, filename, params_dict):
             df[shifts] = shift_copy
             filtered[shifts] = df.loc[filtered.index, shifts]
 
-            plt.figure()
+            f = plt.figure()
             floc = filtered.loc[old_shifts.abs() < params_dict['zero_window']]
             sc = plt.scatter(floc[shifts], floc[params_dict['rt_column']],
-                c=clustering.labels_ if (params_dict['clustering'] and clustering) else None)
-            if params_dict['clustering']:
+                c=clustering.labels_ if (params_dict['clustering'] and clustering) else 'k')
+            if params_dict['clustering'] and clustering:
                 plt.legend(*sc.legend_elements(), title='Clusters')
             plt.xlabel(shifts)
             plt.ylabel(params_dict['rt_column'])
-            plt.savefig(os.path.join(
-                params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + '_massdiff_corrected.png'))
+            plt.title('After correction')
+            pp.savefig(f)
             plt.close()
             if filtered_clusters != ['<all>']:
-                plt.figure()
+                f = plt.figure()
                 for i in filtered_clusters:
                     plt.hist(floc.loc[clustering.labels_ == i, shifts], label=i, alpha=0.2, bins=25, density=True)
                 plt.xlabel(shifts)
                 plt.legend()
-                plt.savefig(os.path.join(
-                    params_dict['output directory'],
-                    os.path.splitext(os.path.basename(filename))[0] + '_massdiff_corrected_hist.png'))
+                pp.savefig(f)
                 plt.close()
+    pp.close()
     df['file'] = os.path.splitext(os.path.basename(filename))[0]
     df['check_composition'] = df[params_dict['peptides_column']].apply(lambda x: utils.check_composition(x, params_dict['labels']))
     return df.loc[df['check_composition']]

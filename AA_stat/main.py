@@ -1,8 +1,7 @@
 import argparse
 import logging
 import os
-import unittest
-from . import AA_stat, utils, tests, io
+from . import AA_stat, utils, io
 
 
 def main():
@@ -33,11 +32,6 @@ def main():
     logging.logProcesses = 0
     logger = logging.getLogger(__name__)
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
-    test_prog = unittest.main(module=tests, argv=['ignored', '-v'],
-        defaultTest='AAstatTheorSpectrumTest', exit=False)
-    if (test_prog.result.failures != []) or (test_prog.result.errors != []):
-        logger.critical('Tests did not pass, aborting. Please get a working version.')
-        return
 
     logger.info('Starting...')
 

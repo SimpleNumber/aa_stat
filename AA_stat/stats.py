@@ -32,9 +32,9 @@ sb.set_style('white')
 colors = sb.color_palette(palette=cc)
 
 
-def _gauss_fit_slice(to_fit, unit, filename, suffix, params_dict):
+def _gauss_fit_slice(to_fit, unit, filename, title, params_dict, mpl_back):
     logger.debug('Fitting zero-shift peptides...')
-    plt.figure()
+    f = plt.figure()
     hist_0 = np.histogram(to_fit, bins=int(params_dict['zero_window'] / params_dict['bin_width']))
     hist_y = hist_0[0]
     hist_x = 0.5 * (hist_0[1][:-1] + hist_0[1][1:])
@@ -42,14 +42,14 @@ def _gauss_fit_slice(to_fit, unit, filename, suffix, params_dict):
     popt, perr = gauss_fitting(max(hist_y), hist_x, hist_y)
     plt.scatter(hist_x, gauss(hist_x, *popt), label='Gaussian fit')
     plt.xlabel('massdiff, ' + unit)
-    plt.savefig(os.path.join(
-        params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + suffix + '_zerohist.png'))
+    plt.title(title)
+    mpl_back.savefig(f)
     plt.close()
-    logger.info('Systematic shift is %.4f %s for file %s [ %s ]', popt[1], unit, filename, suffix)
+    logger.info('Systematic shift is %.4f %s for file %s [ %s ]', popt[1], unit, filename, title)
     return popt
 
 
-def clusters(df, to_fit, unit, filename, params_dict):
+def clusters(df, to_fit, unit, filename, params_dict, mpl_back):
     if to_fit.shape[0] < 500:
         logger.warning('Not enough data for cluster analysis. Need at least 500 peptides near zero, found %d.', to_fit.shape[0])
         return None
@@ -68,21 +68,19 @@ def clusters(df, to_fit, unit, filename, params_dict):
     eps = span_1 * params_dict['zero_window'] * params_dict['eps_adjust']
     logger.debug('Using eps=%f', eps)
     clustering = cluster.DBSCAN(eps=eps, min_samples=params_dict['min_samples']).fit(X)
-    plt.figure()
+    f = plt.figure()
     sc = plt.scatter(to_fit, X[:, 1], c=clustering.labels_)
     plt.legend(*sc.legend_elements(), title='Clusters')
     plt.xlabel(unit)
     plt.ylabel(params_dict['rt_column'])
-    plt.savefig(os.path.join(
-        params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + '_clusters.png'))
+    mpl_back.savefig(f)
     plt.close()
-    plt.figure()
+    f = plt.figure()
     for c in np.unique(clustering.labels_):
         plt.hist(X[clustering.labels_ == c, 1], label=c, alpha=0.5)
     plt.xlabel(params_dict['rt_column'])
     plt.legend()
-    plt.savefig(os.path.join(
-        params_dict['output directory'], os.path.splitext(os.path.basename(filename))[0] + '_cluster_hist.png'))
+    mpl_back.savefig(f)
     plt.close()
     return clustering
 

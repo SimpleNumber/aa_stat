@@ -339,7 +339,7 @@ def AA_stat(params_dict, args, step=None):
 
     reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, params_dict)
     if abs(reference_mass_shift) < params_dict['zero bin tolerance']:
-        logger.info('Systematic mass shift equals to %s', reference_label)
+        logger.info('Systematic mass shift equals %s', reference_label)
         if params_dict['calibration'] != 'off':
             mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, reference_mass_shift)
             reference_mass_shift = 0.0
