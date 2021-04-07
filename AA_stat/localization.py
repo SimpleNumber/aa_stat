@@ -413,9 +413,12 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     if len(locations_ms) < 2 and list(locations_ms[0].values())[0] == set():
         df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'], df['loc_position'] = None, None, None, None, None
     else:
-        df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'], df['loc_position'] = zip(
-            *df.apply(lambda x: localization_of_modification(
-                    ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1))
+        z = list(zip(*df.apply(lambda x: localization_of_modification(
+                    ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1)))
+        names = ['localization_count', 'top isoform', 'top_terms', 'localization score', 'loc_position']
+        dt = {'localization score': np.float32}
+        for c, v in zip(names, z):
+            df[c] = np.array(v, dtype=dt.get(c, np.object_))
     fname = io.table_path(params_dict['output directory'], ms_label)
     peptide = params_dict['peptides_column']
 
