@@ -21,7 +21,7 @@ The algorithm was implemented in Python as an open-source command-line tool avai
 
 Project moved from [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/).
 
-An example of AA_stat output can be found [here](https://gorshkovlab.github.io/aa_stat_report_example/).
+An example of AA_stat output can be found [here](https://gorshkovlab.github.io/aa_stat_reports/).
 ## Installation
 
 Install from PyPI:
