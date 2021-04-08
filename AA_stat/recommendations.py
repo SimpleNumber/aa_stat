@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+import re
 from . import utils
 
 logger = logging.getLogger(__name__)
@@ -156,13 +157,24 @@ def recalculate_with_isotopes(aa, ms, isotope_rec, mods_and_counts, data_dict, l
             break
 
 
+def same_residue(isoform):
+    return ']{' in isoform or re.search(r'\.{.*?}[A-Z]\[', isoform)
+
+
 def recalculate_varmods(data_dict, mods_and_counts, params_dict):
+    # cancel out already configured modifications
+    for site, mod in params_dict['var_mod']:
+        ms = utils.find_mass_shift(mod, data_dict, params_dict['prec_acc'])
+        if ms:
+            if mods_and_counts[site].get(ms, 0) > 0:
+                logger.debug('Setting all counts for %s @ %s to zero.', ms, site)
+                mods_and_counts[site][ms] = 0
     for ms in data_dict:
         shift, df = data_dict[ms]
         for i, row in df.iterrows():
             if row['top_terms'] is not None and ms in row['top_terms']:
                 peptide = row[params_dict['peptides_column']]
-                if ']{' in row['top isoform']:  # localization and enabled variable modification on the same residue
+                if same_residue(row['top isoform']):  # localization and enabled variable modification on the same residue
                     # this should count towards sum of these shifts, not the localized one
                     pos = row['loc_position'][0]
                     mods = utils.get_var_mods(row, params_dict)
