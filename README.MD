@@ -188,7 +188,7 @@ AA_stat --pepxml *.pepXML *.mzML
 ```
 ### Output files
 
-An example of AA_stat output can be found [here](https://levitsky.github.io/aa_stat_report_example/).
+An example of AA_stat output can be found [here](https://gorshkovlab.github.io/aa_stat_reports/).
 
 AA_stat produces the following files:
 
