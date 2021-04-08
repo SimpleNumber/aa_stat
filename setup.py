@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name                 = 'AA_stat',
-    version              = '2.2.5a4',
+    version              = '2.2.5a5',
     description          = '''A utility for validation of peptide identification results in proteomics using amino acid counting.''',
     long_description     = (''.join(open('README.MD').readlines())),
     long_description_content_type="text/markdown",

@@ -272,17 +272,15 @@ def find_sums(ms, tolerance=0.005):
 
 def apply_var_mods(seq, mods):
     parsed = parser.parse(seq)
-    offsets = [0] * len(parsed)
-    for i, a in enumerate(parsed):
-        if i == 0:
-            offsets[i] = len(a) > 1
+    out = []
+    for i, aa in enumerate(parsed):
+        if i in mods:
+            out.append('{{{:+.0f}}}'.format(mods[i]) + aa)
         else:
-            offsets[i] = offsets[i-1] + (len(a) > 1)
-    for pos, mmass in sorted(mods.items(), key=lambda i: -i[0]):
-        # internal('pos = %d, offset = %d, %s ->', pos, offsets[pos-1], seq)
-        seq = seq[:pos + offsets[pos-1]] + '{{{:+.0f}}}'.format(mmass) + seq[pos + offsets[pos-1]:]
-        # internal(seq)
-    return seq
+            out.append(aa)
+    seqout = ''.join(out)
+    internal('%s + %s = %s', seq, mods, seqout)
+    return seqout
 
 
 def get_column_with_mods(row, params_dict):
@@ -331,10 +329,8 @@ def get_fix_var_modifications(pepxml_file, labels):
             else:
                 fout['-OH'] = m['mass']
         else:
-            if m['terminus'] == 'N':
-                vout.append(('N-term', m['massdiff']))
-            else:
-                vout.append(('C-term', m['massdiff']))
+            key = ('Protein ' if m.get('protein_terminus') == 'Y' else '') + m['terminus'] + '-term'
+            vout.append((key, m['massdiff']))
     return fout, vout
 
 
@@ -382,7 +378,7 @@ def get_var_mods(row, params_dict):
     mass_dict_0.update(params_dict['fix_mod'])
     mod_dict = {}
     if modifications:
-        internal('Got modifications: %s', modifications)
+        internal('Got modifications for peptide %s: %s', row[peptide], modifications)
     for m in modifications:
         mmass, pos = m.split('@')
         mmass = float(mmass)
@@ -430,12 +426,11 @@ def group_terminal(items):
     grouped = []
     tg = {}
     for k, v in items:
-        w = k.split()
-        if len(w) == 1:
+        prefix, protein, term, aa = re.match(r'((Protein)?(?: )?([NC]-term)?)(?: )?([A-Z])?', k).groups()
+        if term is None or aa is None:
             grouped.append((k, v))
         else:
-            term, aa = w
-            tg.setdefault(term, []).append((aa, v))
+            tg.setdefault(prefix, []).append((aa, v))
     grouped.extend(tg.items())
     logger.debug('Variable mods after grouping: %s', grouped)
     return grouped
