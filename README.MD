@@ -254,7 +254,7 @@ In the simplest case, this residue is modified:
 
 **E.** Summary table (p_values.csv) with p-values for all amino acid frequencies in all mass shifts that indicates the significant deviation amino acid frequency from zero mass shift peak.
 
-**F.** HTML file (report.html) aggregates and illustrates all results.An example can be find [here](https://levitsky.github.io/aa_stat_report_example/).
+**F.** HTML file (report.html) aggregates and illustrates all results.An example can be find [here](https://gorshkovlab.github.io/aa_stat_reports/).
 
 **G.** A summary of localization shows the number of peptides in each bin for which a modification was successfully localized in MS/MS.
 Localization is done by generating theoretical spectra of possible isoforms and scoring them against the experimental spectrum.
