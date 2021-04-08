@@ -1,7 +1,7 @@
 [![pypi_badge](https://img.shields.io/pypi/v/aa-stat.svg)](https://pypi.org/project/AA-stat/)
 
 AA_stat
-========
+=======
 An open source software for amino acid residue modification analyses in proteomics
 
 
@@ -59,45 +59,15 @@ optional arguments:
 Instead of file lists, you can pass directory names. This will process all files in the directory.
 ```
 
-Combine with open search:
-
-```
-AA_search [-h] [--params PARAMS] [--MSFragger MSFRAGGER] [--dir DIR] [-v {0,1,2,3}] (--mgf MGF [MGF ...] | --mzml MZML [MZML ...]) [-db FASTA] [--os-params OS_PARAMS] [-x] [-s [SKIP]] [-je JAVA_EXECUTABLE] [-ja JAVA_ARGS]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --params PARAMS       CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
-  --MSFragger MSFRAGGER
-                        Path to MSFragger .jar file. If not specified, MSFRAGGER environment variable is used.
-  --dir DIR             Directory to store the results. Default value is current directory.
-  -v {0,1,2,3}, --verbosity {0,1,2,3}
-                        Output verbosity.
-  --mgf MGF [MGF ...]   MGF files to search.
-  --mzml MZML [MZML ...]
-                        mzML files to search.
-  -db FASTA, --fasta FASTA
-                        FASTA file with decoys for open search. None: with included MSFragger parameters, the database is expected to contain decoys. Default decoy prefix is "rev_". If it differs, do not forget to specify it in
-                        AA_stat params file.
-  --os-params OS_PARAMS
-                        Custom open search parameters.
-  -x, --optimize-fixed-mods
-                        Run multiple searches, automatically determine which fixed modifications to apply.
-  -s [SKIP], --skip [SKIP]
-                        Skip search if pepXML files exist already. If not specified, no steps are skipped. If specified without value, first step may be skipped. Value is number of steps to skip. Only works with "-x".
-  -je JAVA_EXECUTABLE, --java-executable JAVA_EXECUTABLE
-  -ja JAVA_ARGS, --java-args JAVA_ARGS
-
-```
-
 
 ### Configuration file
 
 
-The AA_stat tool needs a **config** file and at least one **data** file with open search results.
+The AA_stat tool needs at least one (pepXML or CSV) file with open search results.
 
-An example of **config** file is included (**default.cfg**).
+Configuration parameters can be set in a **config** file (you can use the included [default.cfg](AA_stat/default.cfg)).
 
-This file has following parameters:
+AA_stat supports the following parameters:
 
 
 | Name                             | Default value                            | Description                                                                |
@@ -164,7 +134,6 @@ This file has following parameters:
 ### Open search results
 
 AA_stat deals with open search results in pepXML or CSV formats.
-In **config** file, specify names of CSV columns that AA_stat will further use.
 
 AA_stat is compatible with the search results obtained using most existing search engines.
 By default, it is recommended to use MSFragger search engine,
@@ -174,18 +143,22 @@ For details of its operation, see
 
 ### Examples
 
-An example of the open search parameters file can be found in the Github [repository](https://github.com/SimpleNumber/aa_stat) of AA_stat.
+An example of the open search parameters file can be found in the repository [here](AA_stat/open_search.params).
 
 Example of MSFragger usage:
 
 ```
 java -Xmx8G MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
 ```
+
 Example of using AA_stat:
+
 ```
 AA_stat --pepxml *.pepXML *.mzML
 
 ```
+
+
 ### Output files
 
 An example of AA_stat output can be found [here](https://gorshkovlab.github.io/aa_stat_reports/).
@@ -231,13 +204,13 @@ Each bar in the chart denotes the normalized occurrence frequency
 of a specific amino acid residue in the given mass shift interval.
 The normalized frequency is calculated by:
 
-	1) counting all amino acids in all non-redundant peptides identified with the given mass shifts;
+1. Counting all amino acids in all non-redundant peptides identified with the given mass shifts;
 
-	2) dividing the count for the given residue by the total amino acid count for the interval
-       to obtain the occurrence frequency of the residue;
+2. Dividing the count for the given residue by the total amino acid count for the interval
+   to obtain the occurrence frequency of the residue;
 
-	3) normalizing the occurrence frequency of the residue
-       by the occurrence frequency of the same residue for the zero mass shift interval.
+3. Normalizing the occurrence frequency of the residue
+   by the occurrence frequency of the same residue for the zero mass shift interval.
 
 If the normalized frequency of a residue significantly exceeds 1,
 that means that this residue is "enriched" in the peptides identified with the corresponding mass shift,
@@ -250,11 +223,11 @@ In the simplest case, this residue is modified:
 | **Figure 3.** Example of a normalized frequency chart for 15.9943 mass shift (green). Orange -- the percentage of peptides that contain at least one AA residue of a certain kind. Blue -- successful localizations of mass shifts at each AA (only if MS/MS spectra are provided). The counts are not normalized.|
 
 
-**D.** Summary table (aa_statistics_table.csv) of amino acid frequencies for all mass shifts with PSMs counts and Unimod.org links for possible modifications.
+**D.** Summary table (aa_statistics_table.csv) of amino acid frequencies for all mass shifts with peptide counts and Unimod.org links for possible modifications.
 
 **E.** Summary table (p_values.csv) with p-values for all amino acid frequencies in all mass shifts that indicates the significant deviation amino acid frequency from zero mass shift peak.
 
-**F.** HTML file (report.html) aggregates and illustrates all results.An example can be find [here](https://gorshkovlab.github.io/aa_stat_reports/).
+**F.** HTML file (report.html) aggregates and illustrates all results. Examples can be found [here](https://gorshkovlab.github.io/aa_stat_reports/).
 
 **G.** A summary of localization shows the number of peptides in each bin for which a modification was successfully localized in MS/MS.
 Localization is done by generating theoretical spectra of possible isoforms and scoring them against the experimental spectrum.
@@ -275,7 +248,37 @@ If there is a clear winner in terms of score, the spectrum is considered localiz
 
 ### AA_search option
 
-If AA_stat used in "AA_search" mode, AA_stat optimizes fixed modifications that are used for open search, initializes open search runs.
+If AA_stat used in "AA_search" mode, MSFragger is run prior to AA_stat. AA_search can also optimize fixed modifications
+that are used for open search, and repeat open search if needed. This is enabled with `-x` option (or `--optimize-fixed-mods`).
+Full list of supported comman-line options:
+
+```
+AA_search [-h] [--params PARAMS] [--MSFragger MSFRAGGER] [--dir DIR] [-v {0,1,2,3}] (--mgf MGF [MGF ...] | --mzml MZML [MZML ...]) [-db FASTA] [--os-params OS_PARAMS] [-x] [-s [SKIP]] [-je JAVA_EXECUTABLE] [-ja JAVA_ARGS]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --params PARAMS       CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
+  --MSFragger MSFRAGGER
+                        Path to MSFragger .jar file. If not specified, MSFRAGGER environment variable is used.
+  --dir DIR             Directory to store the results. Default value is current directory.
+  -v {0,1,2,3}, --verbosity {0,1,2,3}
+                        Output verbosity.
+  --mgf MGF [MGF ...]   MGF files to search.
+  --mzml MZML [MZML ...]
+                        mzML files to search.
+  -db FASTA, --fasta FASTA
+                        FASTA file with decoys for open search. None: with included MSFragger parameters, the database is expected to contain decoys. Default decoy prefix is "rev_". If it differs, do not forget to specify it in
+                        AA_stat params file.
+  --os-params OS_PARAMS
+                        Custom open search parameters.
+  -x, --optimize-fixed-mods
+                        Run multiple searches, automatically determine which fixed modifications to apply.
+  -s [SKIP], --skip [SKIP]
+                        Skip search if pepXML files exist already. If not specified, no steps are skipped. If specified without value, first step may be skipped. Value is number of steps to skip. Only works with "-x".
+  -je JAVA_EXECUTABLE, --java-executable JAVA_EXECUTABLE
+  -ja JAVA_ARGS, --java-args JAVA_ARGS
+
+```
 
 Example of using AA_search:
 
@@ -283,4 +286,5 @@ Example of using AA_search:
 AA_search --MSFragger /path/to/MSFragger/MSFragger-2.4.jar -x -db fasta_file.fasta --mzml mzml_files.mzML --dir ./save_dir
 ```
 
-All searches saved in separate folders: "step 1", "step 2", etc. User can see results of all optimization steps. In these folders, pepXML files and open search parameters file (os.params) are saved. Joint report file for all steps is also generated.
+All searches are saved in separate folders: "step 1", "step 2", etc.
+In these folders, pepXML files and open search parameters file (os.params) are saved, together with AA_stat results.
