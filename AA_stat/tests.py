@@ -186,7 +186,7 @@ class AAstatResultTest(unittest.TestCase):
         args = argparse.Namespace(dir=self.data_dir, pepxml=self.pepxml, mzml=self.mzml,
             mgf=None, csv=None, params=None)
         params_dict = io.get_params_dict(args)
-        params_dict['decoy_prefix'] = 'DECOY_'
+        # params_dict['decoy_prefix'] = 'DECOY_'
         self.figure_data, self.table, self.locmod_df, self.mass_shift_data_dict, self.fix_mods, self.var_mods = AA_stat(params_dict, args)
 
         counts = [57, 179, 173, 540, 100, 82, 102, 279, 57, 67, 282, 52, 102, 66, 125, 60, 139, 145, 71, 2851, 341, 558, 103,

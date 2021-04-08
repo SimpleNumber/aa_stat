@@ -11,6 +11,7 @@ import multiprocessing as mp
 from collections import defaultdict
 import logging
 import operator
+import re
 
 import numpy as np
 import pandas as pd
@@ -42,12 +43,28 @@ def preprocess_df(df, filename, params_dict):
     window = params_dict['zero_window']
     zero_bin = 0
     shifts = params_dict['mass_shifts_column']
+    if not params_dict['decoy_prefix']:
+        isdddict = {}
+        for prefix in params_dict['decoy_prefix_list']:
+            is_decoy = df[params_dict['proteins_column']].apply(
+                lambda s: all(x.startswith(prefix) for x in s))
+            isd = is_decoy.sum()
+            logger.debug('Trying prefix %s for %s... Found %d decoys.', prefix, filename, isd)
+            isdddict[prefix] = isd
+        prefix = max(isdddict, key=isdddict.get)
+        logger.debug('Selected prefix %s for file %s (%d decoys)', prefix, filename, isdddict[prefix])
+    else:
+        prefix = params_dict['decoy_prefix']
 
-    df['is_decoy'] = df[params_dict['proteins_column']].apply(
-        lambda s: all(x.startswith(params_dict['decoy_prefix']) for x in s))
+    df['is_decoy'] = df[params_dict['proteins_column']].apply(lambda s: all(x.startswith(prefix) for x in s))
+
     if not df['is_decoy'].sum():
-        logger.error('No decoy IDs found in %s. Decoy prefix is set to %s, is that correct?',
-            filename, params_dict['decoy_prefix'])
+        logger.error('No decoy IDs found in %s.', filename)
+        if not params_dict['decoy_prefix']:
+            logger.error('Configured decoy prefixes are: %s. Check you files or config.',
+                ', '.join(params_dict['decoy_prefix_list']))
+        else:
+            logger.error('Configured decoy prefix is: %s. Check your files or config.', prefix)
         return
     ms, filtered = utils.fdr_filter_mass_shift([None, zero_bin, window], df, params_dict)
     n = filtered.shape[0]
@@ -293,6 +310,7 @@ def get_parameters(params):
     params_dict = defaultdict()
     # data
     params_dict['decoy_prefix'] = params.get('data', 'decoy prefix')
+    params_dict['decoy_prefix_list'] = re.split(r',\s*', params.get('data', 'decoy prefix list'))
     params_dict['FDR'] = params.getfloat('data', 'FDR')
     params_dict['labels'] = params.get('data', 'labels').strip().split()
     params_dict['rule'] = params.get('data', 'cleavage rule')

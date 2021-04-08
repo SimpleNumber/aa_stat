@@ -73,7 +73,8 @@ AA_stat supports the following parameters:
 | Name                             | Default value                            | Description                                                                |
 | ---------------------------------|------------------------------------------|----------------------------------------------------------------------------|
 |                                  | **[data]**                               |                                                                            |
-| decoy prefix                     | rev_                                     | Prefix that is used to indicate decoy sequences in database.               |
+| decoy prefix                     |                                          | Prefix that is used to indicate decoy sequences in database. If not set, all prefixes in "decoy prefix list" will be tried         |
+| decoy prefix list                | DECOY_, rev_                             | A comma-separated list of values. For each input file, the prefix will be selected from this list, unless "decoy prefix" is set explicitly. |
 | FDR                              | 0.02                                     | PSM false discovery rate, that will be used for each mass shift interval.  |
 | labels                           | M D Q C L H S R A W Y P F V N T E G I K  | All amino acid residues. It may be helpful if your data contains unusual amino acid residues. |
 | cleavage rule                    | trypsin                                  | Most common rules taken from pyteomics.parser.expasy_rules at [https://pyteomics.readthedocs.io/en/latest/api/parser.html](https://pyteomics.readthedocs.io/en/latest/api/parser.html) Also, a cleavage rule can be a Python regex. |

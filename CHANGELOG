@@ -1,0 +1,11 @@
+2.3
+---
+
+- Fix error on Windows.
+- Fix for MSFragger 3.2.
+- Better support for terminal and protein-terminal variable modifications in input.
+- By default, support both "DECOY_" and "rev_" decoy prefixes.
+- Improve error messaging on data reading.
+- Support whole directories instead of file lists on command line.
+- Save clustering figures to a single multi-page PDF for each input file.
+- Better account for configured variable modifications in recommending variable modifications.
