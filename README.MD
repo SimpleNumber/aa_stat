@@ -1,4 +1,5 @@
 [![pypi_badge](https://img.shields.io/pypi/v/aa-stat.svg)](https://pypi.org/project/AA-stat/)
+[![tests](https://github.com/SimpleNumber/aa_stat/actions/workflows/pythonpackage.yml/badge.svg)](https://github.com/SimpleNumber/aa_stat/actions/workflows/pythonpackage.yml)
 
 AA_stat
 =======
