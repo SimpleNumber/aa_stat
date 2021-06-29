@@ -23,9 +23,11 @@ The algorithm was implemented in Python as an open-source command-line tool avai
 Project moved from [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/).
 
 An example of AA_stat output can be found [here](https://gorshkovlab.github.io/aa_stat_reports/).
+
+
 ## Installation
 
-Install from PyPI:
+Install from PyPI (all platforms):
 
 ```
 pip install AA_stat
@@ -78,7 +80,7 @@ AA_stat supports the following parameters:
 | decoy prefix list                | DECOY_, rev_                             | A comma-separated list of values. For each input file, the prefix will be selected from this list, unless "decoy prefix" is set explicitly. |
 | FDR                              | 0.02                                     | PSM false discovery rate, that will be used for each mass shift interval.  |
 | labels                           | M D Q C L H S R A W Y P F V N T E G I K  | All amino acid residues. It may be helpful if your data contains unusual amino acid residues. |
-| cleavage rule                    | trypsin                                  | Most common rules taken from pyteomics.parser.expasy_rules at [https://pyteomics.readthedocs.io/en/latest/api/parser.html](https://pyteomics.readthedocs.io/en/latest/api/parser.html) Also, a cleavage rule can be a Python regex. |
+| cleavage rule                    | trypsin                                  | Most common rules taken from  at [pyteomics.parser.expasy_rules](https://pyteomics.readthedocs.io/en/latest/api/parser.html#pyteomics.parser.expasy_rules). Also, cleavage rule can be a Python regex. |
 |                                  | **[csv input]**                          |                                                                            |
 | delimiter                        | , (comma)                                | Delimiter used in CSV input files.                                         |
 | proteins column                  | protein                                  | Name of column with protein IDs.                                           |
