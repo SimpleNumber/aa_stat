@@ -158,7 +158,7 @@ java -Xmx8G MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
 Example of using AA_stat:
 
 ```
-AA_stat --pepxml *.pepXML *.mzML
+AA_stat --pepxml *.pepXML --mzml *.mzML
 
 ```
 
