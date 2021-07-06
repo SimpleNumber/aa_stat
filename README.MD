@@ -7,22 +7,30 @@ An open source software for amino acid residue modification analyses in proteomi
 
 
 
-## Overview
+# Overview
 
-**AA_stat** is a tool for shotgun proteomics
-that uncovers the unexpected modifications of amino acid residues in the protein sequences,
+**AA_stat** is a tool for shotgun proteomics that uncovers unexpected peptide modifications,
 as well as possible artefacts of data acquisition or processing, in the results of proteome analysis.
 AA_stat calculates and visualizes amino acid occurrence frequencies for the identified peptides.
 AA_stat processes the results of open search and composes a list of identified mass shifts
 that can be attributed to modifications.
+
 The processing involves Gaussian fitting of potential peaks, group-specific FDR filtering,
-amino acid counting, and appearance frequency normalization for the particular mass shifts.
-The algorithm was implemented in Python as an open-source command-line tool available at
-[https://github.com/SimpleNumber/aa_stat](https://github.com/SimpleNumber/aa_stat).
+amino acid counting, and appearance frequency normalization for the observed mass shifts.
 
-Project moved from [https://bitbucket.org/J_Bale/aa_stat/](https://bitbucket.org/J_Bale/aa_stat/).
+## Quickstart
 
-An example of AA_stat output can be found [here](https://gorshkovlab.github.io/aa_stat_reports/).
+Just call AA_stat with your open search results. Pass spectrum files, as well, if they are available:
+
+```
+AA_stat --pepxml *.pepXML --mzml *.mzML
+
+```
+
+![terminal animation](manual_pic/tty.gif)
+
+To check results, open the file called **report.html** in your browser.
+Example reports are shown [here](https://gorshkovlab.github.io/aa_stat_reports/).
 
 
 ## Installation
@@ -39,9 +47,9 @@ Alternatively, you can install directly from GitHub:
 pip install git+https://github.com/SimpleNumber/aa_stat
 ```
 
-## Usage
+# User manual
 
-Regular usage:
+### Command line options
 
 ```
 usage: AA_stat [-h] [--params PARAMS] [--dir DIR] [-v {0,1,2,3}] [--mgf MGF [MGF ...] | --mzml MZML [MZML ...]] (--pepxml PEPXML [PEPXML ...] | --csv CSV [CSV ...])
@@ -65,10 +73,7 @@ Instead of file lists, you can pass directory names. This will process all files
 
 ### Configuration file
 
-
-The AA_stat tool needs at least one (pepXML or CSV) file with open search results.
-
-Configuration parameters can be set in a **config** file (you can use the included [default.cfg](AA_stat/default.cfg)).
+Configuration parameters can be set in a **config** file (default values and comments are in [default.cfg](AA_stat/default.cfg)).
 
 AA_stat supports the following parameters:
 
@@ -135,6 +140,7 @@ AA_stat supports the following parameters:
 | isotope error abundance threshold | 10                                      | Minimum % of isotope error to justify recommendation of isotope error.     |
 | minimum localization count       | 10                                       | Minimum absolute localization count to recommend a variable modification.  |
 
+
 ### Open search results
 
 AA_stat deals with open search results in pepXML or CSV formats.
@@ -144,6 +150,7 @@ By default, it is recommended to use MSFragger search engine,
 available from [Nesvizhskii lab](http://www.nesvilab.org/software.html) website.
 For details of its operation, see
 [MSFragger User manual](https://media.nature.com/original/nature-assets/nmeth/journal/v14/n5/extref/nmeth.4256-S2.pdf).
+
 
 ### Examples
 
