@@ -165,7 +165,6 @@ Example of using AA_stat:
 
 ```
 AA_stat --pepxml *.pepXML --mzml *.mzML
-
 ```
 
 
