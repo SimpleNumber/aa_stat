@@ -24,7 +24,6 @@ Just call AA_stat with your open search results. Pass spectrum files, as well, i
 
 ```
 AA_stat --pepxml *.pepXML --mzml *.mzML
-
 ```
 
 ![terminal animation](manual_pic/tty.gif)
