@@ -1,3 +1,15 @@
+2.5.dev1
+--------
+
+- Add `--create-shortcut` option for `AA_stat_GUI`.
+- Refine GUI text, add tooltips.
+
+2.4
+---
+
+Add a simple GUI based on Tkinter. Start it by running `AA_stat_GUI`.
+
+
 2.3
 ---
 

@@ -21,7 +21,7 @@ amino acid counting, and appearance frequency normalization for the observed mas
 
 ## Installation
 
-AA_stat requires Python 3.6 or newer.
+AA_stat requires Python 3.6 or newer. AA_stat GUI requires Python 3.7 or newer.
 
 Install from PyPI (all platforms):
 
@@ -34,6 +34,15 @@ Alternatively, you can install directly from GitHub:
 ```
 pip install git+https://github.com/SimpleNumber/aa_stat
 ```
+
+### Create a desktop shortcut
+
+To create a desktop shortcut for `AA_stat_GUI`, call another command after `pip install`:
+
+```
+AA_stat_GUI --create-shortcut
+```
+
 
 ## Quickstart
 
@@ -52,7 +61,7 @@ Example reports are shown [here](https://gorshkovlab.github.io/aa_stat_reports/)
 
 ### GUI
 
-Start `AA_stat_GUI`.
+Run `AA_stat_GUI` on the command line or do `AA_stat_GUI --create-shortcut` once and use the desktop shortcut.
 
 
 # User manual

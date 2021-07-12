@@ -9,8 +9,11 @@ import logging
 import logging.handlers
 import pathlib
 import webbrowser
+from idlelib.tooltip import Hovertip
+import sys
 
 from . import logging as logutils
+from .shortcut import create_shortcut
 from ..version import version
 from .. import AA_stat, io
 
@@ -111,6 +114,9 @@ def view_report(btn):
 
 
 def main():
+    if len(sys.argv) == 2 and sys.argv[1] == '--create-shortcut':
+        create_shortcut()
+        return
     window = tk.Tk()
     window.title('AA_stat GUI')
     window.geometry('900x600')
@@ -130,8 +136,12 @@ def main():
 
     spectra_frame = tk.Frame(master=top_frame)
     selected_spectra_lbl = tk.Label(master=spectra_frame, text="(optional)", justify='left')
-    get_spectra_btn = tk.Button(master=spectra_frame, text="Select spectrum files",
+
+    get_spectra_btn = tk.Button(master=spectra_frame, text="Select mzML or MGF files",
         command=partial(get_spectrum_filenames, selected_spectra_lbl), width=20)
+    spectra_tip_text = ("If you provide original mzML or MGF files,\n"
+        "AA_stat will perform MS/MS-based localization of mass shifts\nand recommend variable modifications.")
+    Hovertip(spectra_frame, text=spectra_tip_text)
 
     get_spectra_btn.pack(side=tk.LEFT, fill=tk.X, padx=15, anchor=tk.E)
     selected_spectra_lbl.pack(side=tk.LEFT, fill=tk.X, anchor=tk.W)
@@ -175,7 +185,7 @@ def main():
 
     get_os_files_btn.pack(side=tk.LEFT, padx=15, fill=tk.X, anchor=tk.E)
     selected_os_lbl.pack(side=tk.LEFT, fill=tk.X, anchor=tk.W)
-
+    Hovertip(input_frame, text="Specify open search results in pepXML or CSV format.")
 
     input_frame.pack(side=tk.TOP, fill=tk.X, expand=True)
     spectra_frame.pack(side=tk.TOP, fill=tk.X, expand=True)

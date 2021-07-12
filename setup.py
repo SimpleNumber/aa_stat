@@ -38,5 +38,5 @@ setup(
     packages             = find_packages(),
     package_data         = {'AA_stat': ['report.template', 'open_search.params', 'default.cfg', 'unimod.xml']},
     entry_points         = {'console_scripts': ['AA_stat=AA_stat.main:main', 'AA_search=AA_stat.aa_search:main',
-                                                'AA_stat_GUI= AA_stat.gui.gui:main']}
+                                                'AA_stat_GUI=AA_stat.gui.gui:main']},
     )
