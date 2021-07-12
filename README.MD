@@ -18,21 +18,10 @@ that can be attributed to modifications.
 The processing involves Gaussian fitting of potential peaks, group-specific FDR filtering,
 amino acid counting, and appearance frequency normalization for the observed mass shifts.
 
-## Quickstart
-
-Just call AA_stat with your open search results. Pass spectrum files, as well, if they are available:
-
-```
-AA_stat --pepxml *.pepXML --mzml *.mzML
-```
-
-![terminal animation](manual_pic/tty.gif)
-
-To check results, open the file called **report.html** in your browser.
-Example reports are shown [here](https://gorshkovlab.github.io/aa_stat_reports/).
-
 
 ## Installation
+
+AA_stat requires Python 3.6 or newer.
 
 Install from PyPI (all platforms):
 
@@ -45,6 +34,26 @@ Alternatively, you can install directly from GitHub:
 ```
 pip install git+https://github.com/SimpleNumber/aa_stat
 ```
+
+## Quickstart
+
+### Command line
+
+Just call AA_stat with your open search results. Pass spectrum files, as well, if they are available:
+
+```
+AA_stat --pepxml *.pepXML --mzml *.mzML
+```
+
+![terminal animation](manual_pic/tty.gif)
+
+To check results, open the file called **report.html** in your browser.
+Example reports are shown [here](https://gorshkovlab.github.io/aa_stat_reports/).
+
+### GUI
+
+Start `AA_stat_GUI`.
+
 
 # User manual
 
