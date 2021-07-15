@@ -1,6 +1,7 @@
-2.5.dev1
---------
+2.5
+---
 
+- Add buttons to load, edit and save AA_stat parameters.
 - Add `--create-shortcut` option for `AA_stat_GUI`.
 - Refine GUI text, add tooltips.
 

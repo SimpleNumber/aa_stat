@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
-from tkinter.filedialog import askopenfilenames, askdirectory
+from tkinter.filedialog import askopenfilenames, askopenfilename, askdirectory, asksaveasfilename
 from functools import partial
 import os
 import threading
@@ -9,8 +9,8 @@ import logging
 import logging.handlers
 import pathlib
 import webbrowser
+import tempfile
 from idlelib.tooltip import Hovertip
-import sys
 
 from . import logging as logutils
 from .shortcut import create_shortcut
@@ -22,11 +22,16 @@ AA_STAT_VERSION = version
 INPUT_FILES = []
 INPUT_SPECTRA = []
 OUTDIR = '.'
+PARAMS = None
+PARAMS_TMP = None
+
+logger = logutils.get_logger()
 
 
 class Args:
     """Emulates parsed args from argparse for AA_stat"""
-    pepxml = mgf = mzml = csv = params = None
+    pepxml = mgf = mzml = csv = None
+    params = PARAMS
     dir = '.'
     verbosity = 1
 
@@ -64,6 +69,58 @@ def get_outdir_name(label):
     label['text'] = 'Output directory: ' + os.path.abspath(dirname)
 
 
+def get_params(label):
+    global PARAMS
+    PARAMS = askopenfilename(title='Parameters file',
+        filetypes=[('Config files', '*.cfg'), ('INI files', '*.ini'), ('Text files', '*.txt'), ('All files', '*.*')])
+    label['text'] = "Loaded parameters: " + PARAMS
+
+
+def _save_params(txt, fname):
+    global PARAMS
+    PARAMS = fname
+    with open(fname, 'w') as f:
+        f.write(txt.get('1.0', tk.END))
+
+
+def save_params(txt, writeback):
+    global PARAMS_TMP
+    if PARAMS is None:
+        PARAMS_TMP = params = tempfile.NamedTemporaryFile(delete=False, suffix='.cfg').name
+        logger.debug('Saving params to a temporary file: %s', params)
+        writeback['text'] = "Using temporary parameters."
+    else:
+        PARAMS_TMP = None
+        params = PARAMS
+        logger.debug('Saving params to file: %s', params)
+        writeback['text'] = "Using edited file: " + PARAMS
+    _save_params(txt, params)
+
+
+def save_params_as(txt, writeback):
+    global PARAMS
+    PARAMS = asksaveasfilename(title='Save params as...')
+    save_params(txt, writeback)
+
+
+def edit_params(w, writeback):
+    window = tk.Toplevel(w)
+    window.title('AA_stat GUI: edit parameters')
+    window.geometry('900x600')
+    params_txt = tk.Text(window)
+    params = PARAMS or io.AA_STAT_PARAMS_DEFAULT
+    with open(params) as f:
+        for line in f:
+            params_txt.insert(tk.END, line)
+    params_txt.pack(fill=tk.BOTH, expand=True)
+    save_frame = tk.Frame(window)
+    save_btn = tk.Button(save_frame, text="Save", command=partial(save_params, params_txt, writeback))
+    save_btn.pack(side=tk.LEFT)
+    save_as_btn = tk.Button(save_frame, text="Save As...", command=partial(save_params_as, params_txt, writeback))
+    save_as_btn.pack(side=tk.LEFT)
+    save_frame.pack()
+
+
 def get_aa_stat_version():
     if AA_STAT_VERSION:
         return 'AA_stat v' + AA_STAT_VERSION
@@ -86,7 +143,7 @@ def get_aa_stat_args():
             mzml.append(f)
         else:
             mgf.append(f)
-    args = Args(pepxml=pepxml, mgf=mgf, csv=csv, mzml=mzml, dir=OUTDIR)
+    args = Args(pepxml=pepxml, mgf=mgf, csv=csv, mzml=mzml, dir=OUTDIR, params=PARAMS)
     params_dict = io.get_params_dict(args)
     return args, params_dict
 
@@ -143,16 +200,16 @@ def main():
         "AA_stat will perform MS/MS-based localization of mass shifts\nand recommend variable modifications.")
     Hovertip(spectra_frame, text=spectra_tip_text)
 
-    get_spectra_btn.pack(side=tk.LEFT, fill=tk.X, padx=15, anchor=tk.E)
-    selected_spectra_lbl.pack(side=tk.LEFT, fill=tk.X, anchor=tk.W)
+    get_spectra_btn.pack(side=tk.LEFT, anchor=tk.E)
+    selected_spectra_lbl.pack(side=tk.LEFT, padx=15, anchor=tk.W)
 
     dir_frame = tk.Frame(master=top_frame)
     dir_lbl = tk.Label(master=dir_frame, text="Output directory: " + os.path.abspath(OUTDIR), justify='left')
     get_dir_btn = tk.Button(master=dir_frame, text="Select output directory",
         command=partial(get_outdir_name, dir_lbl), width=20)
 
-    get_dir_btn.pack(side=tk.LEFT, padx=15, fill=tk.X, anchor=tk.E)
-    dir_lbl.pack(side=tk.LEFT, fill=tk.X, anchor=tk.W)
+    get_dir_btn.pack(side=tk.LEFT, anchor=tk.E)
+    dir_lbl.pack(side=tk.LEFT, anchor=tk.W, padx=15)
 
     main_frame = tk.Frame()
     run_btn = tk.Button(master=main_frame, text='Run AA_stat', state=tk.DISABLED)
@@ -163,8 +220,6 @@ def main():
     t.daemon = True
     run_btn['command'] = partial(start_aastat, t)
 
-
-    logger = logutils.get_logger()
     AAstatHandler = logutils.get_aastat_handler(log_txt)
 
     log_t = threading.Thread(target=logutils._socket_listener_worker,
@@ -183,13 +238,26 @@ def main():
     get_os_files_btn = tk.Button(master=input_frame, text="Select open search files",
         command=partial(get_input_filenames, selected_os_lbl, run_btn), width=20)
 
-    get_os_files_btn.pack(side=tk.LEFT, padx=15, fill=tk.X, anchor=tk.E)
-    selected_os_lbl.pack(side=tk.LEFT, fill=tk.X, anchor=tk.W)
+    get_os_files_btn.pack(side=tk.LEFT, anchor=tk.E)
+    selected_os_lbl.pack(side=tk.LEFT, padx=15, anchor=tk.W)
     Hovertip(input_frame, text="Specify open search results in pepXML or CSV format.")
+
+    params_frame = tk.Frame(master=top_frame)
+    params_lbl = tk.Label(master=params_frame, text="Using default parameters.")
+    load_params_btn = tk.Button(master=params_frame, width=10, padx=4, text="Load params",
+        command=partial(get_params, params_lbl))
+    edit_params_btn = tk.Button(master=params_frame, width=10, padx=4, text="Edit params",
+        command=partial(edit_params, window, params_lbl))
+
+    load_params_btn.pack(side=tk.LEFT, fill=tk.X, anchor=tk.E)
+    edit_params_btn.pack(side=tk.LEFT, fill=tk.X, anchor=tk.E)
+    params_lbl.pack(side=tk.LEFT, fill=tk.X, anchor=tk.W, padx=15)
+
 
     input_frame.pack(side=tk.TOP, fill=tk.X, expand=True)
     spectra_frame.pack(side=tk.TOP, fill=tk.X, expand=True)
     dir_frame.pack(side=tk.TOP, fill=tk.X, expand=True)
+    params_frame.pack(side=tk.TOP, fill=tk.X, expand=True)
 
     top_frame.pack()
     main_frame.pack(fill=tk.BOTH, expand=True)
@@ -197,6 +265,9 @@ def main():
         for btn in [get_spectra_btn, get_os_files_btn, get_dir_btn]:
             btn['state'] = tk.DISABLED
     window.mainloop()
+    if PARAMS_TMP:
+        logger.debug('Removing temporary file %s', PARAMS_TMP)
+        os.remove(PARAMS_TMP)
     logutils.tcpserver.abort = 1
     logutils.tcpserver.server_close()
     sys.exit()  # needed because there are still working (daemon) threads
