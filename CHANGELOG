@@ -1,7 +1,9 @@
-2.5.1
+2.5.2
 -----
 
-Fix the issue that clustering results were saved in the wrong directory.
+- Fix the issue that clustering results were saved in the wrong directory.
+- Fix number formatting in HTML report.
+
 
 2.5
 ---
