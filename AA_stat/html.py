@@ -225,14 +225,15 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
             'is isotope', 'unimod candidates', 'raw info'}.intersection(columns))
         table_html = table.style.hide_index().hide_columns(to_hide).applymap(
             lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
-            ).set_precision(3).apply(
+            ).apply(
             lambda row: ['background-color: #cccccc' if row['is reference'] else '' for cell in row], axis=1).set_table_styles([
                 {'selector': 'tr:hover', 'props': [('background-color', 'lightyellow')]},
                 {'selector': 'td, th', 'props': [('text-align', 'center')]},
                 {'selector': 'td, th', 'props': [('border', '1px solid black')]}]
             ).format({
                 mslabel: '<a href="#">{}</a>'.format(utils.MASS_FORMAT).format,
-                '# peptides in bin': '<a href="#">{}</a>'.format}).bar(subset='# peptides in bin', color=stats.cc[2]).render(
+                '# peptides in bin': '<a href="#">{}</a>'.format}, precision=3
+            ).bar(subset='# peptides in bin', color=stats.cc[2]).render(
             uuid="aa_stat_table")
 
     peptide_tables = []
