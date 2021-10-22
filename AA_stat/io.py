@@ -39,7 +39,7 @@ def preprocess_df(df, filename, params_dict):
     DataFrame
     '''
     logger.debug('Preprocessing %s', filename)
-    pp = PdfPages(os.path.join(params_dict['output directory'], filename + '.clustering.pdf'))
+    pp = PdfPages(os.path.join(params_dict['output directory'], os.path.basename(filename) + '.clustering.pdf'))
     window = params_dict['zero_window']
     zero_bin = 0
     shifts = params_dict['mass_shifts_column']

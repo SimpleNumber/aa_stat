@@ -1,3 +1,8 @@
+2.5.1
+-----
+
+Fix the issue that clustering results were saved in the wrong directory.
+
 2.5
 ---
 
