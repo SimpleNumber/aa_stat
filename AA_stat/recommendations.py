@@ -158,7 +158,7 @@ def recalculate_with_isotopes(aa, ms, isotope_rec, mods_and_counts, data_dict, l
 
 
 def same_residue(isoform):
-    return ']{' in isoform or re.search(r'\.{.*?}[A-Z]\[', isoform)
+    return ']{' in isoform or re.search(r'\.{[0-9+-]*?}[A-Z]\[', isoform)
 
 
 def recalculate_varmods(data_dict, mods_and_counts, params_dict):

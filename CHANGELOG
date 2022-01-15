@@ -1,3 +1,8 @@
+2.5.3a1
+-------
+
+ - Fix a bug in `same_residue` which resulted in a KeyError when recalculating recommended modifications.
+
 2.5.2
 -----
 
