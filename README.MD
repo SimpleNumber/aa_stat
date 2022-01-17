@@ -24,6 +24,8 @@ The recent version of AA_stat is described in:
 *AA_stat: Intelligent profiling of in vivo and in vitro modifications from open search results.
 Journal of Proteomics, Volume 248, 30 September 2021, 104350. https://doi.org/10.1016/j.jprot.2021.104350*
 
+A preprint of this article is available on biorXiv: https://www.biorxiv.org/content/10.1101/2020.09.07.286161v2.full.
+
 An initial version of AA_stat was described earlier in:
 
 *Validation of Peptide Identification Results in Proteomics Using Amino Acid Counting.
