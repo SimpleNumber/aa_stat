@@ -5,8 +5,6 @@ AA_stat
 =======
 An open source software for amino acid residue modification analyses in proteomics
 
-
-
 # Overview
 
 **AA_stat** is a tool for shotgun proteomics that uncovers unexpected peptide modifications,
@@ -18,6 +16,18 @@ that can be attributed to modifications.
 The processing involves Gaussian fitting of potential peaks, group-specific FDR filtering,
 amino acid counting, and appearance frequency normalization for the observed mass shifts.
 
+
+## How to cite
+
+The recent version of AA_stat is described in:
+
+*AA_stat: Intelligent profiling of in vivo and in vitro modifications from open search results.
+Journal of Proteomics, Volume 248, 30 September 2021, 104350. https://doi.org/10.1016/j.jprot.2021.104350*
+
+An initial version of AA_stat was described earlier in:
+
+*Validation of Peptide Identification Results in Proteomics Using Amino Acid Counting.
+Proteomics, Volume 18, Issue 23, December 2018, 1800117. https://doi.org/10.1002/pmic.201800117*
 
 ## Installation
 
