@@ -75,6 +75,35 @@ Example reports are shown [here](https://gorshkovlab.github.io/aa_stat_reports/)
 
 Run `AA_stat_GUI` on the command line or do `AA_stat_GUI --create-shortcut` once and use the desktop shortcut.
 
+### Open search results and spectrum files
+
+AA_stat deals with open search results in pepXML or CSV formats and is compatible with the search results obtained using
+most existing search engines.
+By default, it is recommended to use MSFragger search engine,
+available from [Nesvizhskii lab](http://www.nesvilab.org/software.html) website.
+For details of its operation, see
+[MSFragger User manual](https://media.nature.com/original/nature-assets/nmeth/journal/v14/n5/extref/nmeth.4256-S2.pdf).
+
+Most new features of AA_stat require that you also provide spectrum files. AA_stat supports MGF and mzML formats.
+Note that you must provide the same files that are used for open search. **Note: If you run MSFragger on RAW files,
+you can convert RAW files to mzML and specify those for AA_stat.**
+
+
+### Examples
+
+An example of the open search parameters file can be found in the repository [here](AA_stat/open_search.params).
+
+Example of MSFragger usage:
+
+```
+java -Xmx8G MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
+```
+
+Example of using AA_stat:
+
+```
+AA_stat --pepxml *.pepXML --mzml *.mzML
+```
 
 # User manual
 
@@ -168,34 +197,6 @@ AA_stat supports the following parameters:
 | fixed modification intensity threshold | 3                                  | Maximum % of peptides containing AA at zero shift to consider a fixed modification. |
 | isotope error abundance threshold | 10                                      | Minimum % of isotope error to justify recommendation of isotope error.     |
 | minimum localization count       | 10                                       | Minimum absolute localization count to recommend a variable modification.  |
-
-
-### Open search results
-
-AA_stat deals with open search results in pepXML or CSV formats.
-
-AA_stat is compatible with the search results obtained using most existing search engines.
-By default, it is recommended to use MSFragger search engine,
-available from [Nesvizhskii lab](http://www.nesvilab.org/software.html) website.
-For details of its operation, see
-[MSFragger User manual](https://media.nature.com/original/nature-assets/nmeth/journal/v14/n5/extref/nmeth.4256-S2.pdf).
-
-
-### Examples
-
-An example of the open search parameters file can be found in the repository [here](AA_stat/open_search.params).
-
-Example of MSFragger usage:
-
-```
-java -Xmx8G MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
-```
-
-Example of using AA_stat:
-
-```
-AA_stat --pepxml *.pepXML --mzml *.mzML
-```
 
 
 ### Output files
