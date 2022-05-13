@@ -355,7 +355,7 @@ def get_parameters(params):
     #clustering
     params_dict['clustering'] = params.getboolean('clustering', 'use clustering')
     params_dict['eps_adjust'] = params.getfloat('clustering', 'dbscan eps factor')
-    params_dict['min_samples'] = params.getfloat('clustering', 'dbscan min_samples')
+    params_dict['min_samples'] = params.getint('clustering', 'dbscan min_samples')
     params_dict['clustered_pct_min'] = params.getfloat('clustering', 'total clustered peptide percentage minimum')
     params_dict['cluster_span_min'] = params.getfloat('clustering', 'cluster span percentage minimum')
 
@@ -434,7 +434,7 @@ def resolve_filenames(args):
                 if os.path.isdir(val):
                     for g in gs:
                         files = glob.glob(os.path.join(val, g))
-                        logger.debug('Found %d files for glob %s', len(files), g)
+                        logger.debug('Found %d files for glob %s in %s', len(files), g, val)
                         out.extend(files)
                 else:
                     out.append(val)

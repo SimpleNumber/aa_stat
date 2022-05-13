@@ -36,6 +36,10 @@ def main():
     logger.info('Starting...')
 
     io.resolve_filenames(args)
+    total_inputs = len(args.csv or []) + len(args.pepxml or [])
+    if not total_inputs:
+        logger.error('No input files found.')
+        return
     params_dict = io.get_params_dict(args)
     logger.debug(params_dict)
 
