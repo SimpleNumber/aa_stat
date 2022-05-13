@@ -223,7 +223,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         table.columns = columns
         to_hide = list({'is reference', 'sum of mass shifts', 'isotope index', 'unimod accessions',
             'is isotope', 'unimod candidates', 'raw info'}.intersection(columns))
-        table_html = table.style.hide_index().hide_columns(to_hide).applymap(
+        table_html = table.style.hide(axis='index').hide(to_hide, axis='columns').applymap(
             lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
             ).apply(
             lambda row: ['background-color: #cccccc' if row['is reference'] else '' for cell in row], axis=1).set_table_styles([
@@ -233,7 +233,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
             ).format({
                 mslabel: '<a href="#">{}</a>'.format(utils.MASS_FORMAT).format,
                 '# peptides in bin': '<a href="#">{}</a>'.format}, precision=3
-            ).bar(subset='# peptides in bin', color=stats.cc[2]).render(
+            ).bar(subset='# peptides in bin', color=stats.cc[2]).to_html(
             uuid="aa_stat_table")
 
     peptide_tables = []
@@ -264,19 +264,19 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         d = params_dict['fix_mod'].copy()
         d = utils.masses_to_mods(d)
         fixmod = pd.DataFrame.from_dict(d, orient='index', columns=['value']).T.style.set_caption(
-            'Configured, fixed').format(utils.MASS_FORMAT).render(uuid="set_fix_mod_table")
+            'Configured, fixed').format(utils.MASS_FORMAT).to_html(uuid="set_fix_mod_table")
     else:
         fixmod = "Set modifications: none."
     if params_dict['var_mod']:
         varmod = pd.DataFrame.from_records(params_dict['var_mod'], columns=['', 'value']).T.style.set_caption(
             'Configured, variable').format(
             lambda x: utils.mass_format(x) if isinstance(x, float) else x).set_table_styles(
-            varmod_table_styles).render(uuid="set_var_mod_table")
+            varmod_table_styles).to_html(uuid="set_var_mod_table")
     else:
         varmod = None
     if recommended_fmods:
         recmod = pd.DataFrame.from_dict(recommended_fmods, orient='index', columns=['value']).T.style.set_caption(
-            'Recommended, fixed').render(uuid="rec_fix_mod_table")
+            'Recommended, fixed').to_html(uuid="rec_fix_mod_table")
     else:
         recmod = "No fixed modifications recommended."
 
@@ -288,7 +288,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
             'For closed search, it is equivalent to set {} @ {} as variable.'.format(
                 utils.mass_format(-ms_labels[recommended_vmods[i][1]]), recommended_vmods[i][0]) for i in opposite])
         rec_var_mods = pd.DataFrame.from_records(recommended_vmods, columns=['', 'value']).T.style.set_caption(
-            'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(varmod_table_styles).render(uuid="rec_var_mod_table")
+            'Recommended, variable').format({'isotope error': '{:.0f}'}).set_table_styles(varmod_table_styles).to_html(uuid="rec_var_mod_table")
     else:
         rec_var_mods = "No variable modifications recommended."
         vmod_comb_i = vmod_comb_val = opp_mod_i = opp_mod_v = '[]'
