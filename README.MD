@@ -290,7 +290,7 @@ If there is a clear winner in terms of score, the spectrum is considered localiz
 
 If AA_stat used in "AA_search" mode, MSFragger is run prior to AA_stat. AA_search can also optimize fixed modifications
 that are used for open search, and repeat open search if needed. This is enabled with `-x` option (or `--optimize-fixed-mods`).
-Full list of supported comman-line options:
+Full list of supported command-line options:
 
 ```
 AA_search [-h] [--params PARAMS] [--MSFragger MSFRAGGER] [--dir DIR] [-v {0,1,2,3}] (--mgf MGF [MGF ...] | --mzml MZML [MZML ...]) [-db FASTA] [--os-params OS_PARAMS] [-x] [-s [SKIP]] [-je JAVA_EXECUTABLE] [-ja JAVA_ARGS]
