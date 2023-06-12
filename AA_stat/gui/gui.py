@@ -253,7 +253,6 @@ def main():
     edit_params_btn.pack(side=tk.LEFT, fill=tk.X, anchor=tk.E)
     params_lbl.pack(side=tk.LEFT, fill=tk.X, anchor=tk.W, padx=15)
 
-
     input_frame.pack(side=tk.TOP, fill=tk.X, expand=True)
     spectra_frame.pack(side=tk.TOP, fill=tk.X, expand=True)
     dir_frame.pack(side=tk.TOP, fill=tk.X, expand=True)

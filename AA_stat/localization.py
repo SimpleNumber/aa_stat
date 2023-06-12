@@ -379,9 +379,11 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
             loc_stat_dict[utils.format_localization_key(a[1], mass_dict[a[0]])] += 1
 
     scorediff = (top_score - second_score) / top_score
-    # utils.internal('Returning: %s %s %s', loc_stat_dict, ''.join(top_isoform), scorediff)
     top_i = ''.join(top_isoform)
-    return loc_stat_dict, top_i, top_terms, scorediff, utils.loc_positions(top_isoform)
+    ret = loc_stat_dict, top_i, top_terms, scorediff, utils.loc_positions(top_isoform)
+    utils.internal('Returning: %s', ret)
+
+    return ret
 
 
 def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass_shift_dict):
@@ -402,7 +404,7 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     params_dict : dict
         Dict with all paramenters.
     spectra_dict : dict
-        Keys are filenames and values file with mass spectra.
+        Keys are filenames and values are Pyteomics readers.
 
     Returns
     -------
@@ -415,10 +417,17 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     else:
         z = list(zip(*df.apply(lambda x: localization_of_modification(
                     ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1)))
+        utils.internal('z: %s', z)
         names = ['localization_count', 'top isoform', 'top_terms', 'localization score', 'loc_position']
         dt = {'localization score': np.float32}
         for c, v in zip(names, z):
-            df[c] = np.array(v, dtype=dt.get(c, np.object_))
+            t = dt.get(c, np.object_)
+            # utils.internal('Saving %s as %s...', c, t)
+            shape = (len(v), )
+            value = np.empty(shape, t)
+            value[:] = v
+            # utils.internal('Value: %s', value)
+            df[c] = value
     fname = io.table_path(params_dict['output directory'], ms_label)
     peptide = params_dict['peptides_column']
 

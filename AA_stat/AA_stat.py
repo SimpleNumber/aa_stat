@@ -323,6 +323,7 @@ def AA_stat(params_dict, args, step=None):
     logger.debug('Variable modifications: %s', params_dict['var_mod'])
     logger.info('Using fixed modifications: %s.', utils.format_mod_dict(utils.masses_to_mods(params_dict['fix_mod'])))
     logger.info('Variable modifications in search results: %s.', utils.format_mod_list(params_dict['var_mod']))
+    logger.debug('Enzyme specificity: %s', params_dict['enzyme'])
     data = io.read_input(args, params_dict)
     if data is None:
         sys.exit(1)

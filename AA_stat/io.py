@@ -3,6 +3,7 @@ matplotlib.use('Agg')
 import pylab as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
+import sys
 import ast
 import os
 import glob
@@ -12,7 +13,6 @@ from collections import defaultdict
 import logging
 import operator
 import re
-
 import numpy as np
 import pandas as pd
 from pyteomics import pepxml, mgf, mzml
@@ -200,11 +200,15 @@ def read_csv(fname, params_dict):
     """
     # logger.info('Reading %s', fname)
     df = pd.read_csv(fname, sep=params_dict['csv_delimiter'])
+    df[params_dict['mods_column']] = df[params_dict['mods_column']].apply(ast.literal_eval)
     protein = params_dict['proteins_column']
-    if (df[protein].str[0] == '[').all() and (df[protein].str[-1] == ']').all():
-        df[protein] = df[protein].apply(ast.literal_eval)
-    else:
-        df[protein] = df[protein].str.split(params_dict['proteins_delimeter'])
+    prev = params_dict['prev_aa_column']
+    next_ = params_dict['next_aa_column']
+    for c in [protein, prev, next_]:
+        if (df[c].str[0] == '[').all() and (df[c].str[-1] == ']').all():
+            df[c] = df[c].apply(ast.literal_eval)
+        else:
+            df[c] = df[c].str.split(params_dict['proteins_delimeter'])
     return preprocess_df(df, fname, params_dict)
 
 
@@ -224,11 +228,21 @@ def read_spectra(args):
     }
     out_dict = {}
     for ftype, reader in readers.items():
-        filenames = getattr(args, ftype)
-        if filenames:
-            for filename in filenames:
-                name = os.path.split(filename)[-1].split('.')[0]  # write it in a proper way
-                out_dict[name] = reader(filename)
+        spec_filenames = getattr(args, ftype)
+        if spec_filenames:
+            break
+    else:
+        return {}
+    for inp in [args.pepxml, args.csv]:
+        if inp:
+            break
+    if len(inp) != len(spec_filenames):
+        logger.critical('Numbers of input files and spectrum files do not match (%d and %d).', len(inp), len(spec_filenames))
+        sys.exit(1)
+
+    for i, filename in zip(inp, spec_filenames):
+        name = os.path.splitext(os.path.basename(i))[0]
+        out_dict[name] = reader(filename)
     return out_dict
 
 
@@ -414,6 +428,22 @@ def get_params_dict(args):
         params_dict['fix_mod'] = fmod
         params_dict['var_mod'] = utils.format_grouped_keys(utils.group_terminal(vmod), params_dict)
         params_dict['enzyme'] = utils.get_specificity(args.pepxml[0])
+    else:
+        if args.fmods:
+            params_dict['fix_mod'] = ast.literal_eval(args.fmods)
+        else:
+            params_dict['fix_mod'] = {}
+            logger.info('No fixed modifications specified. Use --fmods to configure them.')
+        if args.vmods:
+            params_dict['var_mod'] = ast.literal_eval(args.vmods)
+        else:
+            params_dict['var_mod'] = {}
+            logger.info('No variable modifications specified. Use --vmods to configure them.')
+        if args.enzyme:
+            params_dict['enzyme'] = ast.literal_eval(args.enzyme)
+        else:
+            logger.info('Enyzme not specified. Use --enzyme to configure.')
+            params_dict['enzyme'] = None
     return params_dict
 
 

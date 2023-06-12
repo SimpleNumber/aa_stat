@@ -380,6 +380,7 @@ def get_var_mods(row, params_dict):
     if modifications:
         internal('Got modifications for peptide %s: %s', row[peptide], modifications)
     for m in modifications:
+        # internal('Parsing modification: %s', m)
         mmass, pos = m.split('@')
         mmass = float(mmass)
         pos = int(pos)
