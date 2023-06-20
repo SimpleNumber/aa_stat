@@ -310,6 +310,8 @@ def read_input(args, params_dict):
     data.index = range(len(data))
 
     data['bin'] = np.digitize(data[shifts], params_dict['bins'])
+    logger.debug('Memory usage:')
+    logger.debug(data.memory_usage(deep=True))
     return data
 
 
@@ -426,6 +428,10 @@ def set_additional_params(params_dict):
         params_dict['so_range'][1] + params_dict['bin_width'], params_dict['bin_width'])
 
 
+_rule_to_enz = {
+    'trypsin': {'cut': 'KR', 'no_cut': 'P', 'sense': 'C'},
+}
+
 def get_params_dict(args):
     logger.debug('Received args: %s', args)
     fname = args.params
@@ -454,6 +460,9 @@ def get_params_dict(args):
             logger.info('No variable modifications specified. Use --vmods to configure them.')
         if args.enzyme:
             params_dict['enzyme'] = ast.literal_eval(args.enzyme)
+        elif params_dict['rule'] in _rule_to_enz:
+            params_dict['enzyme'] = _rule_to_enz[params_dict['rule']]
+            logger.info('Using standard specificity for %s.', params_dict['rule'])
         else:
             logger.info('Enyzme not specified. Use --enzyme to configure.')
             params_dict['enzyme'] = None
