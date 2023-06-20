@@ -11,7 +11,6 @@ from configparser import ConfigParser
 import multiprocessing as mp
 from collections import defaultdict
 import logging
-import operator
 import re
 import numpy as np
 import pandas as pd
@@ -20,6 +19,20 @@ from . import utils, stats
 
 AA_STAT_PARAMS_DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'default.cfg')
 logger = logging.getLogger(__name__)
+
+
+def sanitize_df(df, params_dict):
+    # drop unneeded columns
+    column_keys = ['proteins_column', 'peptides_column', 'mass_shifts_column', 'score_column', 'measured_mass_column',
+    'calculated_mass_column', 'rt_column', 'next_aa_column', 'prev_aa_column', 'spectrum_column', 'charge_column', 'mods_column']
+    needed = {params_dict[k] for k in column_keys}
+    to_drop = [c for c in df.columns if c not in needed]
+    old_size = df.shape[1]
+    df.drop(to_drop, axis=1, inplace=True)
+    logger.debug('Kept %d and dropped %d out of %d initial columns.', df.shape[1], len(to_drop), old_size)
+
+    # TODO: simplify and sanitize columns here
+    return df
 
 
 def preprocess_df(df, filename, params_dict):
@@ -177,9 +190,8 @@ def read_pepxml(fname, params_dict):
     DataFrame
     '''
     logger.debug('Reading %s', fname)
-    df = pepxml.DataFrame(fname, read_schema=False, columns=operator.itemgetter(
-        'peptides_column', 'proteins_column', 'spectrum_column', 'mass_shifts_column', 'charge_column')(params_dict))
-    return preprocess_df(df, fname, params_dict)
+    df = pepxml.DataFrame(fname, read_schema=False)
+    return preprocess_df(sanitize_df(df, params_dict), fname, params_dict)
 
 
 def read_csv(fname, params_dict):
@@ -209,7 +221,7 @@ def read_csv(fname, params_dict):
             df[c] = df[c].apply(ast.literal_eval)
         else:
             df[c] = df[c].str.split(params_dict['proteins_delimeter'])
-    return preprocess_df(df, fname, params_dict)
+    return preprocess_df(sanitize_df(df, params_dict), fname, params_dict)
 
 
 def read_mgf(file_path):
@@ -266,7 +278,6 @@ def read_input(args, params_dict):
             logger.debug('Filenames [%s]: %s', ftype, filenames)
             if filenames:
                 for filename in filenames:
-                    # dfs.append(reader(filename, params_dict))
                     dfs.append(reader(filename, params_dict))
     else:
         nfiles = 0
