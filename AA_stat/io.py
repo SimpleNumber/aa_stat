@@ -433,6 +433,8 @@ def get_params_dict(args):
     params = read_config_file(fname)
     params_dict = get_parameters(params)
     set_additional_params(params_dict)
+    if args.processes is not None:
+        params_dict['processes'] = args.processes
     params_dict['output directory'] = outdir
     if args.pepxml:
         fmod, vmod = utils.get_fix_var_modifications(args.pepxml[0], params_dict['labels'])

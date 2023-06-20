@@ -25,6 +25,8 @@ def main():
     pars.add_argument('--vmods', help='Variable modifications specified in the search (needed with CSV input).')
     pars.add_argument('--enzyme', help='Enzyme specificity set in the search (needed with CSV input).')
 
+    pars.add_argument('-n', '--processes', type=int, help='Maximum number of processes to use.')
+
     args = pars.parse_args()
     levels = [logging.WARNING, logging.INFO, logging.DEBUG, utils.INTERNAL]
     logging.basicConfig(format='{levelname:>8}: {asctime} {message}',
