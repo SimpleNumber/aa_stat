@@ -172,8 +172,8 @@ def preprocess_df(df, filename, params_dict):
                 plt.close()
     pp.close()
     df['file'] = os.path.splitext(os.path.basename(filename))[0]
-    df['check_composition'] = df[params_dict['peptides_column']].apply(lambda x: utils.check_composition(x, params_dict['labels']))
-    return df.loc[df['check_composition']]
+    check_composition = df[params_dict['peptides_column']].apply(lambda x: utils.check_composition(x, params_dict['labels']))
+    return df.loc[check_composition]
 
 
 def read_pepxml(fname, params_dict):
@@ -268,7 +268,6 @@ def read_input(args, params_dict):
         'pepxml': read_pepxml,
         'csv': read_csv,
     }
-    shifts = params_dict['mass_shifts_column']
     nproc = params_dict['processes']
     if nproc == 1:
         dfs = []
@@ -309,7 +308,6 @@ def read_input(args, params_dict):
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))
 
-    data['bin'] = np.digitize(data[shifts], params_dict['bins'])
     logger.debug('Memory usage:')
     logger.debug(data.memory_usage(deep=True))
     return data
