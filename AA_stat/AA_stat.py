@@ -328,11 +328,12 @@ def AA_stat(params_dict, args, step=None):
     if data is None:
         sys.exit(1)
 
-    hist, popt_pvar = stats.fit_peaks(data, args, params_dict)
+    popt_pvar = stats.fit_peaks(data, args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error'] * params_dict['bin_width'])
     # logger.debug('final_mass_shifts: %s', final_mass_shifts)
     mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
+    del data
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     if not mass_shift_data_dict:
         html.render_html_report(None, mass_shift_data_dict, None, params_dict, {}, {}, {}, [], save_directory, [], step=step)

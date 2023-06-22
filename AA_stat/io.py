@@ -70,6 +70,7 @@ def preprocess_df(df, filename, params_dict):
         prefix = params_dict['decoy_prefix']
 
     df['is_decoy'] = df[params_dict['proteins_column']].apply(lambda s: all(x.startswith(prefix) for x in s))
+    del df[params_dict['proteins_column']]
 
     if not df['is_decoy'].sum():
         logger.error('No decoy IDs found in %s.', filename)
@@ -457,7 +458,10 @@ def get_params_dict(args):
             params_dict['var_mod'] = {}
             logger.info('No variable modifications specified. Use --vmods to configure them.')
         if args.enzyme:
-            params_dict['enzyme'] = ast.literal_eval(args.enzyme)
+            if '|' in args.enzyme:
+                params_dict['enzyme'] = utils.convert_tandem_cleave_rule_to_regexp(args.enzyme, params_dict)
+            else:
+                params_dict['enzyme'] = ast.literal_eval(args.enzyme)
         elif params_dict['rule'] in _rule_to_enz:
             params_dict['enzyme'] = _rule_to_enz[params_dict['rule']]
             logger.info('Using standard specificity for %s.', params_dict['rule'])

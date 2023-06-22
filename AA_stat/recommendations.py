@@ -16,11 +16,11 @@ def get_fix_mod_from_l10n(mslabel, locmod_df):
         return top_loc
 
 
-def get_fixed_mod_raw(aa, data_dict, choices=None):
+def get_fixed_mod_raw(aa, data_dict, params_dict, choices=None):
     dist_aa = []
     for ms, v in data_dict.items():
         if choices is None or ms in choices:
-            dist_aa.append([v[0], v[1]['peptide'].apply(lambda x: x.count(aa)).sum()])
+            dist_aa.append([v[0], v[1][params_dict['peptides_column']].apply(lambda x: x.count(aa)).sum()])
     utils.internal('Counts for %s: %s', aa, dist_aa)
     top_shift = max(dist_aa, key=lambda tup: tup[1])
     return utils.mass_format(top_shift[0])
@@ -58,7 +58,7 @@ def determine_fixed_mods_zero(aastat_result, data_dict, params_dict):
     candidates = aa_rel[aa_rel < fix_mod_zero_thresh].index
     logger.debug('Fixed mod candidates: %s', candidates)
     for i in candidates:
-        candidate_label = get_fixed_mod_raw(i, data_dict)
+        candidate_label = get_fixed_mod_raw(i, data_dict, params_dict)
         if candidate_label != reference:
             # number of peptides with `i` at shift `candidate label` must be higher than ...
             count_cand = data_dict[candidate_label][1][params_dict['peptides_column']].str.contains(i).sum()

@@ -1,6 +1,6 @@
 from pyteomics.version import _VersionInfo
 
-__version__ = '2.5.5a5'
+__version__ = '2.5.5a6'
 
 version_info = _VersionInfo(__version__)
 version = __version__

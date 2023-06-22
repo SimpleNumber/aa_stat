@@ -56,7 +56,7 @@ def fdr_filter_mass_shift(mass_shift, data, params_dict):
 
     mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
     internal('Mass shift %.3f +- 3 * %.3f', mass_shift[1], mass_shift[2])
-    data_slice = data.loc[mask].sort_values(by=[params_dict['score_column'], 'spectrum'],
+    data_slice = data.loc[mask].sort_values(by=[params_dict['score_column'], params_dict['spectrum_column']],
                                 ascending=params_dict['score_ascending']).drop_duplicates(subset=params_dict['peptides_column'])
     internal('%d peptide rows selected for filtering', data_slice.shape[0])
     with warnings.catch_warnings():
@@ -511,3 +511,36 @@ def choose_correct_massdiff(reported, calculated, params_dict):
         logger.warning('Reported mass shifts differ from calculated values (up to %.4f).'
         ' Using the reported values. Consider reporting this to the developers.', maxdiff)
         return reported
+
+
+def convert_tandem_cleave_rule_to_regexp(cleavage_rule, params_dict):
+
+    def get_sense(c_term_rule, n_term_rule):
+        if '{' in c_term_rule:
+            return 'N'
+        elif '{' in n_term_rule:
+            return 'C'
+        else:
+            if len(c_term_rule) <= len(n_term_rule):
+                return 'C'
+            else:
+                return 'N'
+
+    def get_cut(cut, no_cut):
+        aminoacids = set(params_dict['labels'])
+        cut = ''.join(aminoacids & set(cut))
+        if '{' in no_cut:
+            no_cut = ''.join(aminoacids & set(no_cut))
+            return cut, no_cut
+        else:
+            no_cut = ''.join(set(params_dict['labels']) - set(no_cut))
+            return cut, no_cut
+
+    protease = cleavage_rule.replace('X', ''.join(params_dict['labels']))
+    c_term_rule, n_term_rule = protease.split('|')
+    sense = get_sense(c_term_rule, n_term_rule)
+    if sense == 'C':
+        cut, no_cut = get_cut(c_term_rule, n_term_rule)
+    else:
+        cut, no_cut = get_cut(n_term_rule, c_term_rule)
+    return {'sense': sense, 'cut': cut, 'no_cut': no_cut}
