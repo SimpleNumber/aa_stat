@@ -86,6 +86,7 @@ def preprocess_df(df, filename, params_dict):
     df[shifts] = utils.choose_correct_massdiff(
         df[shifts],
         df[params_dict['measured_mass_column']] - df[params_dict['calculated_mass_column']], params_dict)
+
     if params_dict['calibration'] == 'off':
         logger.info('Mass calibration is disabled. Skipping.')
     elif params_dict['calibration'] != 'simple':
@@ -174,6 +175,9 @@ def preprocess_df(df, filename, params_dict):
     pp.close()
     df['file'] = os.path.splitext(os.path.basename(filename))[0]
     check_composition = df[params_dict['peptides_column']].apply(lambda x: utils.check_composition(x, params_dict['labels']))
+    del df[params_dict['measured_mass_column']]
+    del df[params_dict['calculated_mass_column']]
+    del df[params_dict['rt_column']]
     return df.loc[check_composition]
 
 
@@ -308,7 +312,7 @@ def read_input(args, params_dict):
     logger.debug('%d dfs collected.', len(dfs))
     data = pd.concat(dfs, axis=0)
     data.index = range(len(data))
-
+    data['file'] = data['file'].astype('category')
     logger.debug('Memory usage:')
     logger.debug(data.memory_usage(deep=True))
     return data
