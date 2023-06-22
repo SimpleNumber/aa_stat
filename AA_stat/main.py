@@ -21,8 +21,10 @@ def main():
     input_file.add_argument('--pepxml', nargs='+', help='List of input files in pepXML format.')
     input_file.add_argument('--csv', nargs='+', help='List of input files in CSV format.')
 
-    pars.add_argument('--fmods', help='Fixed modifications specified in the search (needed with CSV input).')
-    pars.add_argument('--vmods', help='Variable modifications specified in the search (needed with CSV input).')
+    pars.add_argument('--fmods', help='Fixed modifications specified in the search (needed with CSV input). '
+        'Example: +57.0215 @ C, +229.1630 @ N-term')
+    pars.add_argument('--vmods', help='Variable modifications specified in the search (needed with CSV input). '
+        'Example: 15.9959 @ M, 42.0106 @ N-term')
     pars.add_argument('--enzyme', help='Enzyme specificity set in the search (needed with CSV input).')
 
     pars.add_argument('-n', '--processes', type=int, help='Maximum number of processes to use.')

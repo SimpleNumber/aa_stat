@@ -1,3 +1,13 @@
+2.5.5a7
+-------
+
+ - Slightly reduce memory usage.
+ - Fix errors with CSV files. Add new parameters --fmods, --vmods and --enzyme to make up for metadata that was
+   extracted from pepXML. Also new sections in config file can be used for the same purpose:
+   _modifications, configured fixed modifications_ and _modifications, configured variable modifications_.
+ - Add CLI argument --processes to control the maximum number of processes used.
+
+
 2.5.4
 -----
 
@@ -5,10 +15,12 @@
  - Fix FutureWarrnings in HTML report generation.
  - Fix error with DBSCAN min_samples parameter being float instead of int.
 
+
 2.5.3
 -----
 
  - Fix a bug in `same_residue` which resulted in a KeyError when recalculating recommended modifications.
+
 
 2.5.2
 -----

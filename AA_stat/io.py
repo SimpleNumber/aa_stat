@@ -406,6 +406,9 @@ def get_parameters(params):
     params_dict['min_fix_mod_pep_count_factor'] = params.getfloat('modifications', 'peptide count factor threshold')
     params_dict['recommend isotope threshold'] = params.getfloat('modifications', 'isotope error abundance threshold')
     params_dict['min_loc_count'] = params.getint('modifications', 'minimum localization count')
+
+    params_dict['fix_mod'] = utils.parse_mod_list(params.get('modifications', 'configured fixed modifications'), 'fixed')
+    params_dict['var_mod'] = utils.parse_mod_list(params.get('modifications', 'configured variable modifications'), 'variable')
     return params_dict
 
 
@@ -448,14 +451,18 @@ def get_params_dict(args):
         params_dict['enzyme'] = utils.get_specificity(args.pepxml[0])
     else:
         if args.fmods:
-            params_dict['fix_mod'] = ast.literal_eval(args.fmods)
-        else:
-            params_dict['fix_mod'] = {}
+            if '@' in args.fmods:
+                params_dict['fix_mod'] = utils.parse_mod_list(args.fmods, 'fixed')
+            else:
+                params_dict['fix_mod'] = ast.literal_eval(args.fmods)
+        elif not params_dict['fix_mod']:
             logger.info('No fixed modifications specified. Use --fmods to configure them.')
         if args.vmods:
-            params_dict['var_mod'] = ast.literal_eval(args.vmods)
-        else:
-            params_dict['var_mod'] = {}
+            if '@' in args.vmods:
+                params_dict['var_mod'] = utils.parse_mod_list(args.vmods, 'variable')
+            else:
+                params_dict['var_mod'] = ast.literal_eval(args.vmods)
+        elif not params_dict['var_mod']:
             logger.info('No variable modifications specified. Use --vmods to configure them.')
         if args.enzyme:
             if '|' in args.enzyme:

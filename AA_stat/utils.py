@@ -544,3 +544,28 @@ def convert_tandem_cleave_rule_to_regexp(cleavage_rule, params_dict):
     else:
         cut, no_cut = get_cut(n_term_rule, c_term_rule)
     return {'sense': sense, 'cut': cut, 'no_cut': no_cut}
+
+
+def parse_mod_list(s, kind):
+    pairs = re.split(r'\s*[,;]\s*', s)
+    if kind == 'fixed':
+        out = {}
+    elif kind == 'variable':
+        out = []
+    else:
+        raise ValueError('`kind` must be "fixed" or "variable", not "{}".'.format(kind))
+
+    for p in pairs:
+        if p:
+            m, aa = re.split(r'\s*@\s*', p)
+            m = float(m)
+            if kind == 'fixed':
+                if aa == 'N-term':
+                    out['H-'] = 1.007825 + m
+                elif aa == 'C-term':
+                    out['-OH'] = 17.00274 + m
+                else:
+                    out[aa] = mass.std_aa_mass[aa] + m
+            else:
+                out.append((aa, m))
+    return out

@@ -110,9 +110,10 @@ AA_stat --pepxml *.pepXML --mzml *.mzML
 ### Command line options
 
 ```
-usage: AA_stat [-h] [--params PARAMS] [--dir DIR] [-v {0,1,2,3}] [--mgf MGF [MGF ...] | --mzml MZML [MZML ...]] (--pepxml PEPXML [PEPXML ...] | --csv CSV [CSV ...])
+usage: AA_stat [-h] [--params PARAMS] [--dir DIR] [-v {0,1,2,3}] [--mgf MGF [MGF ...] | --mzml MZML [MZML ...]] (--pepxml PEPXML [PEPXML ...] | --csv CSV [CSV ...]) [--fmods FMODS] [--vmods VMODS]
+               [--enzyme ENZYME] [-n PROCESSES]
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --params PARAMS       CFG file with parameters. If there is no file, AA_stat uses default one. An example can be found at https://github.com/SimpleNumber/aa_stat
   --dir DIR             Directory to store the results. Default value is current directory.
@@ -124,6 +125,11 @@ optional arguments:
   --pepxml PEPXML [PEPXML ...]
                         List of input files in pepXML format.
   --csv CSV [CSV ...]   List of input files in CSV format.
+  --fmods FMODS         Fixed modifications specified in the search (needed with CSV input).
+  --vmods VMODS         Variable modifications specified in the search (needed with CSV input).
+  --enzyme ENZYME       Enzyme specificity set in the search (needed with CSV input).
+  -n PROCESSES, --processes PROCESSES
+                        Maximum number of processes to use.
 
 Instead of file lists, you can pass directory names. This will process all files in the directory.
 ```
@@ -197,6 +203,8 @@ AA_stat supports the following parameters:
 | fixed modification intensity threshold | 3                                  | Maximum % of peptides containing AA at zero shift to consider a fixed modification. |
 | isotope error abundance threshold | 10                                      | Minimum % of isotope error to justify recommendation of isotope error.     |
 | minimum localization count       | 10                                       | Minimum absolute localization count to recommend a variable modification.  |
+| configured fixed modifications  || for CSV input, specify here the fixed modifications used in your search. Example: +57.0215 @ C, +229.1629 @ K, +229.1630 @ N-term" |
+| configured variable modifications || for CSV input, specify here the variable modifications used in your search. Example: "15.9959 @ M, 42.0106 @ N-term" |
 
 
 ### Output files
