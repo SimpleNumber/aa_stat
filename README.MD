@@ -125,13 +125,11 @@ options:
   --pepxml PEPXML [PEPXML ...]
                         List of input files in pepXML format.
   --csv CSV [CSV ...]   List of input files in CSV format.
-  --fmods FMODS         Fixed modifications specified in the search (needed with CSV input).
-  --vmods VMODS         Variable modifications specified in the search (needed with CSV input).
+  --fmods FMODS         Fixed modifications specified in the search (needed with CSV input). Example: +57.0215 @ C, +229.1630 @ N-term
+  --vmods VMODS         Variable modifications specified in the search (needed with CSV input). Example: 15.9959 @ M, 42.0106 @ N-term
   --enzyme ENZYME       Enzyme specificity set in the search (needed with CSV input).
   -n PROCESSES, --processes PROCESSES
                         Maximum number of processes to use.
-
-Instead of file lists, you can pass directory names. This will process all files in the directory.
 ```
 
 
@@ -203,8 +201,8 @@ AA_stat supports the following parameters:
 | fixed modification intensity threshold | 3                                  | Maximum % of peptides containing AA at zero shift to consider a fixed modification. |
 | isotope error abundance threshold | 10                                      | Minimum % of isotope error to justify recommendation of isotope error.     |
 | minimum localization count       | 10                                       | Minimum absolute localization count to recommend a variable modification.  |
-| configured fixed modifications  || for CSV input, specify here the fixed modifications used in your search. Example: +57.0215 @ C, +229.1629 @ K, +229.1630 @ N-term" |
-| configured variable modifications || for CSV input, specify here the variable modifications used in your search. Example: "15.9959 @ M, 42.0106 @ N-term" |
+| configured fixed modifications  || for CSV input, specify here the fixed modifications used in your search. Example: `+57.0215 @ C, +229.1629 @ K, +229.1630 @ N-term`. |
+| configured variable modifications || for CSV input, specify here the variable modifications used in your search. Example: `15.9959 @ M, 42.0106 @ N-term`. |
 
 
 ### Output files
