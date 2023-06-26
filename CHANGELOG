@@ -1,7 +1,7 @@
-2.5.5a7
--------
+2.5.5
+-----
 
- - Slightly reduce memory usage.
+ - Reduce memory usage.
  - Fix errors with CSV files. Add new parameters --fmods, --vmods and --enzyme to make up for metadata that was
    extracted from pepXML. Also new sections in config file can be used for the same purpose:
    _modifications, configured fixed modifications_ and _modifications, configured variable modifications_.
