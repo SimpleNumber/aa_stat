@@ -384,6 +384,8 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     x = np.arange(len(labels))
     distributions = left[0]
     errors = left[1]
+    logger.debug('Distributions for %s figure: %s', ms_label, distributions)
+    logger.debug('Errors for %s figure: %s', ms_label, errors)
 
     fig, ax_left = plt.subplots()
     fig.set_size_inches(params_dict['figsize'])
