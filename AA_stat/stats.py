@@ -382,8 +382,8 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     labels = params_dict['labels']
     labeltext = ms_label + ' Da mass shift,\n' + str(ms_counts) + ' peptides'
     x = np.arange(len(labels))
-    distributions = left[0]
-    errors = left[1]
+    distributions = left[0].fillna(0)
+    errors = left[1].fillna(0)
     logger.debug('Distributions for %s figure: %s', ms_label, distributions)
     logger.debug('Errors for %s figure: %s', ms_label, errors)
 
