@@ -267,22 +267,22 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
     return poptpvar
 
 
-def fit_peaks(data, args, params_dict):
+def fit_peaks(array, args, params_dict):
     """
     Finds Gauss-like peaks in mass shift histogram.
 
     Parameters
     ----------
-    data : DataFRame
-        A DF with all (non-filtered) results of open search.
-    args: argsparse
+    array : np.ndarray
+        An array of observed mass shifts of target PSMs
+    args: argparse
     params_dict : dict
         Parameters dict.
     """
     logger.info('Performing Gaussian fit...')
     fit_batch = params_dict['fit batch']
     half_window = int(params_dict['window'] / 2) + 1
-    hist = np.histogram(data.loc[data['is_decoy'] == False, params_dict['mass_shifts_column']], bins=params_dict['bins'])
+    hist = np.histogram(array, bins=params_dict['bins'])
     hist_y = smooth(hist[0], window_size=params_dict['window'], power=5)
     hist_x = 0.5 * (hist[1][:-1] + hist[1][1:])
     loc_max_candidates_ind = argrelextrema(hist_y, np.greater_equal)[0]
@@ -385,7 +385,7 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
     distributions = left[0].fillna(0)
     errors = left[1].fillna(0)
     logger.debug('Distributions for %s figure: %s', ms_label, distributions)
-    logger.debug('Errors for %s figure: %s', ms_label, errors)
+    logger.debug('Errors for %s figure: %s', ms_label, localizations)
 
     fig, ax_left = plt.subplots()
     fig.set_size_inches(params_dict['figsize'])

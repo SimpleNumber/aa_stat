@@ -54,7 +54,7 @@ def main():
     input_spectra.add_argument('--mgf', nargs='+', help='MGF files to search.', default=None)
     input_spectra.add_argument('--mzml', nargs='+', help='mzML files to search.', default=None)
 
-    pars.add_argument('-db', '--fasta', help='FASTA file with decoys for open search. None: with included MSFragger parameters, '
+    pars.add_argument('-db', '--fasta', help='FASTA file with decoys for open search. Note: with included MSFragger parameters, '
                       'the database is expected to contain decoys. Default decoy prefix is "rev_".'
                       ' If it differs, do not forget to specify it in AA_stat params file.')
     pars.add_argument('--os-params', help='Custom open search parameters.')
@@ -67,6 +67,7 @@ def main():
                       nargs='?', default=0, const=1, type=int)
     pars.add_argument('-je', '--java-executable', default='java')
     pars.add_argument('-ja', '--java-args', default='')
+    pars.add_argument('-n', '--processes', type=int, help='Maximum number of processes to use by AA_stat.')
 
     args = pars.parse_args()
 
@@ -92,13 +93,13 @@ def main():
         fix_mod_dict = {}
         while True:
             logger.info('Starting step %d.', step)
-            fig_data, aastat_table, locmod, data_dict, new_fix_mod_dict, var_mod_dict = run_step_os(
+            fig_data, aastat_table, locmod, data, new_fix_mod_dict, var_mod_dict = run_step_os(
                 spectra, 'os_step_{}'.format(step), working_dir, args, change_dict=fix_mod_dict, step=step)
 
             if new_fix_mod_dict:
                 for k, v in new_fix_mod_dict.items():
                     fix_mod_dict.setdefault(k, 0.)
-                    fix_mod_dict[k] += data_dict[v][0]
+                    fix_mod_dict[k] += data.ms_stats()[v][0]
                 step += 1
             else:
                 break

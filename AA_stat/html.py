@@ -64,13 +64,13 @@ def get_label(table, ms, second=False):
     return ms
 
 
-def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_dict):
+def get_artefact_interpretations(row, df, locmod_df, params_dict):
     out = []
     aa_mass = mass.std_aa_mass.copy()
     aa_mass.update(params_dict['fix_mod'])
     enz = params_dict.get('enzyme')
-    df = mass_shift_data_dict[row.name][1]
     peps = df[params_dict['peptides_column']]
+    numpeptides = df.shape[0]
     match_aa = set()
 
     for aa, m in aa_mass.items():
@@ -96,12 +96,12 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
                 pct = (
                     (peps.str[0].isin(cut) & ~peps.str[1].isin(nocut)) |  # extra amino acid at N-term
                     peps.str[-2].isin(cut)   # extra amino acid at C-term
-                    ).sum() / df.shape[0]
+                    ).sum() / numpeptides
             elif enz['sense'] == 'N':
                 pct = (
                     peps.str[1].isin(cut) |
                     (peps.str[-1].isin(cut) & ~peps.str[-2].isin(nocut))
-                    ).sum() / df.shape[0]
+                    ).sum() / numpeptides
             else:
                 logger.critical('Unknown value of sense in specificity: %s', enz)
                 sys.exit(1)
@@ -115,12 +115,12 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
             else:
                 logger.debug('Not enough peptide support search artefact interpretation.')
         if not explained:
-            if 'top isoform' in df:
+            if locmod_df:
                 lcount = locmod_df.at[row.name, 'localization']
                 pct = (
                     lcount.get(utils.format_localization_key('N-term', row.name), 0) +
                     lcount.get(utils.format_localization_key('C-term', row.name), 0)
-                ) / df.shape[0]
+                ) / numpeptides
                 logger.debug('%.1f%% of peptides in %s have terminal localization.', pct * 100, row.name)
                 if pct > params_dict['artefact_thresh']:
                     out.append('Loss of ' + utils.format_list(match_aa))
@@ -131,21 +131,22 @@ def get_artefact_interpretations(row, mass_shift_data_dict, locmod_df, params_di
         if cut:
             keys = [params_dict['prev_aa_column'], params_dict['next_aa_column']]
             pct = df[keys].apply(
-                lambda row: bool(cut.intersection(row[keys[0]] + row[keys[1]])), axis=1).sum() / df.shape[0]
+                lambda row: bool(cut.intersection(row[keys[0]] + row[keys[1]])), axis=1).sum() / numpeptides
             logger.debug('%.1f%% of peptides in %s have %s as neighbor amino acid.',
                 pct * 100, row.name, utils.format_list(cut))
             if pct > params_dict['artefact_thresh']:
                 out.append('Possible miscleavage (extra {} at terminus)'.format(utils.format_list(cut)))
             else:
-                logger.debug('Not enough peptide support search artefact interpretation.')
+                logger.debug('Not enough peptides support search artefact interpretation in %s.', row.name)
     return out
 
 
-def collect_info(row, table, mass_shift_data_dict, locmod_df, params_dict):
+def collect_info(row, table, data, locmod_df, params_dict):
+    df = data.mass_shift(row.name)
     # Each interpretation is a dict with keys: label, priority, type, ref
     options = [{'label': x, 'priority': 0, 'type': 'artefact', 'ref': []} for x in get_artefact_interpretations(
-        row, mass_shift_data_dict, locmod_df, params_dict)]
-    options.extend(format_unimod_info(row, mass_shift_data_dict[row.name][1], params_dict))
+        row, df, locmod_df, params_dict)]
+    options.extend(format_unimod_info(row, df, params_dict))
     if row['isotope index']:
         options.append({'label': 'isotope of {}', 'ref': [row['isotope index']],
             'priority': abs(math.log10(table.at[row['isotope index'], '# peptides in bin'] /
@@ -193,7 +194,7 @@ def format_isoform(isoform):
     return out
 
 
-def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
+def render_html_report(table_, data, locmod_df, params_dict,
     recommended_fmods, recommended_vmods, vmod_combinations, opposite, save_directory, ms_labels, step=None):
     peptide = params_dict['peptides_column']
     path = os.path.join(save_directory, 'report.html')
@@ -207,7 +208,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
         return
     table = table_.copy()
     labels = params_dict['labels']
-    table['raw info'] = table.apply(collect_info, axis=1, args=(table, mass_shift_data_dict, locmod_df, params_dict))
+    table['raw info'] = table.apply(collect_info, axis=1, args=(table, data, locmod_df, params_dict))
     table['Possible interpretations'] = table.apply(format_info, args=(table, params_dict['html_truncate']), axis=1)
     full_info = json.dumps([', '.join(html_info_item(x)
         for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']])
@@ -237,8 +238,8 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
             uuid="aa_stat_table")
 
     peptide_tables = []
-    for ms in table.index:
-        df = mass_shift_data_dict[ms][1]
+    for ms_label in table.index:
+        df = data.mass_shift(ms_label)
         if 'localization score' in df and df['localization score'].notna().any():
             df = df.sort_values(['localization score'], ascending=False).loc[:,
                 ['top isoform', 'localization score', params_dict['spectrum_column']]]
@@ -250,7 +251,7 @@ def render_html_report(table_, mass_shift_data_dict, locmod_df, params_dict,
                 df[params_dict['prev_aa_column']].str[0] + '.' + dfc[peptide] + '.' + df[params_dict['next_aa_column']].str[0])
             df = dfc[[peptide, params_dict['spectrum_column']]]
         peptide_tables.append(df.to_html(
-            table_id='peptides_' + ms, classes=('peptide_table',), index=False, escape=False, na_rep='',
+            table_id='peptides_' + ms_label, classes=('peptide_table',), index=False, escape=False, na_rep='',
             formatters={
                 'top isoform': format_isoform,
                 peptide: format_isoform,

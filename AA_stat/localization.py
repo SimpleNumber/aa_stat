@@ -250,15 +250,13 @@ def get_full_set_of_candidates(locmod_df):
     return pd.Series(out)
 
 
-def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict, spectra_dict, mass_shift_dict):
+def localization_of_modification(ms_label, row, loc_candidates, params_dict, spectra_dict, mass_shift_dict):
     """
     Localizes modification for mass shift in a peptide.
     If two peptides isoforms have the same score, modification counts as 'non-localized'.
 
     Parameters
     ----------
-    ms: float
-        mass shift
     ms_label : str
         Label for considered mass shift.
     row : DataFrame row
@@ -386,7 +384,7 @@ def localization_of_modification(ms, ms_label, row, loc_candidates, params_dict,
     return ret
 
 
-def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass_shift_dict):
+def localization(data, ms_label, locations_ms, params_dict, spectra_dict):
     """
     Localizes modification or sum of modifications for mass shift and repeat localization if there are redundant candidates.
     If two peptide isoforms have the same max score, modification counts as 'non-localized'.
@@ -412,11 +410,13 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     """
     logger.info('Localizing %s...', ms_label)
     logger.debug('Localizations: %s', locations_ms)
+    df = data.mass_shift(ms_label)
+    mass_shift_dict = {k: v[0] for k, v in data.ms_stats().items()}
     if len(locations_ms) < 2 and list(locations_ms[0].values())[0] == set():
         df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'], df['loc_position'] = None, None, None, None, None
     else:
         z = list(zip(*df.apply(lambda x: localization_of_modification(
-                    ms, ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1)))
+                    ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1)))
         utils.internal('z: %s', z)
         names = ['localization_count', 'top isoform', 'top_terms', 'localization score', 'loc_position']
         dt = {'localization score': np.float32}
@@ -445,6 +445,7 @@ def localization(df, ms, ms_label, locations_ms, params_dict, spectra_dict, mass
     df.loc[df.top_terms.notna(), 'mod_dict'] = df.loc[df.top_terms.notna(), 'top_terms'].apply(lambda t: mod_dicts[tuple(sorted(t))])
     df['top isoform'] = df.apply(utils.format_isoform, axis=1, args=(params_dict,))
     df[columns].to_csv(fname, index=False, sep='\t')
+    data.set_ms_data(ms_label, df)
     result = df['localization_count'].sum() or Counter()
     logger.debug('Localization result for %s: %s', ms_label, result)
     return {ms_label: result}

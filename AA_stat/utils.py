@@ -50,19 +50,28 @@ def make_0mc_peptides(pep_list, rule):
     return out_set
 
 
-def fdr_filter_mass_shift(mass_shift, data, params_dict):
+def get_ms_from_df(mass_shift, data, params_dict):
     shifts = params_dict['mass_shifts_column']
     ms_shift = data.loc[np.abs(data[shifts] - mass_shift[1]) < mass_shift[2], shifts].mean()
 
     mask = np.abs(data[shifts] - mass_shift[1]) < 3 * mass_shift[2]
     internal('Mass shift %.3f +- 3 * %.3f', mass_shift[1], mass_shift[2])
-    data_slice = data.loc[mask].sort_values(by=[params_dict['score_column'], params_dict['spectrum_column']],
-                                ascending=params_dict['score_ascending']).drop_duplicates(subset=params_dict['peptides_column'])
+    data_slice = data.loc[mask].sort_values(by=[params_dict['score_column'],
+        params_dict['spectrum_column']],
+        ascending=params_dict['score_ascending']).drop_duplicates(subset=params_dict['peptides_column'])
+    return ms_shift, data_slice
+
+
+def fdr_filter_mass_shift(mass_shift, data, params_dict, preprocessing=False):
+    if preprocessing:
+        ms_shift, data_slice = get_ms_from_df(mass_shift, data, params_dict)
+    else:
+        ms_shift, data_slice = data.get_raw_data_by_ms(mass_shift)
     internal('%d peptide rows selected for filtering', data_slice.shape[0])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        df = pepxml.filter_df(data_slice, key=params_dict['score_column'],
-            fdr=params_dict['FDR'], reverse=not params_dict['score_ascending'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
+        df = pepxml.filter_df(data_slice, key=params_dict['score_column'], fdr=params_dict['FDR'],
+            reverse=not params_dict['score_ascending'], correction=params_dict['FDR_correction'], is_decoy='is_decoy')
     internal('Filtered data for %s: %d rows', mass_shift, df.shape[0])
     return ms_shift, df
 
@@ -74,8 +83,7 @@ def group_specific_filtering(data, mass_shifts, params_dict):
 
     Parameters
     ----------
-    data : DataFrame
-        DF with all open search data.
+    data : io.PsmDataHandler
     mass_shifts: numpy array
         Output of utils.fit_peaks function (poptperr matrix). An array of Gauss fitted mass shift
         parameters and their tolerances. [[A, mean, sigma, A_error, mean_error, sigma_error],...]
@@ -90,16 +98,7 @@ def group_specific_filtering(data, mass_shifts, params_dict):
     logger.info('Performing group-wise FDR filtering...')
     out_data = {}
     for ind, ms in enumerate(mass_shifts):
-        if ind != len(mass_shifts) - 1:
-            diff = abs(ms[1] - mass_shifts[ind + 1][1])
-            width_sum = 3 * (ms[2] + mass_shifts[ind + 1][2])
-            if diff < width_sum:
-                coef = width_sum / diff
-                ms[2] /= coef
-                mass_shifts[ind + 1][2] /= coef
-                logger.debug('Mass shifts %.3f and %.3f are too close, dividing their sigma by %.4f', ms[1], mass_shifts[ind + 1][1], coef)
         shift, df = fdr_filter_mass_shift(ms, data, params_dict)
-
         if len(df) > 0:
             #  shift = np.mean(df[shifts]) ###!!!!!!!mean of from  fit!!!!
             out_data[mass_format(shift)] = (shift, df)
@@ -488,7 +487,8 @@ def format_list(lst, sep1=', ', sep2=' or '):
     return sep1.join(most) + sep2 + last
 
 
-def find_mass_shift(value, data_dict, tolerance):
+def find_mass_shift(value, data, tolerance):
+    data_dict = data.ms_stats()
     s = sorted(data_dict, key=lambda x: abs(value - data_dict[x][0]))
     if abs(data_dict[s[0]][0] - value) <= tolerance:
         return s[0]

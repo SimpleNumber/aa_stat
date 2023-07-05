@@ -80,7 +80,7 @@ def preprocess_df(df, filename, params_dict):
         else:
             logger.error('Configured decoy prefix is: %s. Check your files or config.', prefix)
         return
-    ms, filtered = utils.fdr_filter_mass_shift([None, zero_bin, window], df, params_dict)
+    ms, filtered = utils.fdr_filter_mass_shift([None, zero_bin, window], df, params_dict, preprocessing=True)
     n = filtered.shape[0]
     logger.debug('%d filtered peptides near zero.', n)
     df[shifts] = utils.choose_correct_massdiff(
@@ -274,15 +274,15 @@ def read_input(args, params_dict):
         'csv': read_csv,
     }
     nproc = params_dict['processes']
+    data = PsmDataHandler.init(args, params_dict)
     if nproc == 1:
-        dfs = []
         logger.debug('Reading files in one process.')
         for ftype, reader in readers.items():
             filenames = getattr(args, ftype)
             logger.debug('Filenames [%s]: %s', ftype, filenames)
             if filenames:
                 for filename in filenames:
-                    dfs.append(reader(filename, params_dict))
+                    data.add_file(filename, reader(filename, params_dict))
     else:
         nfiles = 0
         for ftype, reader in readers.items():
@@ -295,27 +295,127 @@ def read_input(args, params_dict):
             nproc = min(nfiles, mp.cpu_count())
         logger.debug('Reading files using %s processes.', nproc)
         pool = mp.Pool(nproc)
-        results = []
+        results = {}
         for ftype, reader in readers.items():
             filenames = getattr(args, ftype)
             logger.debug('Filenames [%s]: %s', ftype, filenames)
             if filenames:
                 for filename in filenames:
-                    results.append(pool.apply_async(reader, args=(filename, params_dict)))
-        dfs = [r.get() for r in results]
+                    results[filename] = pool.apply_async(reader, args=(filename, params_dict))
+
+        for filename, r in results.items():
+            df = r.get()
+            if df is None:
+                logger.critical('There were errors when reading input.')
+                return
+            data.add_file(filename, df)
         pool.close()
         pool.join()
-    if any(x is None for x in dfs):
-        logger.critical('There were errors when reading input.')
-        return
+
+    data.finalize_input()
     logger.info('Starting analysis...')
-    logger.debug('%d dfs collected.', len(dfs))
-    data = pd.concat(dfs, axis=0)
-    data.index = range(len(data))
-    data['file'] = data['file'].astype('category')
-    logger.debug('Memory usage:')
-    logger.debug(data.memory_usage(deep=True))
     return data
+
+
+class PsmDataHandler():
+    def __init__(self, args, params_dict):
+        self.args = args
+        self.params_dict = params_dict
+
+    def add_file(self, fname, df):
+        raise NotImplementedError
+
+    def finalize_input(self):
+        raise NotImplementedError
+
+    def get_ms_array(self):
+        raise NotImplementedError
+
+    def get_raw_data_by_ms(self, ms):
+        raise NotImplementedError
+
+    def clear_raw(self):
+        raise NotImplementedError
+
+    def init_filtered_ms(self):
+        """Should prepare get_ms_stats()"""
+        raise NotImplementedError
+
+    def ms_stats(self):
+        """Should return a dict "ms label": (ms value, num of peptides)"""
+        return self._ms_stats
+
+    def apply_systematic_mass_shift_correction(self, correction):
+        raise NotImplementedError
+
+    def peptides(self, ms_label):
+        """Returns a Series of peptides for the given mass shift"""
+        raise NotImplementedError
+
+    def mass_shift(self, ms_label):
+        """Get a full filtered DataFrame for a mass shift."""
+        raise NotImplementedError
+
+    def set_ms_data(self, ms_label, data):
+        """Save DataFrame with full data on a mass shift."""
+        raise NotImplementedError
+
+    @staticmethod
+    def init(args, params_dict):
+        """Select an appropriate subclass and instantiate it"""
+        return InMemoryDataHandler(args, params_dict)
+
+
+class InMemoryDataHandler(PsmDataHandler):
+    def __init__(self, args, params_dict):
+        super().__init__(args, params_dict)
+        self._dfs = []
+
+    def add_file(self, fname, df):
+        self._dfs.append(df)
+
+    def finalize_input(self):
+        logger.debug('%d dfs collected.', len(self._dfs))
+        data = pd.concat(self._dfs, axis=0)
+        data.index = range(len(data))
+        data['file'] = data['file'].astype('category')
+        logger.debug('Memory usage:')
+        logger.debug(data.memory_usage(deep=True))
+        self._dfs = None
+        self.data = data
+
+    def get_ms_array(self):
+        return self.data.loc[self.data['is_decoy'] == False, self.params_dict['mass_shifts_column']]
+
+    def get_raw_data_by_ms(self, mass_shift):
+        return utils.get_ms_from_df(mass_shift, self.data, self.params_dict)
+
+    def clear_raw(self):
+        self.data = None
+
+    def init_filtered_ms(self, final_mass_shifts):
+        self.mass_shift_data_dict = utils.group_specific_filtering(self, final_mass_shifts, self.params_dict)
+        self._ms_stats = {key: (v[0], v[1].shape[0]) for key, v in self.mass_shift_data_dict.items()}
+
+    def apply_systematic_mass_shift_correction(self, mass_correction):
+        out = {}
+        self._ms_stats = {}
+        for k, v in self.mass_shift_data_dict.items():
+            corr_mass = v[0] - mass_correction
+            corr_key = utils.mass_format(corr_mass)
+            out[corr_key] = (corr_mass, v[1])
+            self._ms_stats[corr_key] = (corr_mass, v[1].shape[0])
+        self.mass_shift_data_dict = out
+
+    def peptides(self, ms_label):
+        return self.mass_shift_data_dict[ms_label][1][self.params_dict['peptides_column']]
+
+    def mass_shift(self, ms_label):
+        return self.mass_shift_data_dict[ms_label][1]
+
+    def set_ms_data(self, ms_label, data):
+        v = self.mass_shift_data_dict[ms_label]
+        self.mass_shift_data_dict[ms_label] = (v[0], data)
 
 
 def read_config_file(fname):
@@ -507,11 +607,11 @@ def resolve_filenames(args):
             setattr(args, fformat, out)
 
 
-def table_path(dir, ms):
-    return os.path.join(dir, ms + '.csv')
+def table_path(dir, ms_label):
+    return os.path.join(dir, ms_label + '.csv')
 
 
-def save_df(ms, df, save_directory, params_dict):
+def save_df(ms_label, df, save_directory, params_dict):
     peptide = params_dict['peptides_column']
     spectrum = params_dict['spectrum_column']
     prev_aa = params_dict['prev_aa_column']
@@ -519,10 +619,11 @@ def save_df(ms, df, save_directory, params_dict):
     table = df[[peptide, spectrum]].copy()
     peptide1 = df.apply(utils.get_column_with_mods, axis=1, args=(params_dict,))
     table[peptide] = df[prev_aa].str[0] + '.' + peptide1 + '.' + df[next_aa].str[0]
-    with open(table_path(save_directory, ms), 'w') as out:
+    with open(table_path(save_directory, ms_label), 'w') as out:
         table.to_csv(out, index=False, sep='\t')
 
 
 def save_peptides(data, save_directory, params_dict):
-    for ms_label, (ms, df) in data.items():
+    for ms_label in data.ms_stats():
+        df = data.mass_shift(ms_label)
         save_df(ms_label, df, save_directory, params_dict)

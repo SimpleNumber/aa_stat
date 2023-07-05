@@ -144,15 +144,14 @@ def get_zero_mass_shift(mass_shift_data_dict, params_dict):
     """
     values = [v[0] for v in mass_shift_data_dict.values()]
     keys = list(mass_shift_data_dict.keys())
-    data = [v[1] for v in mass_shift_data_dict.values()]
+    npeptides = [v[1] for v in mass_shift_data_dict.values()]
     lref = np.argmin(np.abs(values))
-    maxbin = max(df.shape[0] for df in data)
+    maxbin = max(npeptides)
     logger.debug('Closest to zero: %s, with %d peptides. Top mass shift has %d peptides.',
-                 keys[lref], data[lref].shape[0], maxbin)
-    if abs(values[lref]) > params_dict['zero bin tolerance'] or data[lref].shape[0] / maxbin < params_dict['zero min intensity']:
+                 keys[lref], npeptides[lref], maxbin)
+    if abs(values[lref]) > params_dict['zero bin tolerance'] or npeptides[lref] / maxbin < params_dict['zero min intensity']:
         logger.warning('Too few unmodified peptides. Mass shift with most identifications will be the reference.')
-        identifications = [df.shape[0] for df in data]
-        lref = np.argmax(identifications)
+        lref = np.argmax(npeptides)
     return keys[lref], values[lref]
 
 
@@ -201,7 +200,7 @@ def filter_mass_shifts(results, tolerance=0.05):
     """
     logger.info('Discarding bad peaks...')
     temp = []
-    out = []
+    mass_shifts = []
     if not results.size:
         return []
     if results.size == 1:
@@ -212,26 +211,36 @@ def filter_mass_shifts(results, tolerance=0.05):
         if check_difference(temp[-1], mass_shift, tolerance=tolerance):
             if len(temp) > 1:
                 logger.info('Joined mass shifts %s', ['{:0.4f}'.format(x[1]) for x in temp])
-            out.append(max(temp, key=lambda x: x[0]))
+            mass_shifts.append(max(temp, key=lambda x: x[0]))
             temp = [mass_shift]
         else:
             temp.append(mass_shift)
-    out.append(max(temp, key=lambda x: x[0]))
+    mass_shifts.append(max(temp, key=lambda x: x[0]))
 
-    logger.info('Peaks for subsequent analysis: %s', len(out))
-    return out
+    logger.info('Peaks for subsequent analysis: %s', len(mass_shifts))
+
+    for ind, ms in enumerate(mass_shifts):
+        if ind != len(mass_shifts) - 1:
+            diff = abs(ms[1] - mass_shifts[ind + 1][1])
+            width_sum = 3 * (ms[2] + mass_shifts[ind + 1][2])
+            if diff < width_sum:
+                coef = width_sum / diff
+                ms[2] /= coef
+                mass_shifts[ind + 1][2] /= coef
+                logger.debug('Mass shifts %.3f and %.3f are too close, dividing their sigma by %.4f', ms[1], mass_shifts[ind + 1][1], coef)
+
+    return mass_shifts
 
 
-def calculate_statistics(mass_shifts_dict, reference_label, params_dict, args):
+def calculate_statistics(data, reference_label, params_dict, args):
     """
     Calculates amino acid statistics, relative amino acids presence in peptides
     for all mass shifts.
 
     Paramenters
     -----------
-    mass_shifts_dict : dict
-        A dict with mass shifts (in str format) as key and values is a DF with filtered PSMs.
-    zero_mass_shift : float
+    data : io.PsmDataHandler
+    reference_label : str
         Reference mass shift.
     params_dict : dict
         Dict with paramenters for parsing csv file.
@@ -250,17 +259,17 @@ def calculate_statistics(mass_shifts_dict, reference_label, params_dict, args):
     expasy_rule = parser.expasy_rules.get(rule, rule)
     save_directory = args.dir
     peptides = params_dict['peptides_column']
-    reference_bin = mass_shifts_dict[reference_label][1]
+    reference_peptides = data.peptides(reference_label)
 
     number_of_PSMs = dict()  # pd.Series(index=list(mass_shifts_labels.keys()), dtype=int)
-    reference = pd.Series(get_aa_distribution(reference_bin[peptides], expasy_rule))
+    reference = pd.Series(get_aa_distribution(reference_peptides, expasy_rule))
     reference.fillna(0, inplace=True)
 
     # bootstraping for errors and p values calculation in reference (zero) mass shift
     err_reference_df = pd.DataFrame(index=labels)
     for i in range(50):
         err_reference_df[i] = pd.Series(get_aa_distribution(
-            np.random.choice(np.array(reference_bin[peptides]), size=(len(reference_bin) // 2), replace=False),
+            np.random.choice(reference_peptides, size=(len(reference_peptides) // 2), replace=False),
             expasy_rule)) / reference
 
     logger.info('Mass shifts:')
@@ -269,48 +278,27 @@ def calculate_statistics(mass_shifts_dict, reference_label, params_dict, args):
 
     figure_args = {}
 
-    for ms_label, (ms, ms_df) in mass_shifts_dict.items():
-        aa_statistics = pd.Series(get_aa_distribution(ms_df[peptides], expasy_rule))
-        peptide_stat = pd.Series(get_peptide_statistics(ms_df[peptides]), index=labels)
-        number_of_PSMs[ms_label] = len(ms_df)
+    for ms_label, (ms, numpeptides) in data.ms_stats().items():
+        peptides = data.peptides(ms_label)
+        aa_statistics = pd.Series(get_aa_distribution(peptides, expasy_rule))
+        peptide_stat = pd.Series(get_peptide_statistics(peptides), index=labels)
+        number_of_PSMs[ms_label] = numpeptides
         aa_statistics.fillna(0, inplace=True)
         distributions[ms_label] = aa_statistics / reference
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            p_vals, errors = calculate_error_and_p_vals(ms_df[peptides], err_reference_df, reference, expasy_rule, labels)
+            p_vals, errors = calculate_error_and_p_vals(peptides, err_reference_df, reference, expasy_rule, labels)
         # errors.fillna(0, inplace=True)
 
         p_values[ms_label] = p_vals
         distributions.fillna(0, inplace=True)
 
-        figure_args[ms_label] = (len(ms_df), [distributions[ms_label], errors], peptide_stat.fillna(0))
+        figure_args[ms_label] = (numpeptides, [distributions[ms_label], errors], peptide_stat.fillna(0))
         logger.info('%s Da', ms_label)
 
     pout = p_values.T
     pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
     return distributions, pd.Series(number_of_PSMs), figure_args
-
-
-def systematic_mass_shift_correction(mass_shifts_dict, mass_correction):
-    """
-
-    Parameters
-    ----------
-    mass_shifts_dict : dict
-        A dict with in the format: `mass_shift_label`: `(mass_shift_value, filtered_peptide_dataframe)`.
-    mass_correction: float
-        Mass of reference (zero) mass shift, that should be moved to 0.0
-
-    Returns
-    -------
-    out : dict
-        Updated `mass_shifts_dict`
-    """
-    out = {}
-    for k, v in mass_shifts_dict.items():
-        corr_mass = v[0] - mass_correction
-        out[utils.mass_format(corr_mass)] = (corr_mass, v[1])
-    return out
 
 
 def AA_stat(params_dict, args, step=None):
@@ -328,32 +316,35 @@ def AA_stat(params_dict, args, step=None):
     if data is None:
         sys.exit(1)
 
-    popt_pvar = stats.fit_peaks(data, args, params_dict)
+    popt_pvar = stats.fit_peaks(data.get_ms_array(), args, params_dict)
     # logger.debug('popt_pvar: %s', popt_pvar)
     final_mass_shifts = filter_mass_shifts(popt_pvar, tolerance=params_dict['shift_error'] * params_dict['bin_width'])
     # logger.debug('final_mass_shifts: %s', final_mass_shifts)
-    mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
-    del data
+    # mass_shift_data_dict = utils.group_specific_filtering(data, final_mass_shifts, params_dict)
+    data.init_filtered_ms(final_mass_shifts)
+    data.clear_raw()
+    ms_stats = data.ms_stats()
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
-    if not mass_shift_data_dict:
-        html.render_html_report(None, mass_shift_data_dict, None, params_dict, {}, {}, {}, [], save_directory, [], step=step)
-        return None, None, None, mass_shift_data_dict, {}
+    if not ms_stats:
+        html.render_html_report(None, data, None, params_dict, {}, {}, {}, [], save_directory, [], step=step)
+        return None, None, None, data, {}
 
-    reference_label, reference_mass_shift = get_zero_mass_shift(mass_shift_data_dict, params_dict)
+    reference_label, reference_mass_shift = get_zero_mass_shift(ms_stats, params_dict)
     if abs(reference_mass_shift) < params_dict['zero bin tolerance']:
         logger.info('Systematic mass shift equals %s', reference_label)
         if params_dict['calibration'] != 'off':
-            mass_shift_data_dict = systematic_mass_shift_correction(mass_shift_data_dict, reference_mass_shift)
+            data.apply_systematic_mass_shift_correction(reference_mass_shift)
             reference_mass_shift = 0.0
             reference_label = utils.mass_format(0.0)
+            ms_stats = data.ms_stats()
         else:
             logger.info('Leaving systematic shift in place (calibration disabled).')
     else:
         logger.info('Reference mass shift is %s', reference_label)
-    ms_labels = {k: v[0] for k, v in mass_shift_data_dict.items()}
+    ms_labels = {k: v[0] for k, v in ms_stats.items()}
     logger.debug('Final shift labels: %s', ms_labels.keys())
 
-    distributions, number_of_PSMs, figure_data = calculate_statistics(mass_shift_data_dict, reference_label, params_dict, args)
+    distributions, number_of_PSMs, figure_data = calculate_statistics(data, reference_label, params_dict, args)
 
     table = make_table(distributions, number_of_PSMs, ms_labels, reference_label)
 
@@ -415,44 +406,44 @@ def AA_stat(params_dict, args, step=None):
         logger.info('Reference mass shift %s', reference_label)
         localization_dict = {}
 
-        for ms_label, (ms, df) in mass_shift_data_dict.items():
+        for ms_label in data.ms_stats():
             localization_dict.update(localization.localization(
-                df, ms, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
-                params_dict, spectra_dict, {k: v[0] for k, v in mass_shift_data_dict.items()}))
+                data, ms_label, locmod_df.at[ms_label, 'candidates for loc'],
+                params_dict, spectra_dict))
 
         locmod_df['localization'] = pd.Series(localization_dict).apply(dict)
         locmod_df.to_csv(os.path.join(save_directory, 'localization_statistics.csv'), index=False)
 
         if not locmod_df.at[reference_label, 'all candidates']:
             logger.debug('Explicitly writing out peptide table for reference mass shift.')
-            df = mass_shift_data_dict[reference_label][1]
+            df = data.mass_shift(reference_label)
             io.save_df(reference_label, df, save_directory, params_dict)
         for reader in spectra_dict.values():
             reader.close()
     else:
         locmod_df = None
-        io.save_peptides(mass_shift_data_dict, save_directory, params_dict)
+        io.save_peptides(data, save_directory, params_dict)
         logger.info('No spectrum files. MS/MS localization is not performed.')
     logger.info('Plotting mass shift figures...')
-    for ms_label, data in figure_data.items():
+    for ms_label, fdata in figure_data.items():
         if locmod_df is not None:
             localizations = locmod_df.at[ms_label, 'localization']
             sumof = locmod_df.at[ms_label, 'sum of mass shifts']
         else:
             localizations = None
             sumof = None
-        stats.plot_figure(ms_label, *data, params_dict, save_directory, localizations, sumof)
+        stats.plot_figure(ms_label, *fdata, params_dict, save_directory, localizations, sumof)
 
     logger.info('AA_stat results saved to %s', os.path.abspath(args.dir))
-    utils.internal('Data dict: \n%s', mass_shift_data_dict)
-    recommended_fix_mods = recommendations.determine_fixed_mods(figure_data, table, locmod_df, mass_shift_data_dict, params_dict)
+    # utils.internal('Data dict: \n%s', mass_shift_data_dict)
+    recommended_fix_mods = recommendations.determine_fixed_mods(figure_data, table, locmod_df, data, params_dict)
     logger.debug('Recommended fixed mods: %s', recommended_fix_mods)
     if recommended_fix_mods:
         logger.info('Recommended fixed modifications: %s.', utils.format_mod_dict_str(recommended_fix_mods))
     else:
         logger.info('Fixed modifications not recommended.')
     recommended_var_mods = recommendations.determine_var_mods(
-        figure_data, table, locmod_df, mass_shift_data_dict, params_dict, recommended_fix_mods)
+        figure_data, table, locmod_df, data, params_dict, recommended_fix_mods)
     logger.debug('Recommended variable mods: %s', recommended_var_mods)
     if recommended_var_mods:
         logger.info('Recommended variable modifications: %s.', utils.format_mod_list(recommended_var_mods))
@@ -463,6 +454,6 @@ def AA_stat(params_dict, args, step=None):
     opposite = utils.get_opposite_mods(
         params_dict['fix_mod'], recommended_fix_mods, recommended_var_mods, ms_labels, params_dict['prec_acc'])
     logger.debug('Opposite modifications: %s', utils.format_mod_list([recommended_var_mods[i] for i in opposite]))
-    html.render_html_report(table, mass_shift_data_dict, locmod_df, params_dict,
+    html.render_html_report(table, data, locmod_df, params_dict,
         recommended_fix_mods, recommended_var_mods, combinations, opposite, save_directory, ms_labels, step=step)
-    return figure_data, table, locmod_df, mass_shift_data_dict, recommended_fix_mods, recommended_var_mods
+    return figure_data, table, locmod_df, data, recommended_fix_mods, recommended_var_mods
