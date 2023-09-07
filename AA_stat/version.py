@@ -1,6 +1,9 @@
-from pyteomics.version import _VersionInfo
+try:
+    from pyteomics.version import VersionInfo
+except ImportError:
+    from pyteomics.version import _VersionInfo as VersionInfo
 
 __version__ = '2.5.6a2'
 
-version_info = _VersionInfo(__version__)
+version_info = VersionInfo(__version__)
 version = __version__
