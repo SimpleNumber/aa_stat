@@ -267,8 +267,8 @@ def localization_of_modification(ms_label, row, loc_candidates, params_dict, spe
         Dict with all parameters.
     spectra_dict : dict
         Keys are filenames and values are Pyteomics readers.
-    sum_mod : bool
-        True if sum of codifications should be considered.
+    mass_shift_dict : dict
+        Dict of mass shifts (label -> mass).
 
     Returns
     -------
@@ -391,10 +391,7 @@ def localization(data, ms_label, locations_ms, params_dict, spectra_dict):
 
     Parameters
     ----------
-    df : DataFrame
-        DF with filtered peptides for considered mass shift.
-    ms: float
-        mass shift
+    data : PsmDataHandler
     ms_label : str
         Considered mass shift label
     locations_ms :
