@@ -1,6 +1,10 @@
 import argparse
 import logging
 import os
+try:
+    import pyascore
+except ImportError:
+    pyascore = None
 from . import AA_stat, utils, io
 
 
@@ -26,6 +30,7 @@ def main():
     pars.add_argument('--vmods', help='Variable modifications specified in the search (needed with CSV input). '
         'Example: 15.9959 @ M, 42.0106 @ N-term')
     pars.add_argument('--enzyme', help='Enzyme specificity set in the search (needed with CSV input).')
+    pars.add_argument('-A', '--pyAscore', action='store_true', help='Use pyAscore to score localization.')
 
     pars.add_argument('-n', '--processes', type=int, help='Maximum number of processes to use.')
 
@@ -40,6 +45,10 @@ def main():
     logging.logProcesses = 0
     logger = logging.getLogger(__name__)
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
+    if pyascore is None and args.pyAscore:
+        logger.critical('pyAscore requested but not found. Please install it.')
+        return 1
 
     logger.info('Starting...')
 

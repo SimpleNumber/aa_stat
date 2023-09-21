@@ -234,7 +234,7 @@ def read_mgf(file_path):
 
 
 def read_mzml(file_path):  # write this
-    return mzml.PreIndexedMzML(file_path)
+    return mzml.PreIndexedMzML(file_path, dtype={'m/z array': np.float64, 'intensity array': np.float64})
 
 
 def read_spectra(args):
@@ -545,6 +545,7 @@ def get_params_dict(args):
     params = read_config_file(fname)
     params_dict = get_parameters(params)
     set_additional_params(params_dict)
+    params_dict['use_ascore'] = args.pyAscore
     if args.processes is not None:
         params_dict['processes'] = args.processes
     params_dict['output directory'] = outdir

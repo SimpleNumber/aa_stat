@@ -6,6 +6,7 @@ import numpy as np
 import warnings
 from collections import Counter
 import re
+import string
 import pathlib
 import itertools as it
 from pyteomics import parser, pepxml, mass
@@ -569,3 +570,31 @@ def parse_mod_list(s, kind):
             else:
                 out.append((aa, m))
     return out
+
+
+def get_spectrum_id(row, params_dict):
+    if params_dict['mzml_files']:
+        scan = row[params_dict['spectrum_column']].split('.')[1].lstrip('0')
+        return 'controllerType=0 controllerNumber=1 scan=' + scan
+    return row[params_dict['spectrum_column']]
+
+
+def get_loc_stats(top_isoform, mass_dict_0, top_terms, mass_shift_dict, params_dict):
+    mass_dict = mass_dict_0.copy()
+    modif_labels = string.ascii_lowercase
+    # utils.internal('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
+    i = 0
+    for _ms in top_terms:
+        mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}
+        mass_dict.update(mod_aa)
+        mass_dict[modif_labels[i]] = mass_shift_dict[_ms]
+        i += 1
+    loc_stat_dict = Counter()
+    for ind, a in enumerate(top_isoform):
+        if len(a) > 1:
+            if ind == 0:
+                loc_stat_dict[format_localization_key('N-term', mass_dict[a[0]])] += 1
+            elif ind == len(top_isoform) - 1:
+                loc_stat_dict[format_localization_key('C-term', mass_dict[a[0]])] += 1
+            loc_stat_dict[format_localization_key(a[1], mass_dict[a[0]])] += 1
+    return loc_stat_dict

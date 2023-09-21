@@ -8,13 +8,18 @@ import pandas as pd
 import numpy as np
 from collections import defaultdict, Counter
 import logging
+import re
 
-from pyteomics import mass
+from pyteomics import mass, parser
 try:
     from pyteomics import cmass
 except ImportError:
     cmass = mass
 import string
+try:
+    import pyascore
+except ImportError:
+    pyascore = None
 from . import utils, io
 
 logger = logging.getLogger(__name__)
@@ -283,18 +288,14 @@ def localization_of_modification(ms_label, row, loc_candidates, params_dict, spe
     modif_labels = string.ascii_lowercase
 
     mod_dict = utils.get_var_mods(row, params_dict)
-    loc_stat_dict = Counter()
 
-    if params_dict['mzml_files']:
-        scan = row[params_dict['spectrum_column']].split('.')[1].lstrip('0')
-        spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
-    else:
-        spectrum_id = row[params_dict['spectrum_column']]
+    spectrum_id = utils.get_spectrum_id(row, params_dict)
     exp_dict = preprocess_spectrum(spectra_dict[row['file']], spectrum_id, {}, acc=params_dict['frag_acc'],)
 
     top_score, second_score = 0, 0
     top_isoform = None
     top_terms = None
+
     for terms in loc_candidates:
         scores = []
         mass_dict = mass_dict_0.copy()
@@ -344,7 +345,7 @@ def localization_of_modification(ms_label, row, loc_candidates, params_dict, spe
                 second_score = scores[1]
 
     if top_isoform is None:
-        return loc_stat_dict, None, None, None, None
+        return Counter(), None, None, None, None
 
     if any(all(sites <= {'C-term', 'N-term'} for sites in terms.values())
         for terms in loc_candidates):
@@ -357,31 +358,68 @@ def localization_of_modification(ms_label, row, loc_candidates, params_dict, spe
 
     if top_score == second_score or top_score <= unmod_score:
         utils.internal('top score = %f, second score = %f, unmod score = %f', top_score, second_score, unmod_score)
-        loc_stat_dict['non-localized'] += 1
-        return loc_stat_dict, None, None, None, None
+        return Counter({'non-localized': 1}), None, None, None, None
 
-    mass_dict = mass_dict_0.copy()
-    # utils.internal('Top isoform is %s for terms %s (shift %s)', top_isoform, top_terms, ms_label)
-    i = 0
-    for _ms in top_terms:
-        mod_aa = {modif_labels[i] + aa: mass_shift_dict[_ms] + mass_dict[aa] for aa in params_dict['labels']}
-        mass_dict.update(mod_aa)
-        mass_dict[modif_labels[i]] = mass_shift_dict[_ms]
-        i += 1
-    for ind, a in enumerate(top_isoform):
-        if len(a) > 1:
-            if ind == 0:
-                loc_stat_dict[utils.format_localization_key('N-term', mass_dict[a[0]])] += 1
-            elif ind == len(top_isoform) - 1:
-                loc_stat_dict[utils.format_localization_key('C-term', mass_dict[a[0]])] += 1
-            loc_stat_dict[utils.format_localization_key(a[1], mass_dict[a[0]])] += 1
-
+    loc_stat_dict = utils.get_loc_stats(top_isoform, mass_dict_0, top_terms, mass_shift_dict, params_dict)
     scorediff = (top_score - second_score) / top_score
     top_i = ''.join(top_isoform)
     ret = loc_stat_dict, top_i, top_terms, scorediff, utils.loc_positions(top_isoform)
     utils.internal('Returning: %s', ret)
 
     return ret
+
+
+def _localize_row_ascore(row, ascores, terms, nmods, spectra_dict, params_dict, mass_shift_dict):
+    spectrum_id = utils.get_spectrum_id(row, params_dict)
+    spectrum = spectra_dict[row['file']][spectrum_id]
+    mod_dict = utils.get_var_mods(row, params_dict)
+    for a, n in zip(ascores, nmods):
+        a.score(mz_arr=spectrum["m/z array"],
+                int_arr=spectrum["intensity array"],
+                peptide=row[params_dict['peptides_column']],
+                n_of_mod=n,
+                max_fragment_charge=row[params_dict['charge_column']],
+                aux_mod_pos=np.array(list(mod_dict.keys()), dtype=np.uint32),
+                aux_mod_mass=np.array(list(mod_dict.values()), dtype=np.float32))
+    best = max(range(len(ascores)), key=lambda i: ascores[i].best_score)
+    # 'localization_count', 'top isoform', 'top_terms', 'localization score', 'loc_position'
+    if ascores[best].best_sequence == '':
+        return Counter(), None, None, None, None
+    score = ascores[best].ascores.max() # / ascores[best].best_score
+    seq = ascores[best].best_sequence
+    if seq.isalpha():
+        logger.debug('Unmodified sequence returned: %s, best score %s, ascores %s', seq, ascores[best].best_score, ascores[best].ascores)
+        return Counter({'non-localized': 1}), seq, terms[best], score, []
+    seqm = re.sub(r'([A-Z])\[-?\d+\]', r'a\1', seq)
+    seqm = re.sub(r'([A-Z])c\[-?\d+\]', r'a\1', seqm)
+    seqm = re.sub(r'n\[-?\d+\]([A-Z])', r'a\1', seqm)
+    utils.internal('%s -> %s', seq, seqm)
+
+    top_isoform = parser.parse(seqm)
+    mass_dict_0 = mass.std_aa_mass.copy()
+    mass_dict_0.update(params_dict['fix_mod'])
+    loc_stat_dict = utils.get_loc_stats(top_isoform, mass_dict_0, terms[best], mass_shift_dict, params_dict)
+    return loc_stat_dict, seqm, terms[best], score, utils.loc_positions(top_isoform)
+
+
+def _localize_ascore(ms_label, locations_ms, df, spectra_dict, params_dict, mass_shift_dict):
+    ascores = []
+    nmods = []
+    for loc in locations_ms:
+        label, sites = next(iter(loc.items()))
+        sites = [x if len(x) == 1 else x[0].lower() if len(x) == 6 else '' for x in sites]  # change N-term to n, C-term to c
+        ascores.append(pyascore.PyAscore(bin_size=100., n_top=10,
+              mod_group="".join(sites),
+              mod_mass=mass_shift_dict[label],
+              mz_error=params_dict['frag_acc']))
+        if label == ms_label:
+            nmods.append(1)
+        else:
+            nmods.append(2)
+    results = df.apply(_localize_row_ascore, args=(ascores, locations_ms, nmods, spectra_dict, params_dict, mass_shift_dict), axis=1)
+    logger.debug('Returning pyAscore results for %s...', ms_label)
+    logger.debug(results)
+    return list(zip(*results))
 
 
 def localization(data, ms_label, locations_ms, params_dict, spectra_dict):
@@ -412,8 +450,16 @@ def localization(data, ms_label, locations_ms, params_dict, spectra_dict):
     if len(locations_ms) < 2 and list(locations_ms[0].values())[0] == set():
         df['localization_count'], df['top isoform'], df['top_terms'], df['localization score'], df['loc_position'] = None, None, None, None, None
     else:
-        z = list(zip(*df.apply(lambda x: localization_of_modification(
-                    ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1)))
+        if all(len(loc) == 1 for loc in locations_ms) and params_dict['use_ascore']:
+            logger.info('Localizing %s with PyAscore.', ms_label)
+            assert len(locations_ms) < 3
+            # there must be either 1 or 2 possible modifications for the mass shift
+            # a single mass shift or a sum of two modifications each half the mass of the shift
+
+            z = _localize_ascore(ms_label, locations_ms, df, spectra_dict, params_dict, mass_shift_dict)
+        else:
+            z = list(zip(*df.apply(lambda x: localization_of_modification(
+                        ms_label, x, locations_ms, params_dict, spectra_dict, mass_shift_dict), axis=1)))
         utils.internal('z: %s', z)
         names = ['localization_count', 'top isoform', 'top_terms', 'localization score', 'loc_position']
         dt = {'localization score': np.float32}
@@ -438,6 +484,7 @@ def localization(data, ms_label, locations_ms, params_dict, spectra_dict):
             i += 1
         mod_dicts[tuple(sorted(pair))] = labels_mod
     columns = ['top isoform', 'localization score', params_dict['spectrum_column']]
+    logger.debug(df['top isoform'])
     df['top isoform'] = df['top isoform'].fillna(df[peptide])
     df.loc[df.top_terms.notna(), 'mod_dict'] = df.loc[df.top_terms.notna(), 'top_terms'].apply(lambda t: mod_dicts[tuple(sorted(t))])
     df['top isoform'] = df.apply(utils.format_isoform, axis=1, args=(params_dict,))
