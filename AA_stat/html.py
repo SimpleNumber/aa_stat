@@ -224,7 +224,7 @@ def render_html_report(table_, data, locmod_df, params_dict,
         table.columns = columns
         to_hide = list({'is reference', 'sum of mass shifts', 'isotope index', 'unimod accessions',
             'is isotope', 'unimod candidates', 'raw info'}.intersection(columns))
-        table_html = table.style.hide(axis='index').hide(to_hide, axis='columns').applymap(
+        table_html = table.style.hide(axis='index').hide(to_hide, axis='columns').map(
             lambda val: 'background-color: yellow' if val > 1.5 else '', subset=labels
             ).apply(
             lambda row: ['background-color: #cccccc' if row['is reference'] else '' for cell in row], axis=1).set_table_styles([
