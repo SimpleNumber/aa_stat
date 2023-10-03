@@ -115,7 +115,7 @@ def get_artefact_interpretations(row, df, locmod_df, params_dict):
             else:
                 logger.debug('Not enough peptide support search artefact interpretation.')
         if not explained:
-            if locmod_df:
+            if locmod_df is not None:
                 lcount = locmod_df.at[row.name, 'localization']
                 pct = (
                     lcount.get(utils.format_localization_key('N-term', row.name), 0) +
