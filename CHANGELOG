@@ -1,7 +1,7 @@
-2.5.6a2
+2.5.6a4
 -------
 
- - Fix #13.
+ - Fix #13 and a couple of issues with HTML report generation.
 
 
 2.5.5
