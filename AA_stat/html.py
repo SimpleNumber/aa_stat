@@ -10,6 +10,9 @@ from datetime import datetime
 import math
 import operator
 import pandas as pd
+from pandas.io.formats.style import Styler
+if not hasattr(Styler, 'map'):
+    Styler.map = Styler.applymap
 import lxml.html
 from pyteomics import mass
 from . import utils, stats
