@@ -3,7 +3,7 @@
 
 AA_stat
 =======
-An open source software for amino acid residue modification analyses in proteomics
+An open-source software for amino acid residue modification analyses in proteomics
 
 # Overview
 
@@ -96,7 +96,7 @@ An example of the open search parameters file can be found in the repository [he
 Example of MSFragger usage:
 
 ```
-java -Xmx8G MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
+java -Xmx8G -jar MSFragger.jar open_search.params HeLa_run1.mzML HeLa_run2.mzML
 ```
 
 Example of using AA_stat:
