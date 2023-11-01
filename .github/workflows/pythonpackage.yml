@@ -8,10 +8,12 @@ on:
     paths:
       - 'AA_stat/*.py'
       - setup.py
+      - .github/workflows/pythonpackage.yml
   pull_request:
     paths:
       - 'AA_stat/*.py'
       - setup.py
+      - .github/workflows/pythonpackage.yml
 
 jobs:
   build:
