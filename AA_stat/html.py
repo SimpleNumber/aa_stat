@@ -5,10 +5,10 @@ import sys
 import re
 import warnings
 import json
-import pkg_resources
 from datetime import datetime
 import math
 import operator
+from importlib.metadata import version
 import pandas as pd
 from pandas.io.formats.style import Styler
 if not hasattr(Styler, 'map'):
@@ -314,10 +314,8 @@ def render_html_report(table_, data, locmod_df, params_dict,
             next_a = ''
         steps = prev_a + '\n' + next_a
 
-    version = pkg_resources.get_distribution('AA_stat').version
-
     write_html(path, table_html=table_html, peptide_tables=peptide_tables, fixmod=fixmod, varmod=varmod,
-        reference=reference, recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version, date=datetime.now(),
+        reference=reference, recmod=recmod, rec_var_mod=rec_var_mods, steps=steps, version=version('AA_stat'), date=datetime.now(),
         vmod_comb_i=vmod_comb_i, vmod_comb_val=vmod_comb_val, opposite_i=opp_mod_i, opposite_v=opp_mod_v,
         full_info=full_info, artefact_i=artefact_i)
 
