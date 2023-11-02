@@ -4,12 +4,12 @@
  - Fix #13 and a couple of issues with HTML report generation.
  - Updated the following version requirements:
 
-   Dependency | Required version
-   -----------------------------
-   Python     | >=3.8
-   Pyteomics  | >4.6
-   Pandas     | >=1.4
-   Jinja2     | >=3.1.2
+   | Dependency | Required version |
+   | -----------|----------------- |
+   | Python     | >=3.8            |
+   | Pyteomics  | >4.6             |
+   | Pandas     | >=1.4            |
+   | Jinja2     | >=3.1.2          |
 
 
 2.5.5
