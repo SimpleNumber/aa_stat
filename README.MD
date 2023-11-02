@@ -33,7 +33,7 @@ Proteomics, Volume 18, Issue 23, December 2018, 1800117. https://doi.org/10.1002
 
 ## Installation
 
-AA_stat requires Python 3.6 or newer. AA_stat GUI requires Python 3.7 or newer.
+AA_stat requires Python 3.8 or newer.
 
 Install from PyPI (all platforms):
 
