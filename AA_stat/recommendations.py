@@ -161,6 +161,17 @@ def same_residue(isoform):
     return ']{' in isoform or re.search(r'\.{[0-9+-]*?}[A-Z]\[', isoform)
 
 
+def same_position(peptide, loc_positions, mods):
+    for pos in loc_positions:
+        if pos in mods:
+            return pos, mods[pos]
+        elif pos == 1:
+            return pos, mods[0]
+        elif pos == len(peptide):
+            return pos, mods[pos + 1]
+    return None, None
+
+
 def recalculate_varmods(data, mods_and_counts, params_dict):
     # cancel out already configured modifications
     for site, mod in params_dict['var_mod']:
@@ -176,17 +187,9 @@ def recalculate_varmods(data, mods_and_counts, params_dict):
                 peptide = row[params_dict['peptides_column']]
                 if same_residue(row['top isoform']):  # localization and enabled variable modification on the same residue
                     # this should count towards sum of these shifts, not the localized one
-                    pos = row['loc_position'][0]
                     mods = utils.get_var_mods(row, params_dict)
+                    pos, vm = same_position(peptide, row['loc_position'], mods)
                     utils.internal('%s: extracting %d from %s', row['top isoform'], pos, mods)
-                    if pos in mods:
-                        vm = mods[pos]
-                    elif pos == 1:
-                        vm = mods[0]
-                    elif pos == len(peptide):
-                        vm = mods[pos + 1]
-                    else:
-                        raise KeyError()
                     aa = peptide[pos - 1]
                     if mods_and_counts[aa].get(ms, 0) > 0:
                         utils.internal('Reducing count of %s at %s', aa, ms)
