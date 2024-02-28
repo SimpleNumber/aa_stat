@@ -165,9 +165,9 @@ def same_position(peptide, loc_positions, mods):
     for pos in loc_positions:
         if pos in mods:
             return pos, mods[pos]
-        elif pos == 1:
+        elif pos == 1 and 0 in mods:
             return pos, mods[0]
-        elif pos == len(peptide):
+        elif pos == len(peptide) and pos + 1 in mods:
             return pos, mods[pos + 1]
     return None, None
 
