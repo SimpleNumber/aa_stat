@@ -170,8 +170,11 @@ AA_stat supports the following parameters:
 | threshold for bins               | 200  | The minimal number of PSMs that should be in the interval to start Gaussian fitting.                           |
 | FDR correction                   | yes | Use FDR correction when filtering each mass interval.                                                           |
 | use specific mass shift window   | no   | Focusing on specific mass shift (yes/no).                                                                      |
-| specific mass shift window       | 15.975, 16.005                           |Specifying mass range, in Da, which the User wants to focus on.             |
-| figure size in inches            | 5.0, 3.5 | Specifying the size of the output figures, in inches (L, H).                                               |
+| specific mass shift window       | 15.975, 16.005                           | Specifying mass range, in Da, which the User wants to focus on.            |
+| plot summary histogram           | yes                                      | Whether or not a summary histogram of mass shifts should be plotted.       |
+| summary histogram dpi            | 300                                      | Resolution for the summary histogram figure (in PNG format).               |
+| figure size in inches            | 5.0, 3.5 | Specifying the size of the output figures, in inches (L, H). Applies to individual mass shift figures, not summary. |
+| figure dpi                       | 300                                      | Resolution for individual mass shift figures (in PNG format).              |
 | zero shift mass tolerance        | 0.05 | Within this accuracy of zero mass shift all input files will be calibrated to 0.0.                             |
 | zero shift minimum intensity     | 0.05 | Criterion for selection as reference mass shift bin. Relative to the most abundant mass                        |
 | minimum peptides for mass calibration   | 100 | Minimum amount of unmodified peptides with configured FDR to use them for mass calibration.              |
