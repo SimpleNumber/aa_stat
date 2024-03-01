@@ -349,7 +349,7 @@ def AA_stat(params_dict, args, step=None):
     table = make_table(distributions, number_of_PSMs, ms_labels, reference_label)
 
     if params_dict['plot_summary']:
-        stats.summarizing_hist(table, save_directory)
+        stats.summarizing_hist(table, save_directory, params_dict['summary_dpi'])
         logger.info('Summary histogram saved.')
     else:
         logger.info('Skipping summary histogram generation.')

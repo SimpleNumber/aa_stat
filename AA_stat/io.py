@@ -478,7 +478,9 @@ def get_parameters(params):
     params_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]
 
     params_dict['plot_summary'] = params.getboolean('general', 'plot summary histogram')
+    params_dict['summary_dpi'] = params.getint('general', 'summary histogram dpi')
     params_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
+    params_dict['figure_dpi'] = params.getint('general', 'figure dpi')
     params_dict['calibration'] = params.get('general', 'mass calibration')
     params_dict['artefact_thresh'] = params.getfloat('general', 'artefact detection threshold')
     params_dict['html_truncate'] = params.getint('general', 'html info truncation length')

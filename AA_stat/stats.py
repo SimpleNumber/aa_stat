@@ -459,12 +459,12 @@ def plot_figure(ms_label, ms_counts, left, right, params_dict, save_directory, l
 
     ax_right.legend(handles=[pright], loc='upper right', edgecolor='dimgrey', fancybox=True, handlelength=0)
     fig.tight_layout()
-    fig.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=500)
+    fig.savefig(os.path.join(save_directory, ms_label + '.png'), dpi=params_dict['figure_dpi'])
     fig.savefig(os.path.join(save_directory, ms_label + '.svg'))
     plt.close()
 
 
-def summarizing_hist(table, save_directory):
+def summarizing_hist(table, save_directory, dpi):
     width = 0.8
     fig, ax = plt.subplots(figsize=(len(table), 5))
     ax.bar(range(len(table)), table.sort_values('mass shift')['# peptides in bin'],
@@ -489,6 +489,6 @@ def summarizing_hist(table, save_directory):
 
     plt.ylim(0, max_height * 1.2)
     plt.tight_layout()
-    plt.savefig(os.path.join(save_directory, 'summary.png'))  # dpi=500
+    plt.savefig(os.path.join(save_directory, 'summary.png'), dpi=dpi)
     plt.savefig(os.path.join(save_directory, 'summary.svg'))
     plt.close()
