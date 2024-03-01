@@ -477,6 +477,7 @@ def get_parameters(params):
     params_dict['specific_mass_shift_flag'] = params.getboolean('general', 'use specific mass shift window')
     params_dict['specific_window'] = [float(x) for x in params.get('general', 'specific mass shift window').split(',')]
 
+    params_dict['plot_summary'] = params.getboolean('general', 'plot summary histogram')
     params_dict['figsize'] = tuple(float(x) for x in params.get('general', 'figure size in inches').split(','))
     params_dict['calibration'] = params.get('general', 'mass calibration')
     params_dict['artefact_thresh'] = params.getfloat('general', 'artefact detection threshold')
