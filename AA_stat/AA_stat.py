@@ -297,6 +297,7 @@ def calculate_statistics(data, reference_label, params_dict, args):
         logger.info('%s Da', ms_label)
 
     pout = p_values.T
+    pd.set_option('future.no_silent_downcasting', True)  # to avoid a FutureWarning on the next line
     pout.fillna(0).to_csv(os.path.join(save_directory, 'p_values.csv'), index=False)
     return distributions, pd.Series(number_of_PSMs), figure_args
 
