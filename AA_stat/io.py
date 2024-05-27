@@ -524,11 +524,12 @@ def set_additional_params(params_dict):
         logger.info('Custom bin: %s', params_dict['specific_window'])
         params_dict['so_range'] = params_dict['specific_window'][:]
 
-    elif params_dict['so_range'][1] - params_dict['so_range'][0] > params_dict['walking_window']:
+    if params_dict['so_range'][1] - params_dict['so_range'][0] > params_dict['walking_window']:
         window = params_dict['walking_window'] / params_dict['bin_width']
 
     else:
-        window = (params_dict['so_range'][1] - params_dict['so_range']) / params_dict['bin_width']
+        window = (params_dict['so_range'][1] - params_dict['so_range'][0]) / params_dict['bin_width']
+
     if int(window) % 2 == 0:
         params_dict['window'] = int(window) + 1
     else:
