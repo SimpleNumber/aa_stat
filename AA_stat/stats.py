@@ -235,11 +235,15 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
     plt.figure(figsize=figsize)
     plt.tight_layout()
     logger.debug('Created a figure with size %s', figsize)
+    logger.debug('Fit batch worker called with: %s, %s, len(xs)=%s, len(ys)=%s, %s, %s, %s',
+        out_path, batch_size, xs.size, ys.size, half_window, height_error, sigma_error)
+    assert batch_size == int(xs.size / (2 * half_window + 1))
     poptpvar = []
     for i in range(batch_size):
         center = i * (2 * half_window + 1) + half_window
         x = xs[center - half_window: center + half_window + 1]
         y = ys[center - half_window: center + half_window + 1]
+        utils.internal('len(x): %s, len(y): %s, center: %s', x.size, y.size, center)
         popt, perr = gauss_fitting(ys[center], x, y)
         plt.subplot(shape, shape, i + 1)
         if popt is None:
@@ -267,6 +271,33 @@ def fit_batch_worker(out_path, batch_size, xs, ys, half_window, height_error, si
     return poptpvar
 
 
+def concat_slices(x, y, loc_max_candidates_ind, half_window):
+    xs = np.concatenate([x[max(0, center - half_window): center + half_window + 1]
+                for center in loc_max_candidates_ind])
+    size_init = xs.size
+    ys = np.concatenate([y[max(0, center - half_window): center + half_window + 1]
+            for center in loc_max_candidates_ind])
+    xstep = x[1] - x[0]
+    if loc_max_candidates_ind[0] < half_window:
+        n = half_window - loc_max_candidates_ind[0]
+        add = np.arange(xs[0] - n * xstep, xs[0] - 0.5 * xstep, xstep)
+        utils.internal('Adding padding on the left: index %d and half-window %d require %d extra positions: %s',
+            loc_max_candidates_ind[0], half_window, n, add)
+        xs = np.concatenate([add, xs])
+        ys = np.concatenate([np.zeros(n), ys])
+    if loc_max_candidates_ind[-1] + half_window + 1 > x.size:
+        n = loc_max_candidates_ind[-1] + half_window + 1 - x.size
+        add = np.arange(xs[-1] + xstep, xs[-1] + (n + 0.5) * xstep, xstep)
+        utils.internal('Adding padding on the right: index %d and half-window %d require %d extra positions: %s',
+            loc_max_candidates_ind[-1], half_window, n, add)
+        xs = np.concatenate([xs, add])
+        ys = np.concatenate([ys, np.zeros(n)])
+    utils.internal('%d -> %d', size_init, xs.size)
+    assert xs.size % len(loc_max_candidates_ind) == 0
+    assert xs.size == ys.size
+    return xs, ys
+
+
 def fit_peaks(array, args, params_dict):
     """
     Finds Gauss-like peaks in mass shift histogram.
@@ -285,6 +316,7 @@ def fit_peaks(array, args, params_dict):
     hist = np.histogram(array, bins=params_dict['bins'])
     hist_y = smooth(hist[0], window_size=params_dict['window'], power=5)
     hist_x = 0.5 * (hist[1][:-1] + hist[1][1:])
+    logger.debug('Histogram sizes: hist: (%d, %d), hist_x: %d, hist_y: %d', hist[0].size, hist[1].size, hist_x.size, hist_y.size)
     loc_max_candidates_ind = argrelextrema(hist_y, np.greater_equal)[0]
     # smoothing and finding local maxima
     min_height = 2 * np.median(hist[0][hist[0] > 1])
@@ -296,6 +328,7 @@ def fit_peaks(array, args, params_dict):
     height_error = params_dict['max_deviation_height']
     sigma_error = params_dict['max_deviation_sigma']
     logger.debug('Candidates for fit: %s', len(loc_max_candidates_ind))
+    utils.internal('Candidate locations: %s', loc_max_candidates_ind)
     nproc = int(math.ceil(len(loc_max_candidates_ind) / fit_batch))
     maxproc = params_dict['processes']
     if maxproc > 0:
@@ -307,14 +340,10 @@ def fit_peaks(array, args, params_dict):
         logger.debug('Creating a pool of %s processes.', n)
         pool = mp.Pool(n)
         for proc in range(nproc):
-            xlist = [hist_x[center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc * fit_batch: (proc + 1) * fit_batch]]
-            xs = np.concatenate(xlist)
-            ylist = [hist[0][center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind[proc * fit_batch: (proc + 1) * fit_batch]]
-            ys = np.concatenate(ylist)
+            batch = loc_max_candidates_ind[proc * fit_batch: (proc + 1) * fit_batch]
+            xs, ys = concat_slices(hist_x, hist[0], batch, half_window)
             out = os.path.join(args.dir, 'gauss_fit_{}.pdf'.format(proc + 1))
-            arguments.append((out, len(xlist), xs, ys, half_window, height_error, sigma_error))
+            arguments.append((out, len(batch), xs, ys, half_window, height_error, sigma_error))
         res = pool.map_async(fit_worker, arguments)
         poptpvar_list = res.get()
         # logger.debug(poptpvar_list)
@@ -323,10 +352,7 @@ def fit_peaks(array, args, params_dict):
         logger.debug('Workers done.')
         poptpvar = [p for r in poptpvar_list for p in r]
     else:
-        xs = np.concatenate([hist_x[center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind])
-        ys = np.concatenate([hist[0][center - half_window: center + half_window + 1]
-                for center in loc_max_candidates_ind])
+        xs, ys = concat_slices(hist_x, hist[0], loc_max_candidates_ind, half_window)
         poptpvar = fit_batch_worker(os.path.join(args.dir, 'gauss_fit.pdf'),
             len(loc_max_candidates_ind), xs, ys, half_window, height_error, sigma_error)
 
