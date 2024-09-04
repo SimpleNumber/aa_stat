@@ -184,7 +184,7 @@ class AAstatResultTest(unittest.TestCase):
                 return
 
         args = argparse.Namespace(dir=self.data_dir, pepxml=self.pepxml, mzml=self.mzml,
-            mgf=None, csv=None, params=None, processes=None)
+            mgf=None, csv=None, params=None, processes=int(os.environ.get('AASTAT_PROCESSES', '0')) or None)
         params_dict = io.get_params_dict(args)
         # params_dict['decoy_prefix'] = 'DECOY_'
         self.figure_data, self.table, self.locmod_df, self.mass_shift_data_dict, self.fix_mods, self.var_mods = AA_stat(params_dict, args)
