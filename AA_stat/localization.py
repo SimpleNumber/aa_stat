@@ -53,11 +53,12 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
 
     peaks = defaultdict(list)
     theor_set = defaultdict(list)
-    aa_mass = aa_mass.copy()
     H = mass.nist_mass['H'][0][0]
-    nterm_mod = aa_mass.pop('H-', H)
+    nterm_mod = aa_mass.get('H-', H)
+    aa_mass.setdefault('H-', H)
     OH = H + mass.nist_mass['O'][0][0]
-    cterm_mod = aa_mass.pop('-OH', OH)
+    cterm_mod = aa_mass.get('-OH', OH)
+    aa_mass.setdefault('-OH', OH)
     if modifications is None:
         modifications = {}
     for ind, pep in enumerate(peptide[:-1]):
@@ -68,10 +69,10 @@ def get_theor_spectrum(peptide, acc_frag, ion_types=('b', 'y'), maxcharge=1,
                     if nterminal:
                         mz = cmass.fast_mass2(
                             pep, ion_type=ion_type, charge=charge,
-                            aa_mass=aa_mass, **kwargs) + (nterm_mod - H + modifications.get(1, 0.)) / charge
+                            aa_mass=aa_mass, **kwargs) + (OH - cterm_mod + modifications.get(1, 0.)) / charge
                     else:
                         mz = cmass.fast_mass2(''.join(peptide[1:]), ion_type=ion_type, charge=charge,
-                                             aa_mass=aa_mass, **kwargs) + (cterm_mod - OH) / charge + sum(
+                                             aa_mass=aa_mass, **kwargs) + (H - nterm_mod) / charge + sum(
                                              val for key, val in modifications.items() if key > 1) / charge
                 else:
                     if nterminal:

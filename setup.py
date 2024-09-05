@@ -29,7 +29,7 @@ setup(
     author               = 'Julia Bubis & Lev Levitsky',
     author_email         = 'julia.bubis@gmail.com',
     python_requires      = '>=3.8',
-    install_requires     = ['pyteomics>4.6', 'pandas>=1.4', 'seaborn', 'scipy', 'numpy', 'lxml', 'jinja2>=3.1.2', 'scikit-learn'],
+    install_requires     = ['pyteomics>4.7.2', 'pandas>=1.4', 'seaborn', 'scipy', 'numpy', 'lxml', 'jinja2>=3.1.2', 'scikit-learn'],
     classifiers          = ['Intended Audience :: Science/Research',
                             'Programming Language :: Python :: 3',
                             'Topic :: Scientific/Engineering :: Bio-Informatics',
