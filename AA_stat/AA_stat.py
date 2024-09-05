@@ -431,6 +431,7 @@ def AA_stat(params_dict, args, step=None):
         locmod_df = None
         io.save_peptides(data, save_directory, params_dict)
         logger.info('No spectrum files. MS/MS localization is not performed.')
+
     logger.info('Plotting mass shift figures...')
     for ms_label, fdata in figure_data.items():
         if locmod_df is not None:

@@ -1,10 +1,11 @@
-2.5.7a6
--------
+2.6a1
+-----
 
  - New **general** parameters: "plot summary histogram" and "summary histogram dpi".
  - Fix several warnings and errors.
  - Fix incorrect results with NumPy 2+ (fix slightly changes AA_stat results).
  - Fix for Pyteomics 4.7.3+ (it is now required).
+ - Create a JSON file with shift interpretation data.
 
 
 2.5.6

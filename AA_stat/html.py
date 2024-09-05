@@ -213,6 +213,9 @@ def render_html_report(table_, data, locmod_df, params_dict,
     labels = params_dict['labels']
     table['raw info'] = table.apply(collect_info, axis=1, args=(table, data, locmod_df, params_dict))
     table['Possible interpretations'] = table.apply(format_info, args=(table, params_dict['html_truncate']), axis=1)
+    interpretations = dict(table['raw info'].items())
+    with open(os.path.join(save_directory, 'interpretations.json'), 'w') as jout:
+        json.dump(interpretations, jout)
     full_info = json.dumps([', '.join(html_info_item(x)
         for x in sorted(y, key=operator.itemgetter('priority'))) for y in table['raw info']])
     artefact_i = json.dumps([i
