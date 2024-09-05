@@ -7,6 +7,8 @@ Created on Thu Oct 24 11:44:50 2019
 import pandas as pd
 import numpy as np
 import math
+from functools import reduce
+import operator as op
 from collections import defaultdict, Counter
 import logging
 
@@ -119,7 +121,8 @@ def RNHS_fast(spectrum_idict, theoretical_set, min_matched, ion_types=('b', 'y')
         matched.append(match)
     matched_approx = sum(matched)
     if matched_approx >= min_matched:
-        return matched_approx, np.prod([math.factorial(m) for m in matched]) * isum
+        fact = reduce(op.mul, (math.factorial(m) for m in matched))
+        return matched_approx, fact * float(isum)
     else:
         return 0, 0
 

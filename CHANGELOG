@@ -1,8 +1,9 @@
-2.5.7a5
+2.5.7a6
 -------
 
  - New **general** parameters: "plot summary histogram" and "summary histogram dpi".
  - Fix several warnings and errors.
+ - Fix incorrect results with NumPy 2+ (fix slightly changes AA_stat results).
 
 
 2.5.6
