@@ -290,7 +290,7 @@ def localization_of_modification(ms_label, row, loc_candidates, params_dict, spe
     mod_dict = utils.get_var_mods(row, params_dict)
     loc_stat_dict = Counter()
 
-    if params_dict['mzml_files']:
+    if params_dict['mzml_files'] and '.' in row[params_dict['spectrum_column']]:
         scan = row[params_dict['spectrum_column']].split('.')[1].lstrip('0')
         spectrum_id = 'controllerType=0 controllerNumber=1 scan=' + scan
     else:
