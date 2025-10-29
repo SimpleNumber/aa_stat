@@ -331,7 +331,7 @@ def AA_stat(params_dict, args, step=None):
     # logger.debug('mass_shift_data_dict: %s', mass_shift_data_dict)
     if not ms_stats:
         html.render_html_report(None, data, None, params_dict, {}, {}, {}, [], save_directory, [], step=step)
-        return None, None, None, data, {}
+        return None, None, None, data, {}, {}
 
     reference_label, reference_mass_shift = get_zero_mass_shift(ms_stats, params_dict)
     if abs(reference_mass_shift) < params_dict['zero bin tolerance']:
