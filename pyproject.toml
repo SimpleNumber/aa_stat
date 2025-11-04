@@ -27,7 +27,7 @@ Documentation = "https://github.com/SimpleNumber/aa_stat"
 "Issue Tracker" = "https://github.com/SimpleNumber/aa_stat/issues"
 
 [tool.setuptools]
-packages = ["AA_stat"]
+packages = ["AA_stat", "AA_stat.gui"]
 
 [tool.setuptools.dynamic]
 version = {attr = "AA_stat.version.__version__"}

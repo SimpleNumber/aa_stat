@@ -1,0 +1,4 @@
+include AA_stat/report.template
+include AA_stat/open_search.params
+include AA_stat/default.cfg
+include AA_stat/unimod.xml
