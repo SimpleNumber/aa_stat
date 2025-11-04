@@ -1,2 +1,38 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AA_stat"
+description = "A utility for validation of peptide identification results in proteomics using amino acid counting"
+authors = [
+    {name = "Julia Bubis", email = "julia.bubis@gmail.com"},
+    {name = "Lev Levitsky", email = "lev.levitsky@phystech.edu"}
+]
+readme = "README.MD"
+license = "Apache-2.0"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = ["pyteomics>4.7.2", "pandas>=1.4", "seaborn", "scipy", "numpy", "lxml", "jinja2>=3.1.2", "scikit-learn"]
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://github.com/SimpleNumber/aa_stat"
+"Source Code" = "https://github.com/SimpleNumber/aa_stat"
+"Issue Tracker" = "https://github.com/SimpleNumber/aa_stat/issues"
+
+[tool.setuptools]
+packages = ["AA_stat"]
+
+[tool.setuptools.dynamic]
+version = {attr = "AA_stat.version.__version__"}
+
+[project.scripts]
+AA_stat = "AA_stat.main:main"
+AA_search = "AA_stat.aa_search:main"
+AA_stat_GUI = "AA_stat.gui.gui:main"
